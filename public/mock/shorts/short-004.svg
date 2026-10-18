@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f1305"/>
+      <stop offset="0.5" stop-color="#2c1a06"/>
+      <stop offset="1" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fef3c7" stop-opacity="0.9"/>
+      <stop offset="0.45" stop-color="#fbbf24" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#b45309" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.28" cy="0.2" r="0.55">
+      <stop offset="0" stop-color="#fde68a" stop-opacity="0.45"/>
+      <stop offset="0.45" stop-color="#f59e0b" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#78350f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffbeb" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#fbbf24" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#glow)"/>
+
+  <polygon points="120,0 420,0 980,1920 600,1920" fill="url(#beam)" opacity="0.55"/>
+  <polygon points="250,0 330,0 760,1920 650,1920" fill="url(#core)" opacity="0.7"/>
+
+  <g fill="#fde68a" opacity="0.5">
+    <circle cx="260" cy="420" r="5"/>
+    <circle cx="370" cy="660" r="3"/>
+    <circle cx="510" cy="880" r="4"/>
+    <circle cx="640" cy="1160" r="3"/>
+    <circle cx="760" cy="1420" r="5"/>
+    <circle cx="850" cy="1660" r="3"/>
+  </g>
+
+  <g opacity="0.35">
+    <rect x="100" y="1510" width="880" height="2" fill="#fbbf24"/>
+    <rect x="100" y="1570" width="540" height="2" fill="#f59e0b"/>
+    <rect x="100" y="1630" width="700" height="2" fill="#fbbf24"/>
+  </g>
+
+  <circle cx="270" cy="210" r="90" fill="#fef3c7" opacity="0.14"/>
+</svg>

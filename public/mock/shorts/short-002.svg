@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2a0a24"/>
+      <stop offset="0.5" stop-color="#4a0d3d"/>
+      <stop offset="1" stop-color="#09090b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#f0abfc" stop-opacity="0.8"/>
+      <stop offset="0.4" stop-color="#e879f9" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#86198f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5d0fe" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#fae8ff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#e879f9" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#glow)"/>
+
+  <g stroke="url(#line)" stroke-width="2">
+    <path d="M-40 120 L540 820"/>
+    <path d="M70 40 L540 820"/>
+    <path d="M220 0 L540 820"/>
+    <path d="M380 0 L540 820"/>
+    <path d="M520 0 L540 820"/>
+    <path d="M660 0 L540 820"/>
+    <path d="M820 0 L540 820"/>
+    <path d="M960 60 L540 820"/>
+    <path d="M1080 180 L540 820"/>
+    <path d="M1120 340 L540 820"/>
+    <path d="M-20 300 L540 820"/>
+    <path d="M-40 480 L540 820"/>
+  </g>
+
+  <g stroke="#f0abfc" opacity="0.45">
+    <circle cx="540" cy="820" r="120" fill="none"/>
+    <circle cx="540" cy="820" r="210" fill="none" opacity="0.5"/>
+    <circle cx="540" cy="820" r="310" fill="none" opacity="0.25"/>
+  </g>
+
+  <circle cx="540" cy="820" r="10" fill="#fdf4ff"/>
+
+  <g fill="#e879f9" opacity="0.5">
+    <rect x="150" y="1390" width="310" height="4" rx="2"/>
+    <rect x="150" y="1440" width="480" height="4" rx="2" opacity="0.6"/>
+    <rect x="150" y="1490" width="240" height="4" rx="2" opacity="0.4"/>
+  </g>
+</svg>
