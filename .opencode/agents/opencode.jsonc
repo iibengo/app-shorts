@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agents": {
+    "orchestrator": {
+      "description": "Central orchestrator managing the full SDD workflow",
+      "mode": "primary"
+    },
+    "architect": {
+      "description": "Generates technical specifications and SDD workflows",
+      "mode": "subagent"
+    },
+    "developer": {
+      "description": "Implements code using Nuxt 4, Vue 3, and Tailwind CSS",
+      "mode": "subagent"
+    },
+    "tester": {
+      "description": "Validates implementation and runs unit tests",
+      "mode": "subagent"
+    }
+  }
+}
