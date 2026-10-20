@@ -1,75 +1,135 @@
-# Nuxt Minimal Starter
+# AI Shorts Wrapper
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Aplicación Nuxt 4 para crear y explorar shorts verticales 9:16. Incluye landing, feed de demostración y un Composer con generación real de vídeo mediante Fal.ai (FLUX + MiniMax/Kling).
 
-## Setup
+## Stack
 
-Make sure to install dependencies:
+- Nuxt 4 / Vue 3 (`<script setup lang="ts">`)
+- Tailwind CSS 3.4.x (sintaxis v3)
+- Node.js 22 LTS + Nitro
+- Vitest + `@nuxt/test-utils` + happy-dom
+- Fal.ai: Queue API, Storage signed uploads, FLUX, MiniMax Hailuo 02 y Kling 2.5 Turbo Pro
 
-```bash
-# npm
-npm install
+## Requisitos
 
-# pnpm
-pnpm install
+- Node.js 22 LTS
+- Una cuenta de Fal.ai con créditos y permisos para Queue, Storage y los modelos configurados
+- `NUXT_FAL_KEY` y `NUXT_COMPOSER_JOB_SECRET` (mínimo 32 caracteres)
 
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+## Puesta en marcha
 
 ```bash
-# npm
+npm ci
+cp .env.example .env
+# Rellena NUXT_FAL_KEY y NUXT_COMPOSER_JOB_SECRET en .env
 npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-## Production
+La app queda en `http://localhost:3000`.
 
-Build the application for production:
+### Variables de entorno
+
+Las variables están documentadas en `.env.example`. Las principales:
+
+- `NUXT_FAL_KEY`: clave privada de Fal. Solo se usa en servidor.
+- `NUXT_COMPOSER_JOB_SECRET`: secreto HMAC para los tokens de job.
+- `NUXT_COMPOSER_*`: rate limit, concurrencia, presupuesto, TTL y timeout del keyframe.
+
+No uses variables `NUXT_PUBLIC_*` para secretos. `.env` está ignorado por git.
+
+## Scripts
 
 ```bash
-# npm
+npm run dev       # desarrollo
+npm run test:run  # suite completa
+npm run build     # build de producción Node/Nitro
+npm run preview   # previsualización del build
+```
+
+`npm run generate` solo es válido para contenido estático. **No sirve para el Composer real ni para las rutas `/api/composer/**`**, porque necesitan un servidor Nitro en ejecución.
+
+## Despliegue
+
+```bash
 npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+node .output/server/index.mjs
 ```
 
-Locally preview production build:
+Checklist mínima:
 
-```bash
-# npm
-npm run preview
+- Runtime Node.js 22 LTS.
+- Secretos configurados en el entorno (nunca en el repositorio).
+- Proxy inverso con timeout suficiente para `/api/composer/generate` (keyframe síncrono, hasta 45 s).
+- PWA sin caché de `/api/**` ni de hosts de Fal.
+- TLS obligatorio y cookie `Secure` en producción.
+- Rate limit y presupuesto revisados antes de abrir al público.
 
-# pnpm
-pnpm preview
+## Rutas principales
 
-# yarn
-yarn preview
+- `/` — landing.
+- `/feed` — feed de demostración.
+- `/composer` — estudio de creación con IA real.
+- `POST /api/composer/uploads` — ticket de subida firmado.
+- `POST /api/composer/generate` — keyframe + submit a la cola.
+- `GET /api/composer/jobs/:id` — polling del job.
+- `POST /api/composer/jobs/:id/cancel` — cancelación.
 
-# bun
-bun run preview
+## Arquitectura
+
+```text
+app/
+  components/ui/          primitivas reutilizables
+  components/composer/    UI del Composer
+  components/shorts/      UI del feed
+  composables/            estado y orquestación de cliente
+  models/                 contratos compartidos estrictos
+  data/                   presets, defaults y fixtures estáticas
+  utils/                  helpers puros
+  pages/                  rutas Nuxt
+server/
+  api/composer/           rutas finas (validar, autorizar, delegar)
+  composer/               servicios, adaptadores, tokens, rate limit y errores
+tests/
+  unit/                   lógica, servicios, adaptadores, componentes y composables
+  acceptance/             SSR, rutas y regresión de feed/landing
+  fixtures/fal/           contratos de Fal sin claves reales
+  helpers/                stubs HTTP y handlers H3
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Reglas clave:
+
+- La clave de Fal nunca sale del servidor.
+- El navegador solo hace un `PUT` scoped a una URL firmada; el binario no pasa por Nitro.
+- Los modelos y endpoints se resuelven con una allowlist server-side.
+- Los jobs largos son asíncronos; el cliente hace polling con backoff y cancelación.
+- El vídeo se construye con un keyframe FLUX 9:16 antes de animarlo.
+- Si falla el vídeo, el keyframe se conserva como éxito parcial.
+- Sin persistencia de proyectos: el resultado es terminal y temporal.
+
+## Spec-Driven Development
+
+Las specs viven en `specs/`:
+
+- `001-brand-construction-landing`
+- `002-shorts-feed-mock`
+- `003-composer-mock` — histórica; sustituida por 004 para el Composer.
+- `004-composer-real` — Composer real con Fal.ai.
+
+Flujo obligatorio:
+
+1. `/io-plan` — investigación y alternativas.
+2. `/io-spec` — Architect escribe la spec.
+3. **Checkpoint 1** — aprobación humana de la spec.
+4. Developer implementa.
+5. **Checkpoint 2** — revisión humana de la implementación.
+6. Tester reescribe/añade tests y ejecuta `npm run test:run` + `npm run build`.
+
+Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reutilizables de 004.
+
+## Estado actual
+
+- Spec 004 implementada.
+- Suite automatizada: **613 tests en verde**.
+- Build Node/Nitro correcto.
+- Smoke real de Fal opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
+- Pendiente de QA manual de accesibilidad/navegador y validación de CORS/lifecycle reales en el entorno de despliegue.

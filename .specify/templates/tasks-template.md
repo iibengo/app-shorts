@@ -5,6 +5,8 @@ description: "Task list template for feature implementation"
 
 # Tasks: [FEATURE NAME]
 
+> **AI Shorts override:** este repositorio es Nuxt 4. Los paths reales son `app/`, `server/` y `tests/`; no `src/` ni Python. Usa `app/models`, `app/components/<domain>`, `app/composables`, `app/data`, `app/utils`, `server/api` y `server/<domain>`. Tests en `tests/unit`, `tests/acceptance`, `tests/fixtures` y `tests/helpers`. Ver `AGENTS.md` y `.specify/memory/constitution.md`.
+
 **Input**: Design documents from `/specs/[###-feature-name]/`
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/

@@ -4,7 +4,9 @@
 
 **Created**: 2026-10-19
 
-**Status**: Draft
+**Status**: Superseded for Composer behavior by `specs/004-composer-real/spec.md` (historical mock spec)
+
+> **Nota de vigencia:** esta spec documenta el Composer mock original. Su comportamiento fue sustituido por 004 (Fal.ai real, subida firmada, jobs asíncronos, vídeo vertical y rate limit). Se conserva como referencia histórica y de trazabilidad; no debe reutilizarse su mock, sus pósters, su timeline ni sus contratos como fuente de verdad.
 
 **Input**: User description: "Planificar el estudio de creación (Composer) interactivo con IA estilo Higgsfield: una interfaz para generar Shorts mediante prompt, imágenes y vídeos de referencia, cumpliendo un flujo MOCK de 1 a 3 clics: Input → Generación simulada → Preview, sin IA real, sin backend, sin subida de archivos y sin vídeo real."
 

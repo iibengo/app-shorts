@@ -8,6 +8,10 @@ Act as the Architect Agent. The user wants to modify an existing technical speci
 Request / Changes requested: $ARGUMENTS
 
 Your tasks:
-1. Locate the existing specification files within the project (e.g., inside `.github/spec/` or related documentation).
-2. Update the technical requirements, user stories, or architecture boundaries according to the user's new input.
-3. Clearly summarize what has changed so the developer agent can adapt the implementation accordingly in the next step.
+1. Locate the existing specification under `specs/NNN-feature-name/spec.md` (never `.github/spec/`).
+2. Read `.specify/memory/constitution.md`, `AGENTS.md` and the current implementation.
+3. Update requirements, user stories, data/API contracts, UI/copy or architecture boundaries.
+4. Add or update an explicit amendment/supersession table when the change affects an existing contract.
+5. Summarize what changed, what remains valid and any migration/test impact for the developer and tester.
+
+Do not write implementation code in this phase. Present the change for human approval before implementation.

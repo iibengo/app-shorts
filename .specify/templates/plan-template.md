@@ -1,5 +1,7 @@
 # Implementation Plan: [FEATURE]
 
+> **AI Shorts override:** este repositorio es Nuxt 4. Usa `app/components`, `app/composables`, `app/models`, `app/data`, `app/utils`, `app/pages`, `server/api` (rutas finas) y `server/<domain>` (servicios/adaptadores). Los tests viven en `tests/unit`, `tests/acceptance`, `tests/fixtures` y `tests/helpers`. Ignora los ejemplos genéricos de `src/`/Python salvo que la spec diga lo contrario. Ver `AGENTS.md` y `.specify/memory/constitution.md`.
+
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`

@@ -4,7 +4,9 @@
 
 **Created**: 2026-10-20
 
-**Status**: Draft
+**Status**: Implemented (automated suite and build green; real-provider smoke is opt-in)
+
+> **Estado de implementación (2026-10-21):** implementada en `app/` y `server/`. La suite automatizada tiene 613 tests en verde (44 archivos) y `npm run build` pasa. El smoke real de Fal es opt-in (`RUN_FAL_SMOKE=1`) y no se ejecuta en CI. Quedan pendientes la QA manual de accesibilidad/navegador y la validación de CORS, lifecycle y cancelación en el entorno real de despliegue.
 
 **Input**: User description: "Sustituir el Composer mock de 003 por una integración real con Fal.ai: prompt + 0–1 imagen de referencia, dos presets de vídeo vertical 9:16 (`Rápido` con MiniMax Hailuo 02 Standard y `Calidad` con Kling 2.5 Turbo Pro), keyframe previo generado con FLUX, cola asíncrona de Fal, subida firmada de la referencia, progreso por etapas reales, cancelación, rate limit e idempotencia, manteniendo el flujo de 1 a 3 clics, la accesibilidad y la seguridad server-side."
 
@@ -1668,7 +1670,7 @@ Reglas:
 
 ## Test Plan
 
-La validación sigue la Constitución v1.0.1. Cada archivo runtime nuevo, excepto los modelos type-only, MUST tener cobertura directa o por integración. Los tests de la landing MUST permanecer sin cambios. Los tests de 003 específicos del mock se retiran o se reescriben.
+La validación sigue la Constitución v1.1.0. Cada archivo runtime nuevo, excepto los modelos type-only, MUST tener cobertura directa o por integración. Los tests de la landing MUST permanecer sin cambios. Los tests de 003 específicos del mock se retiran o se reescriben.
 
 ### Tests unitarios de servidor
 
@@ -1902,7 +1904,7 @@ Las verificaciones de infraestructura (CORS del `PUT`, lifecycle real en Fal y m
 
 ## Constitution Check
 
-Confirmación explícita contra `.specify/memory/constitution.md` v1.0.1:
+Confirmación explícita contra `.specify/memory/constitution.md` v1.1.0:
 
 - **I. Simplicity First (1-to-3-Clicks UX)**: el camino mínimo es 2 clics sin referencia y 3 con una imagen. Preset y duración tienen defaults y son opcionales; no hay asistente, pasos `Siguiente` ni configuración obligatoria. Cancelar, reintentar, regenerar y editar son recuperación opcional.
 - **II. Spec-Driven Development**: esta es la Phase 1. No se escribe implementación, `plan.md` ni `tasks.md` hasta la revisión humana y la fase correspondiente. El entregable es solo esta spec.
