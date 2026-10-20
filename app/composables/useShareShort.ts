@@ -1,5 +1,5 @@
 import { getCurrentInstance, onBeforeUnmount, ref, type Ref } from 'vue'
-import type { ShareOutcome, SharePayload, Short } from '~/types/short'
+import type { ShareOutcome, SharePayload, Short } from '~/models/short'
 import {
   buildFeedUrl,
   buildSharePayload,

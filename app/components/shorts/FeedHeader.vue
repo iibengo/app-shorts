@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import BrandMark from '~/components/ui/BrandMark.vue'
 
-const emit = defineEmits<{
-  open: []
-}>()
-
 const demoExplanation = 'DEMO. Datos de prueba: los shorts, creadores, métricas y fechas son ficticios.'
 </script>
 
@@ -25,15 +21,13 @@ const demoExplanation = 'DEMO. Datos de prueba: los shorts, creadores, métricas
         >DEMO</span>
       </div>
 
-      <button
-        type="button"
+      <NuxtLink
+        to="/composer"
         data-testid="feed-cta"
-        aria-haspopup="dialog"
         class="pointer-events-auto ml-auto inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full bg-gradient-to-r from-brand-violet-deep to-brand-fuchsia-deep px-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-fuchsia/20 motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-fuchsia focus-visible:ring-offset-2 focus-visible:ring-offset-brand-ink motion-safe:duration-150 motion-safe:ease-out forced-colors:border forced-colors:border-[ButtonText] forced-colors:focus-visible:outline forced-colors:focus-visible:outline-2 forced-colors:focus-visible:outline-offset-2 sm:px-4"
-        @click="emit('open')"
       >
         Crear short
-      </button>
+      </NuxtLink>
     </div>
   </header>
 </template>

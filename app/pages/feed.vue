@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import CreateShortNotice from '~/components/shorts/CreateShortNotice.vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 import FeedHeader from '~/components/shorts/FeedHeader.vue'
 import ShortsFeed from '~/components/shorts/ShortsFeed.vue'
 import { useShareShort } from '~/composables/useShareShort'
 import { shorts } from '~/data/shorts'
-import type { Short } from '~/types/short'
+import type { Short } from '~/models/short'
 
 let previousScrollRestoration: ScrollRestoration | null = null
 
@@ -41,22 +40,10 @@ useHead({
 useSeoMeta({
   title: 'AI Shorts — Feed de prueba',
   description:
-    'Feed de demostración de AI Shorts con seis shorts ficticios. La creación de videos con IA estará disponible próximamente.',
+    'Feed de demostración de AI Shorts con seis shorts ficticios y un estudio de creación simulado.',
 })
 
-const isNoticeOpen = ref(false)
-const noticeMounted = ref(false)
-
 const { message: shareMessage, share } = useShareShort()
-
-function openNotice(): void {
-  noticeMounted.value = true
-  isNoticeOpen.value = true
-}
-
-function closeNotice(): void {
-  isNoticeOpen.value = false
-}
 
 function handleShare(short: Short): void {
   void share(short)
@@ -66,10 +53,9 @@ function handleShare(short: Short): void {
 <template>
   <div
     data-testid="feed-page"
-    :inert="isNoticeOpen"
     class="relative h-svh overflow-hidden bg-brand-ink text-brand-text antialiased selection:bg-brand-fuchsia/30 selection:text-white"
   >
-    <FeedHeader @open="openNotice" />
+    <FeedHeader />
 
     <ShortsFeed :shorts="shorts" @share="handleShare" />
 
@@ -78,7 +64,7 @@ function handleShare(short: Short): void {
         data-testid="nojs-notice"
         class="fixed inset-x-4 top-[calc(env(safe-area-inset-top)_+_7.5rem)] z-40 rounded-2xl border border-white/15 bg-brand-surface p-3 text-sm leading-relaxed text-brand-text shadow-lg sm:top-[calc(env(safe-area-inset-top)_+_4.5rem)]"
       >
-        La demo interactiva necesita JavaScript. Los shorts de prueba siguen visibles. La creación de shorts con IA todavía no está disponible.
+        La demo interactiva necesita JavaScript. Los shorts de prueba siguen visibles. El estudio de creación también necesita JavaScript.
       </p>
     </noscript>
 
@@ -98,11 +84,5 @@ function handleShare(short: Short): void {
         {{ shareMessage }}
       </p>
     </div>
-
-    <CreateShortNotice
-      v-if="noticeMounted"
-      :open="isNoticeOpen"
-      @close="closeNotice"
-    />
   </div>
 </template>

@@ -1,4 +1,4 @@
-import type { Short } from '~/types/short'
+import type { Short } from '~/models/short'
 
 export const shorts: readonly Short[] = [
   {

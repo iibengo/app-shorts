@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import ShortActionRail from '~/components/shorts/ShortActionRail.vue'
 import ShortPoster from '~/components/shorts/ShortPoster.vue'
-import type { Short, ShortId } from '~/types/short'
+import type { Short, ShortId } from '~/models/short'
 
 const props = defineProps<{
   short: Short

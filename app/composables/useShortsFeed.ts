@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 import { shorts as defaultShorts } from '~/data/shorts'
-import type { Short, ShortId, ShortInteractionState } from '~/types/short'
+import type { Short, ShortId, ShortInteractionState } from '~/models/short'
 
 function createInitialStates(source: readonly Short[]): Record<ShortId, ShortInteractionState> {
   const entries = source.map(

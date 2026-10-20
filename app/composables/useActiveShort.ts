@@ -1,5 +1,5 @@
 import { getCurrentInstance, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
-import type { ShortId } from '~/types/short'
+import type { ShortId } from '~/models/short'
 
 export const ACTIVE_SHORT_THRESHOLD = 0.6
 

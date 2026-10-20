@@ -1,4 +1,4 @@
-import type { ShareOutcome, SharePayload, Short } from '~/types/short'
+import type { ShareOutcome, SharePayload, Short } from '~/models/short'
 
 export const SHARE_MESSAGES: Readonly<Record<Exclude<ShareOutcome, 'cancelled'>, string>> = {
   shared: 'Enlace compartido.',

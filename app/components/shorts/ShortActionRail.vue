@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import ActionIconButton from '~/components/ui/ActionIconButton.vue'
-import type { Short, ShortId } from '~/types/short'
+import type { Short, ShortId } from '~/models/short'
 import { formatCount } from '~/utils/shorts'
 
 const props = defineProps<{

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ShortPoster } from '~/types/short'
+import type { ShortPoster } from '~/models/short'
 import { formatDuration } from '~/utils/shorts'
 
 const props = withDefaults(

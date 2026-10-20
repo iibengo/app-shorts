@@ -4,7 +4,7 @@ import FeedEnd from '~/components/shorts/FeedEnd.vue'
 import ShortCard from '~/components/shorts/ShortCard.vue'
 import { useActiveShort } from '~/composables/useActiveShort'
 import { useShortsFeed } from '~/composables/useShortsFeed'
-import type { Short, ShortId } from '~/types/short'
+import type { Short, ShortId } from '~/models/short'
 
 const props = defineProps<{
   shorts: readonly Short[]
