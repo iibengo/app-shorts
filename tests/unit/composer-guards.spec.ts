@@ -5,134 +5,242 @@ import { describe, expect, it } from 'vitest'
 
 const ROOT = process.cwd()
 
-const NEW_RUNTIME_FILES = [
+const COMPOSER_APP_FILES = [
   'app/pages/composer.vue',
   'app/components/composer/ComposerHeader.vue',
   'app/components/composer/ComposerStepper.vue',
   'app/components/composer/ComposerPromptForm.vue',
+  'app/components/composer/ComposerPresetPicker.vue',
   'app/components/composer/ComposerReferencePicker.vue',
   'app/components/composer/ComposerReferenceCard.vue',
   'app/components/composer/ComposerGenerationProgress.vue',
-  'app/components/composer/ComposerPreview.vue',
+  'app/components/composer/ComposerResult.vue',
+  'app/components/composer/ComposerPartialResult.vue',
   'app/components/ui/AppButton.vue',
   'app/composables/useComposer.ts',
+  'app/composables/useComposerApi.ts',
   'app/composables/useComposerReferences.ts',
-  'app/utils/composer.ts',
+  'app/models/composer.ts',
   'app/data/composer.ts',
+  'app/utils/composer.ts',
 ] as const
 
-const MODIFIED_FEED_FILES = [
+const COMPOSER_SERVER_FILES = [
+  'server/composer/errors.ts',
+  'server/composer/validation.ts',
+  'server/composer/fal-types.ts',
+  'server/composer/fal-http-client.ts',
+  'server/composer/fal-queue-service.ts',
+  'server/composer/fal-storage-service.ts',
+  'server/composer/model-registry.ts',
+  'server/composer/prompt-composer.ts',
+  'server/composer/generation-orchestrator.ts',
+  'server/composer/composer-generation-service.ts',
+  'server/composer/rate-limit.ts',
+  'server/composer/job-token.ts',
+  'server/composer/request-context.ts',
+  'server/composer/runtime.ts',
+  'server/composer/adapters/types.ts',
+  'server/composer/adapters/flux-image-adapter.ts',
+  'server/composer/adapters/flux-kontext-adapter.ts',
+  'server/composer/adapters/minimax-video-adapter.ts',
+  'server/composer/adapters/kling-video-adapter.ts',
+  'server/api/composer/uploads.post.ts',
+  'server/api/composer/generate.post.ts',
+  'server/api/composer/jobs/[id].get.ts',
+  'server/api/composer/jobs/[id]/cancel.post.ts',
+] as const
+
+const ALL_RUNTIME_FILES = [
+  ...COMPOSER_APP_FILES,
+  ...COMPOSER_SERVER_FILES,
+] as const
+
+const FEED_FILES = [
+  'app/pages/feed.vue',
   'app/components/shorts/FeedHeader.vue',
-  'app/pages/feed.vue',
-] as const
-
-const FORBIDDEN_RUNTIME_PATTERNS: readonly { readonly label: string; readonly pattern: RegExp }[] = [
-  { label: 'Math.random', pattern: /Math\.random\s*\(/ },
-  { label: 'Date.now', pattern: /Date\.now\s*\(/ },
-  { label: 'new Date(', pattern: /new\s+Date\s*\(/ },
-  { label: 'crypto.randomUUID', pattern: /crypto\.randomUUID\s*\(/ },
-  { label: 'localStorage', pattern: /\blocalStorage\b/ },
-  { label: 'sessionStorage', pattern: /\bsessionStorage\b/ },
-  { label: 'fetch(', pattern: /(?<!\$)\bfetch\s*\(/ },
-  { label: '$fetch', pattern: /\$fetch\b/ },
-  { label: 'XMLHttpRequest', pattern: /\bXMLHttpRequest\b/ },
-  { label: 'v-html', pattern: /\bv-html\b/ },
-  { label: 'dangerouslySetInnerHTML', pattern: /dangerouslySetInnerHTML/ },
-]
-
-const SHORT_MODEL_IMPORT_FILES = [
-  'app/components/shorts/ShortActionRail.vue',
-  'app/components/shorts/ShortCard.vue',
-  'app/components/shorts/ShortPoster.vue',
   'app/components/shorts/ShortsFeed.vue',
-  'app/composables/useActiveShort.ts',
-  'app/composables/useShareShort.ts',
-  'app/composables/useShortsFeed.ts',
-  'app/data/shorts.ts',
-  'app/pages/feed.vue',
-  'app/utils/shorts.ts',
+  'app/components/shorts/ShortCard.vue',
 ] as const
 
 function read(relativePath: string): string {
   return readFileSync(resolve(ROOT, relativePath), 'utf8')
 }
 
-describe('composer model guards', () => {
-  it('keeps File, Blob and FileList out of the shared composer models', () => {
+describe('shared composer model guards', () => {
+  it('keeps File, Blob, FileList, any and unknown out of the shared models', () => {
     const source = read('app/models/composer.ts')
 
     expect(source).not.toMatch(/\bFile\b/)
     expect(source).not.toMatch(/\bFileList\b/)
     expect(source).not.toMatch(/\bBlob\b/)
-  })
-
-  it('does not contain any `any` type in the composer models', () => {
-    const source = read('app/models/composer.ts')
     expect(source).not.toMatch(/\bany\b/)
+    expect(source).not.toMatch(/\bunknown\b/)
   })
 
-  it('keeps global models free of barrels and the legacy short types file', () => {
+  it('has no model barrels and no retired type directories', () => {
     expect(existsSync(resolve(ROOT, 'app/models/index.ts'))).toBe(false)
     expect(existsSync(resolve(ROOT, 'app/models/index.js'))).toBe(false)
-    expect(existsSync(resolve(ROOT, 'app/types/short.ts'))).toBe(false)
     expect(existsSync(resolve(ROOT, 'app/types'))).toBe(false)
   })
+
+  it('keeps server-only fields and endpoints out of the shared contract', () => {
+    const source = read('app/models/composer.ts')
+
+    expect(source).not.toMatch(/endpointId|statusUrl|responseUrl|cancelUrl/)
+    expect(source).not.toMatch(/NUXT_FAL_KEY|falKey/)
+  })
 })
 
-describe('runtime determinism and privacy guards', () => {
-  it.each([...NEW_RUNTIME_FILES, ...MODIFIED_FEED_FILES])(
-    '%s has no random, clock, storage, network or v-html usage',
-    (relativePath) => {
-      const source = read(relativePath)
+describe('secret and server-import guards', () => {
+  it.each(COMPOSER_APP_FILES)('%s never references Fal credentials or server code', (file) => {
+    const source = read(file)
 
-      for (const { label, pattern } of FORBIDDEN_RUNTIME_PATTERNS) {
-        expect(source, `${relativePath} must not use ${label}`).not.toMatch(pattern)
+    expect(source, file).not.toMatch(/NUXT_FAL_KEY/)
+    expect(source, file).not.toMatch(/\bfalKey\b/)
+    expect(source, file).not.toMatch(/Authorization\s*:\s*Key/)
+    expect(source, file).not.toMatch(/Key\s+\$\{/)
+    expect(source, file).not.toMatch(/node:crypto/)
+    expect(source, file).not.toMatch(/~\/server|~~\/server|\.\.\/server/)
+  })
+
+  it.each(COMPOSER_SERVER_FILES)('%s never imports app UI code and uses no any', (file) => {
+    const source = read(file)
+
+    expect(source, file).not.toMatch(/~\/components|~\/composables|~\/pages|~\/utils|~\/data/)
+    expect(source, file).not.toMatch(/\bany\b/)
+    expect(source, file).not.toMatch(/NUXT_FAL_KEY/)
+  })
+
+  it('keeps the Fal key inside the server runtime only', () => {
+    const appSources = COMPOSER_APP_FILES.map((file) => read(file)).join('\n')
+    const runtime = read('server/composer/runtime.ts')
+
+    expect(appSources).not.toContain('NUXT_FAL_KEY')
+    expect(appSources).not.toContain('falKey')
+    expect(runtime).toContain('falKey')
+    expect(runtime).toContain('useRuntimeConfig')
+  })
+
+  it('does not expose Fal endpoints from app/', () => {
+    for (const file of COMPOSER_APP_FILES) {
+      const source = read(file)
+
+      expect(source, file).not.toMatch(/fal-ai\//)
+      expect(source, file).not.toMatch(/queue\.fal\.run|fal\.run|rest\.fal\.ai/)
+      expect(source, file).not.toMatch(/v1\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/)
+    }
+  })
+})
+
+describe('rendering, storage and feed guards', () => {
+  it.each(ALL_RUNTIME_FILES)('%s avoids v-html, raw HTML and persistency', (file) => {
+    const source = read(file)
+
+    expect(source, file).not.toMatch(/\bv-html\b/)
+    expect(source, file).not.toMatch(/dangerouslySetInnerHTML/)
+    expect(source, file).not.toMatch(/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/)
+  })
+
+  it('does not import feed data or feed composables from the composer', () => {
+    for (const file of COMPOSER_APP_FILES) {
+      const source = read(file)
+
+      expect(source, file).not.toMatch(/~\/composables\/useShortsFeed/)
+      expect(source, file).not.toMatch(/~\/composables\/useActiveShort/)
+      expect(source, file).not.toMatch(/~\/composables\/useShareShort/)
+      expect(source, file).not.toMatch(/~\/data\/shorts/)
+      expect(source, file).not.toMatch(/~\/models\/short\b/)
+    }
+  })
+
+  it('keeps the retired mock composer out of production', () => {
+    expect(existsSync(resolve(ROOT, 'app/components/composer/ComposerPreview.vue'))).toBe(false)
+    expect(existsSync(resolve(ROOT, 'public/mock/composer'))).toBe(false)
+  })
+
+  it('updates only the feed meta description to remove "simulado"', () => {
+    const feed = read('app/pages/feed.vue')
+
+    expect(feed).toContain(
+      'Feed de demostración de AI Shorts con seis shorts ficticios y un estudio de creación con IA.',
+    )
+    expect(feed).not.toContain('estudio de creación simulado')
+  })
+
+  it.each(FEED_FILES)('%s does not use XMLHttpRequest or composer client modules', (file) => {
+    const source = read(file)
+
+    expect(source, file).not.toMatch(/\bXMLHttpRequest\b/)
+    expect(source, file).not.toMatch(/~\/composables\/useComposer/)
+  })
+})
+
+describe('client network, randomness and clock guards', () => {
+  it('allows $fetch/fetch only in useComposerApi.ts', () => {
+    for (const file of COMPOSER_APP_FILES) {
+      if (file === 'app/composables/useComposerApi.ts') continue
+
+      const source = read(file)
+      expect(source, file).not.toMatch(/(?<!\$)\bfetch\s*\(/)
+      expect(source, file).not.toMatch(/\$fetch\b/)
+    }
+
+    const client = read('app/composables/useComposerApi.ts')
+    expect(client).toContain('$fetch')
+    expect(client).toContain('fetch(ticket.uploadUrl')
+  })
+
+  it('allows crypto.randomUUID only in useComposerApi.ts', () => {
+    for (const file of ALL_RUNTIME_FILES) {
+      const source = read(file)
+      const occurrences = source.match(/crypto\.randomUUID\s*\(/g) ?? []
+
+      if (file === 'app/composables/useComposerApi.ts') {
+        expect(occurrences.length, file).toBe(1)
+      } else {
+        expect(occurrences, file).toHaveLength(0)
       }
-    },
-  )
-
-  it('does not import server routes or the feed composables from the composer', () => {
-    for (const relativePath of NEW_RUNTIME_FILES) {
-      const source = read(relativePath)
-      expect(source, relativePath).not.toMatch(/~\/composables\/useShortsFeed/)
-      expect(source, relativePath).not.toMatch(/~\/composables\/useActiveShort/)
-      expect(source, relativePath).not.toMatch(/~\/composables\/useShareShort/)
-      expect(source, relativePath).not.toMatch(/~\/data\/shorts/)
-      expect(source, relativePath).not.toMatch(/~\/models\/short\b/)
     }
   })
 
-  it('does not use the retired modal notice anywhere in the feed', () => {
-    expect(existsSync(resolve(ROOT, 'app/components/shorts/CreateShortNotice.vue'))).toBe(false)
+  it('allows Date.now only for client elapsed, expiry and backoff', () => {
+    const allowed = new Set([
+      'app/composables/useComposer.ts',
+      'app/composables/useComposerReferences.ts',
+    ])
 
-    const feedSource = read('app/pages/feed.vue')
-    expect(feedSource).not.toMatch(/CreateShortNotice/)
-    expect(feedSource).not.toMatch(/create-short-notice/)
-    expect(feedSource).not.toMatch(/isNoticeOpen|noticeMounted|openNotice|closeNotice/)
-    expect(feedSource).not.toMatch(/Próximamente/)
-  })
-})
+    for (const file of COMPOSER_APP_FILES) {
+      const source = read(file)
+      const uses = source.match(/Date\.now\s*\(/g) ?? []
 
-describe('short model migration guards', () => {
-  it('migrates exactly the ten imports to ~/models/short', () => {
-    for (const relativePath of SHORT_MODEL_IMPORT_FILES) {
-      const source = read(relativePath)
-      expect(source, relativePath).toContain('~/models/short')
-    }
-
-    const allAppFiles = SHORT_MODEL_IMPORT_FILES.map((relativePath) => read(relativePath))
-    for (const source of allAppFiles) {
-      expect(source).not.toContain('~/types/short')
+      if (allowed.has(file)) {
+        expect(uses.length, file).toBeGreaterThan(0)
+      } else {
+        expect(uses, file).toHaveLength(0)
+      }
     }
   })
 
-  it('does not leave any ~/types/short import in app/', () => {
-    for (const relativePath of [
-      ...NEW_RUNTIME_FILES,
-      ...MODIFIED_FEED_FILES,
-      ...SHORT_MODEL_IMPORT_FILES,
-    ]) {
-      expect(read(relativePath), relativePath).not.toContain('~/types/short')
+  it('never uses Math.random in app or server', () => {
+    for (const file of ALL_RUNTIME_FILES) {
+      expect(read(file), file).not.toMatch(/Math\.random\s*\(/)
     }
+  })
+
+  it('never uses XMLHttpRequest in the composer', () => {
+    for (const file of ALL_RUNTIME_FILES) {
+      expect(read(file), file).not.toMatch(/\bXMLHttpRequest\b/)
+    }
+  })
+
+  it('keeps the upload binary out of Nitro and uses a direct PUT', () => {
+    const client = read('app/composables/useComposerApi.ts')
+
+    expect(client).not.toMatch(/FormData/)
+    expect(client).toContain("method: 'PUT'")
+    expect(client).toContain("credentials: 'omit'")
+    expect(client).toContain("redirect: 'error'")
+    expect(client).toContain('...ticket.uploadHeaders')
   })
 })

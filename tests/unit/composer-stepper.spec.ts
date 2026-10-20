@@ -6,7 +6,7 @@ import type { ComposerStep } from '~/models/composer'
 const STEPS = [
   { id: 'input', label: 'Idea' },
   { id: 'generating', label: 'Generación' },
-  { id: 'preview', label: 'Vista previa' },
+  { id: 'preview', label: 'Resultado' },
 ] as const
 
 async function mountStepper(current: ComposerStep) {
@@ -28,7 +28,7 @@ describe('ComposerStepper', () => {
     )
   })
 
-  it('shows the exact visible labels in order', async () => {
+  it('shows Idea, Generación and Resultado in order', async () => {
     const wrapper = await mountStepper('input')
     const items = wrapper.findAll('[data-testid="composer-step"]')
 
@@ -66,7 +66,7 @@ describe('ComposerStepper', () => {
     expect(items[1]?.attributes('aria-current')).toBe('step')
   })
 
-  it('marks both previous steps as complete during preview', async () => {
+  it('marks both previous steps as complete in the result state', async () => {
     const wrapper = await mountStepper('preview')
     const items = wrapper.findAll('[data-testid="composer-step"]')
 
@@ -87,7 +87,7 @@ describe('ComposerStepper', () => {
     ).toEqual([
       'Paso 1 de 3: Idea, actual',
       'Paso 2 de 3: Generación, pendiente',
-      'Paso 3 de 3: Vista previa, pendiente',
+      'Paso 3 de 3: Resultado, pendiente',
     ])
 
     const previewWrapper = await mountStepper('preview')
@@ -98,7 +98,7 @@ describe('ComposerStepper', () => {
     ).toEqual([
       'Paso 1 de 3: Idea, completado',
       'Paso 2 de 3: Generación, completado',
-      'Paso 3 de 3: Vista previa, actual',
+      'Paso 3 de 3: Resultado, actual',
     ])
   })
 

@@ -40,7 +40,7 @@ useHead({
 useSeoMeta({
   title: 'AI Shorts — Feed de prueba',
   description:
-    'Feed de demostración de AI Shorts con seis shorts ficticios y un estudio de creación simulado.',
+    'Feed de demostración de AI Shorts con seis shorts ficticios y un estudio de creación con IA.',
 })
 
 const { message: shareMessage, share } = useShareShort()

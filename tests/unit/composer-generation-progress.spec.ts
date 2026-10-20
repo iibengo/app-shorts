@@ -1,91 +1,147 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import ComposerGenerationProgress from '~/components/composer/ComposerGenerationProgress.vue'
-import type { ComposerGenerationStage } from '~/models/composer'
+import type { ComposerJobStage } from '~/models/composer'
 
 const normalize = (value: string | null | undefined) =>
   (value ?? '').replace(/\s+/g, ' ').trim()
 
 async function mountProgress(
-  stage: ComposerGenerationStage = 'analyzing',
-  progress = 15,
-  attempt = 1,
+  stage: ComposerJobStage = 'keyframe',
+  options: {
+    queuePosition?: number | null
+    elapsedSeconds?: number
+    isSlow?: boolean
+    attempt?: number
+  } = {},
 ) {
   return mountSuspended(ComposerGenerationProgress, {
     attachTo: document.body,
-    props: { stage, progress, attempt },
+    props: {
+      stage,
+      queuePosition: options.queuePosition ?? null,
+      elapsedSeconds: options.elapsedSeconds ?? 0,
+      isSlow: options.isSlow ?? false,
+      attempt: options.attempt ?? 1,
+    },
   })
 }
 
 describe('ComposerGenerationProgress', () => {
-  it('renders the normative heading, note and stage', async () => {
-    const wrapper = await mountProgress()
+  it('renders the normative heading, note and current stage', async () => {
+    const wrapper = await mountProgress('keyframe')
     const heading = wrapper.get('[data-testid="composer-generation-heading"]')
 
     expect(heading.element.tagName).toBe('H2')
-    expect(normalize(heading.text())).toBe('Generando tu short simulado')
+    expect(normalize(heading.text())).toBe('Generando tu vídeo')
     expect(heading.attributes('tabindex')).toBe('-1')
-    expect(normalize(wrapper.get('[data-testid="composer-generation-note"]').text())).toBe(
-      'Esto es una simulación: no se está creando ningún vídeo real.',
+    expect(normalize(wrapper.text())).toContain(
+      'La generación es real y puede tardar varios minutos. Si sales de esta página, perderás el progreso.',
     )
     expect(normalize(wrapper.get('[data-testid="composer-generation-stage"]').text())).toBe(
-      'Analizando tu idea',
+      'Creando el fotograma base',
     )
   })
 
   it('moves focus to the heading when it mounts', async () => {
     const wrapper = await mountProgress()
-    const heading = wrapper.get('[data-testid="composer-generation-heading"]')
 
-    expect(document.activeElement).toBe(heading.element)
+    expect(document.activeElement).toBe(
+      wrapper.get('[data-testid="composer-generation-heading"]').element,
+    )
   })
 
-  it('marks the generation container as busy', async () => {
-    const wrapper = await mountProgress()
+  it('marks the generation container as busy with the attempt', async () => {
+    const wrapper = await mountProgress('queued', { attempt: 3 })
     const container = wrapper.get('[data-testid="composer-generation"]')
 
     expect(container.attributes('aria-busy')).toBe('true')
-    expect(container.attributes('data-attempt')).toBe('1')
+    expect(container.attributes('data-attempt')).toBe('3')
   })
 
-  it('exposes an accessible progressbar with min, max, now and text', async () => {
-    const wrapper = await mountProgress('composing', 50, 2)
+  it('renders all four real stages in order and marks only the current one', async () => {
+    const wrapper = await mountProgress('video')
+    const items = wrapper
+      .get('[data-testid="composer-generation-stages"]')
+      .findAll('li')
+
+    expect(items).toHaveLength(4)
+    expect(items.map((item) => normalize(item.text()))).toEqual([
+      'Creando el fotograma base',
+      'En cola',
+      'Generando el vídeo',
+      'Preparando el resultado',
+    ])
+    expect(items.map((item) => item.attributes('data-state'))).toEqual([
+      'complete',
+      'complete',
+      'current',
+      'upcoming',
+    ])
+    expect(normalize(wrapper.get('[data-testid="composer-generation-stage"]').text())).toBe(
+      'Generando el vídeo',
+    )
+  })
+
+  it('maps every stage to the normative label', async () => {
+    for (const [stage, label] of [
+      ['keyframe', 'Creando el fotograma base'],
+      ['queued', 'En cola'],
+      ['video', 'Generando el vídeo'],
+      ['finalizing', 'Preparando el resultado'],
+    ] as const) {
+      const wrapper = await mountProgress(stage)
+      expect(normalize(wrapper.get('[data-testid="composer-generation-stage"]').text())).toBe(
+        label,
+      )
+    }
+  })
+
+  it('exposes an indeterminate progressbar without a percentage or ETA', async () => {
+    const wrapper = await mountProgress('keyframe', { elapsedSeconds: 67 })
     const progress = wrapper.get('[data-testid="composer-generation-progress"]')
+    const text = normalize(wrapper.text())
 
     expect(progress.attributes('role')).toBe('progressbar')
-    expect(progress.attributes('aria-valuemin')).toBe('0')
-    expect(progress.attributes('aria-valuemax')).toBe('100')
-    expect(progress.attributes('aria-valuenow')).toBe('50')
-    expect(progress.attributes('aria-valuetext')).toBe('50 % completado')
-    expect(normalize(wrapper.get('[data-testid="composer-generation-percent"]').text())).toBe(
-      '50 %',
+    expect(progress.attributes('aria-label')).toBe('Progreso de generación')
+    expect(progress.attributes('aria-valuenow')).toBeUndefined()
+    expect(progress.attributes('aria-valuemin')).toBeUndefined()
+    expect(progress.attributes('aria-valuemax')).toBeUndefined()
+    expect(text).not.toMatch(/\d+\s?%/)
+    expect(text).not.toMatch(/\bETA\b/)
+    expect(text).not.toMatch(/\bporcentaje\b/i)
+  })
+
+  it('renders elapsed time and queue position when available', async () => {
+    const wrapper = await mountProgress('queued', {
+      elapsedSeconds: 67,
+      queuePosition: 3,
+    })
+
+    expect(normalize(wrapper.get('[data-testid="composer-generation-elapsed"]').text())).toBe(
+      'Tiempo transcurrido: 1:07',
     )
-    expect(normalize(wrapper.get('[data-testid="composer-generation-stage"]').text())).toBe(
-      'Componiendo la escena',
+    expect(normalize(wrapper.get('[data-testid="composer-generation-queue"]').text())).toBe(
+      'Posición 3 en la cola',
     )
   })
 
-  it('renders the rendering stage at 80 percent', async () => {
-    const wrapper = await mountProgress('rendering', 80, 1)
+  it('omits the queue position when the provider does not return it', async () => {
+    const wrapper = await mountProgress('running', { queuePosition: null })
 
-    expect(normalize(wrapper.get('[data-testid="composer-generation-stage"]').text())).toBe(
-      'Preparando la vista previa',
-    )
-    expect(wrapper.get('[data-testid="composer-generation-progress"]').attributes('aria-valuenow')).toBe(
-      '80',
-    )
-    expect(normalize(wrapper.get('[data-testid="composer-generation-percent"]').text())).toBe(
-      '80 %',
-    )
+    expect(wrapper.find('[data-testid="composer-generation-queue"]').exists()).toBe(false)
   })
 
-  it('announces the stage and percentage once in a polite status region', async () => {
-    const wrapper = await mountProgress('composing', 50, 1)
-    const status = wrapper.get('[role="status"]')
+  it('shows the slow warning only when isSlow is true', async () => {
+    const slow = await mountProgress('video', { isSlow: true, elapsedSeconds: 600 })
+    expect(normalize(slow.get('[data-testid="composer-generation-slow"]').text())).toBe(
+      'Está tardando más de lo habitual. Puedes seguir esperando o cancelar.',
+    )
 
-    expect(status.attributes('aria-live')).toBe('polite')
-    expect(status.attributes('aria-atomic')).toBe('true')
-    expect(normalize(status.text())).toBe('Componiendo la escena. 50 % completado.')
+    const fast = await mountProgress('video', { isSlow: false })
+    expect(fast.find('[data-testid="composer-generation-slow"]').exists()).toBe(false)
   })
 
   it('renders Cancelar as a non-submit button and emits cancel', async () => {
@@ -100,14 +156,16 @@ describe('ComposerGenerationProgress', () => {
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
-  it('gates progress animation behind motion-safe and uses no shimmer', async () => {
-    const wrapper = await mountProgress()
-    const bar = wrapper.get('[data-testid="composer-generation-progress"]')
-    const fill = bar.element.firstElementChild
-    const classes = fill?.getAttribute('class') ?? ''
+  it('animates only under motion-safe and never uses percentage or shimmer', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'app/components/composer/ComposerGenerationProgress.vue'),
+      'utf8',
+    )
 
-    expect(classes).toContain('motion-safe:transition-[width]')
-    expect(classes).not.toMatch(/\banimate-/)
-    expect(classes).not.toMatch(/shimmer/)
+    expect(source).toContain('@media (prefers-reduced-motion: no-preference)')
+    expect(source).toContain('animation: composer-indeterminate')
+    expect(source).not.toMatch(/shimmer/i)
+    expect(source).not.toContain('aria-valuenow')
+    expect(source).not.toMatch(/\d+\s?% completado/)
   })
 })

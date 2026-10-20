@@ -1,137 +1,130 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  COMPOSER_DEFAULT_DURATION_SECONDS,
+  COMPOSER_DEFAULT_PRESET,
+  COMPOSER_DURATIONS,
   COMPOSER_FILE_ACCEPT,
+  COMPOSER_GENERATION_ERROR_MESSAGE,
   COMPOSER_IMAGE_MIME_TYPES,
   COMPOSER_MAX_IMAGE_BYTES,
   COMPOSER_MAX_PROMPT_LENGTH,
   COMPOSER_MAX_REFERENCES,
-  COMPOSER_MAX_VIDEO_BYTES,
-  COMPOSER_POSTERS,
-  COMPOSER_READY_DELAY_MS,
-  COMPOSER_REFERENCE_MIME_TYPES,
-  COMPOSER_STAGE_TIMELINE,
-  COMPOSER_TITLES,
-  COMPOSER_VIDEO_MIME_TYPES,
+  COMPOSER_MODELS,
+  COMPOSER_PRESETS,
+  COMPOSER_UPLOAD_ERROR_MESSAGE,
+  COMPOSER_UPLOAD_EXPIRED_MESSAGE,
 } from '~/data/composer'
 
-const PUBLIC_ROOT = resolve(process.cwd(), 'public')
+const ROOT = process.cwd()
 
-const POSTER_CONTRACT = [
-  {
-    src: '/mock/composer/composer-01.svg',
-    alt: 'Póster simulado abstracto violeta con ondas de luz.',
-  },
-  {
-    src: '/mock/composer/composer-02.svg',
-    alt: 'Póster simulado abstracto fucsia con formas geométricas.',
-  },
-  {
-    src: '/mock/composer/composer-03.svg',
-    alt: 'Póster simulado abstracto índigo con un marco luminoso.',
-  },
-  {
-    src: '/mock/composer/composer-04.svg',
-    alt: 'Póster simulado abstracto ámbar con un haz diagonal.',
-  },
-] as const
+describe('composer presets', () => {
+  it('declares exactly Rápido and Calidad in order', () => {
+    expect(COMPOSER_PRESETS).toEqual([
+      {
+        preset: 'fast',
+        modelId: 'minimax-hailuo-02',
+        label: 'Rápido',
+        description: 'Menos espera, ideal para probar.',
+        durations: [6, 10],
+        defaultDurationSeconds: 6,
+      },
+      {
+        preset: 'quality',
+        modelId: 'kling-2.5-turbo-pro',
+        label: 'Calidad',
+        description: 'Más detalle y movimiento, tarda más.',
+        durations: [5, 10],
+        defaultDurationSeconds: 5,
+      },
+    ])
+  })
 
-const TITLE_CONTRACT = [
-  'Una idea que se mueve en vertical',
-  'De la idea a la pantalla',
-  'Ritmo, luz y un solo mensaje',
-  'Tu historia en nueve por dieciséis',
-] as const
+  it('exposes one model capability per preset with one-image support', () => {
+    expect(COMPOSER_MODELS).toHaveLength(2)
 
-function readPoster(src: string): string {
-  return readFileSync(resolve(PUBLIC_ROOT, `.${src}`), 'utf8')
-}
-
-describe('composer fixture contract', () => {
-  it('declares the four normative posters in order', () => {
-    expect(COMPOSER_POSTERS).toHaveLength(4)
-
-    COMPOSER_POSTERS.forEach((poster, index) => {
-      expect(poster.src).toBe(POSTER_CONTRACT[index]?.src)
-      expect(poster.alt).toBe(POSTER_CONTRACT[index]?.alt)
-      expect(poster.width).toBe(1080)
-      expect(poster.height).toBe(1920)
+    expect(COMPOSER_MODELS[0]).toMatchObject({
+      id: 'minimax-hailuo-02',
+      preset: 'fast',
+      label: 'MiniMax Hailuo 02',
+      durations: [6, 10],
+      defaultDurationSeconds: 6,
+      supportsImageReference: true,
+      maxReferenceCount: 1,
+      estimatedCostUsd: null,
     })
+    expect(COMPOSER_MODELS[1]).toMatchObject({
+      id: 'kling-2.5-turbo-pro',
+      preset: 'quality',
+      label: 'Kling 2.5 Turbo Pro',
+      durations: [5, 10],
+      defaultDurationSeconds: 5,
+      supportsImageReference: true,
+      maxReferenceCount: 1,
+      estimatedCostUsd: null,
+    })
+
+    for (const model of COMPOSER_MODELS) {
+      expect(model.estimatedLatencySeconds.min).toBeGreaterThan(0)
+      expect(model.estimatedLatencySeconds.max).toBeGreaterThan(
+        model.estimatedLatencySeconds.min,
+      )
+    }
   })
 
-  it('declares the four normative titles in order', () => {
-    expect(COMPOSER_TITLES).toEqual([...TITLE_CONTRACT])
+  it('declares the fast/6 s defaults and the global duration list', () => {
+    expect(COMPOSER_DEFAULT_PRESET).toBe('fast')
+    expect(COMPOSER_DEFAULT_DURATION_SECONDS).toBe(6)
+    expect(COMPOSER_DURATIONS).toEqual([5, 6, 10])
   })
+})
 
-  it('declares the normative limits and MIME lists', () => {
-    expect(COMPOSER_MAX_REFERENCES).toBe(3)
+describe('composer limits and copy', () => {
+  it('declares the normative prompt and image limits', () => {
     expect(COMPOSER_MAX_PROMPT_LENGTH).toBe(280)
     expect(COMPOSER_MAX_IMAGE_BYTES).toBe(8_388_608)
-    expect(COMPOSER_MAX_VIDEO_BYTES).toBe(52_428_800)
+    expect(COMPOSER_MAX_REFERENCES).toBe(1)
+  })
+
+  it('accepts only the three image MIME types', () => {
     expect(COMPOSER_IMAGE_MIME_TYPES).toEqual([
       'image/png',
       'image/jpeg',
       'image/webp',
     ])
-    expect(COMPOSER_VIDEO_MIME_TYPES).toEqual([
-      'video/mp4',
-      'video/webm',
-      'video/quicktime',
-    ])
-    expect(COMPOSER_REFERENCE_MIME_TYPES).toEqual([
-      ...COMPOSER_IMAGE_MIME_TYPES,
-      ...COMPOSER_VIDEO_MIME_TYPES,
-    ])
-    expect(COMPOSER_FILE_ACCEPT).toBe(
-      'image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime',
-    )
+    expect(COMPOSER_FILE_ACCEPT).toBe('image/png,image/jpeg,image/webp')
   })
 
-  it('declares the exact generation timeline', () => {
-    expect(COMPOSER_STAGE_TIMELINE).toEqual([
-      { delayMs: 0, stage: 'analyzing', progress: 15 },
-      { delayMs: 800, stage: 'composing', progress: 50 },
-      { delayMs: 1600, stage: 'rendering', progress: 80 },
-    ])
-    expect(COMPOSER_READY_DELAY_MS).toBe(2400)
+  it('declares the exact client error copy', () => {
+    expect(COMPOSER_GENERATION_ERROR_MESSAGE).toBe(
+      'No se pudo iniciar la generación. Inténtalo de nuevo.',
+    )
+    expect(COMPOSER_UPLOAD_ERROR_MESSAGE).toBe(
+      'No se pudo subir la imagen. Inténtalo de nuevo.',
+    )
+    expect(COMPOSER_UPLOAD_EXPIRED_MESSAGE).toBe(
+      'La subida ha caducado. Vuelve a seleccionar la imagen.',
+    )
   })
 })
 
-describe('composer poster assets', () => {
-  it('ships the four local SVG files below the recommended size', () => {
-    for (const poster of POSTER_CONTRACT) {
-      const svg = readPoster(poster.src)
-      expect(svg.length, poster.src).toBeGreaterThan(0)
-      expect(Buffer.byteLength(svg), poster.src).toBeLessThanOrEqual(50 * 1024)
-    }
+describe('retired mock contract', () => {
+  it('does not ship mock composer posters or exports', () => {
+    expect(existsSync(resolve(ROOT, 'public/mock/composer'))).toBe(false)
+
+    const source = readFileSync(resolve(ROOT, 'app/data/composer.ts'), 'utf8')
+    expect(source).not.toMatch(/COMPOSER_POSTERS|COMPOSER_TITLES|COMPOSER_STAGE_TIMELINE/)
+    expect(source).not.toMatch(/COMPOSER_MAX_VIDEO_BYTES|COMPOSER_VIDEO_MIME_TYPES/)
+    expect(source).not.toMatch(/COMPOSER_READY_DELAY_MS/)
   })
 
-  it('declares 1080 x 1920 dimensions in every poster', () => {
-    for (const poster of POSTER_CONTRACT) {
-      const svg = readPoster(poster.src)
+  it('does not expose Fal endpoints from the client data file', () => {
+    const source = readFileSync(resolve(ROOT, 'app/data/composer.ts'), 'utf8')
 
-      expect(svg, poster.src).toMatch(/\bwidth="1080"/)
-      expect(svg, poster.src).toMatch(/\bheight="1920"/)
-      expect(svg, poster.src).toMatch(/\bviewBox="0 0 1080 1920"/)
-    }
-  })
-
-  it('contains no text, scripts, raster images, foreignObject or external references', () => {
-    for (const poster of POSTER_CONTRACT) {
-      const svg = readPoster(poster.src)
-
-      expect(svg, poster.src).not.toMatch(/<text\b/i)
-      expect(svg, poster.src).not.toMatch(/<script\b/i)
-      expect(svg, poster.src).not.toMatch(/<image\b/i)
-      expect(svg, poster.src).not.toMatch(/<foreignObject\b/i)
-      expect(svg, poster.src).not.toMatch(/\s(?:href|src)="[^"]*"/i)
-
-      const externalReferences = svg.match(/https?:\/\/[^"' ]+/gi) ?? []
-      for (const reference of externalReferences) {
-        expect(reference, poster.src).toBe('http://www.w3.org/2000/svg')
-      }
-    }
+    expect(source).not.toMatch(/fal-ai\//)
+    expect(source).not.toMatch(/queue\.fal\.run|fal\.run|rest\.fal\.ai/)
+    expect(source).not.toMatch(/endpointId/)
   })
 })

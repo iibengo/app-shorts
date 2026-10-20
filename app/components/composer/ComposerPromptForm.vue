@@ -4,10 +4,16 @@ import AppButton from '~/components/ui/AppButton.vue'
 import { COMPOSER_MAX_PROMPT_LENGTH } from '~/data/composer'
 import type { ComposerValidationIssue } from '~/models/composer'
 
-const props = defineProps<{
-  prompt: string
-  promptIssue: ComposerValidationIssue | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    prompt: string
+    promptIssue: ComposerValidationIssue | null
+    submitDisabled?: boolean
+  }>(),
+  {
+    submitDisabled: false,
+  },
+)
 
 const emit = defineEmits<{
   'update:prompt': [value: string]
@@ -87,14 +93,24 @@ defineExpose({ focusPrompt })
       </p>
     </div>
 
-    <slot name="references" />
+    <slot name="preset" />
+    <slot name="reference" />
+    <slot name="settings" />
+
+    <p
+      data-testid="composer-privacy"
+      class="mt-5 rounded-2xl border border-white/10 bg-brand-ink p-3 text-xs leading-relaxed text-brand-muted"
+    >
+      Tu idea y tu imagen se envían a Fal para generar el vídeo. AI Shorts no las guarda. La imagen de referencia se elimina del almacenamiento de Fal en 1 hora.
+    </p>
 
     <AppButton
       type="submit"
       data-testid="composer-generate"
-      class="mt-6 min-h-12 w-full text-base"
+      :disabled="submitDisabled"
+      class="mt-5 min-h-12 w-full text-base"
     >
-      Generar short
+      Generar vídeo
     </AppButton>
   </form>
 </template>

@@ -1,0 +1,11 @@
+{
+  "images": [
+    {
+      "url": "https://v3.fal.media/files/test/keyframe-flux.jpeg",
+      "width": 1152,
+      "height": 2048
+    }
+  ],
+  "has_nsfw_concepts": [false],
+  "timings": { "inference": 1.25 }
+}

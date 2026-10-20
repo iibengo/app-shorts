@@ -11,7 +11,7 @@ const props = defineProps<{
 const steps: readonly { readonly id: ComposerStep; readonly label: string }[] = [
   { id: 'input', label: 'Idea' },
   { id: 'generating', label: 'Generación' },
-  { id: 'preview', label: 'Vista previa' },
+  { id: 'preview', label: 'Resultado' },
 ]
 
 const currentIndex = computed(() => steps.findIndex((step) => step.id === props.current))

@@ -1,25 +1,20 @@
 import {
-  COMPOSER_MAX_DURATION_SECONDS,
+  COMPOSER_IMAGE_MIME_TYPES,
   COMPOSER_MAX_IMAGE_BYTES,
   COMPOSER_MAX_PROMPT_LENGTH,
-  COMPOSER_MAX_VIDEO_BYTES,
-  COMPOSER_MIN_DURATION_SECONDS,
-  COMPOSER_POSTERS,
-  COMPOSER_REFERENCE_MIME_TYPES,
-  COMPOSER_TITLES,
+  COMPOSER_MODELS,
+  COMPOSER_PRESETS,
 } from '~/data/composer'
 import type {
   ComposerGenerationRequest,
-  ComposerGenerationStage,
-  ComposerReference,
-  ComposerReferenceKind,
-  ComposerReferenceMimeType,
-  ComposerReferenceSignature,
+  ComposerImageMimeType,
+  ComposerJobStage,
+  ComposerModelCapabilities,
+  ComposerPreset,
+  ComposerPresetDefinition,
   ComposerValidationCode,
-  ComposerValidationField,
   ComposerValidationIssue,
-  GeneratedShortPreview,
-  GeneratedShortPreviewId,
+  ComposerVideoDuration,
 } from '~/models/composer'
 
 export interface ComposerFileLike {
@@ -31,24 +26,34 @@ export interface ComposerFileLike {
 const VALIDATION_MESSAGES: Readonly<Record<ComposerValidationCode, string>> = {
   'prompt-required': 'Escribe una idea para generar tu short.',
   'prompt-too-long': 'La idea no puede superar los 280 caracteres.',
-  'references-limit': 'Puedes añadir hasta 3 referencias.',
+  'invalid-prompt': 'La idea contiene caracteres no admitidos.',
   'reference-empty': 'El archivo está vacío.',
-  'reference-type': 'Formato no admitido. Usa PNG, JPG, WebP, MP4, WebM o MOV.',
-  'reference-too-large': 'El archivo supera el tamaño máximo permitido.',
+  'reference-too-large': 'La imagen supera el máximo de 8 MB.',
+  'unsupported-reference-type': 'Formato no admitido. Usa PNG, JPG o WebP.',
+  'invalid-file-name': 'El nombre del archivo no es válido.',
 }
 
-const STAGE_LABELS: Readonly<Record<ComposerGenerationStage, string>> = {
-  analyzing: 'Analizando tu idea',
-  composing: 'Componiendo la escena',
-  rendering: 'Preparando la vista previa',
+const STAGE_LABELS: Readonly<Record<ComposerJobStage, string>> = {
+  keyframe: 'Creando el fotograma base',
+  queued: 'En cola',
+  video: 'Generando el vídeo',
+  finalizing: 'Preparando el resultado',
 }
+
+export const COMPOSER_JOB_STAGES: readonly ComposerJobStage[] = [
+  'keyframe',
+  'queued',
+  'video',
+  'finalizing',
+]
 
 const BYTES_PER_KIB = 1024
 const BYTES_PER_MIB = 1_048_576
+const CONTROL_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/
 
 function createIssue(
   code: ComposerValidationCode,
-  field: ComposerValidationField,
+  field: ComposerValidationIssue['field'],
   message = VALIDATION_MESSAGES[code],
 ): ComposerValidationIssue {
   return { code, field, message }
@@ -69,6 +74,10 @@ export function validateComposerPrompt(prompt: string): ComposerValidationIssue 
     return createIssue('prompt-too-long', 'prompt')
   }
 
+  if (CONTROL_CHARACTERS.test(normalized)) {
+    return createIssue('invalid-prompt', 'prompt')
+  }
+
   return null
 }
 
@@ -76,47 +85,27 @@ export function normalizeComposerMimeType(mimeType: string): string {
   return mimeType.split(';')[0]?.trim().toLowerCase() ?? ''
 }
 
-export function isComposerReferenceMimeType(
+export function isComposerImageMimeType(
   mimeType: string,
-): mimeType is ComposerReferenceMimeType {
-  return (COMPOSER_REFERENCE_MIME_TYPES as readonly string[]).includes(mimeType)
-}
-
-export function getReferenceKind(mimeType: string): ComposerReferenceKind {
-  return normalizeComposerMimeType(mimeType).startsWith('image/') ? 'image' : 'video'
+): mimeType is ComposerImageMimeType {
+  return (COMPOSER_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
 }
 
 export function validateReferenceFile(
   file: ComposerFileLike,
 ): ComposerValidationIssue | null {
-  if (file.size <= 0) {
-    return createIssue('reference-empty', 'references')
-  }
-
   const mimeType = normalizeComposerMimeType(file.type)
 
-  if (!isComposerReferenceMimeType(mimeType)) {
-    return createIssue('reference-type', 'references')
+  if (file.size <= 0) {
+    return createIssue('reference-empty', 'reference')
   }
 
-  if (getReferenceKind(mimeType) === 'image') {
-    if (file.size > COMPOSER_MAX_IMAGE_BYTES) {
-      return createIssue(
-        'reference-too-large',
-        'references',
-        'La imagen supera el máximo de 8 MB.',
-      )
-    }
-
-    return null
+  if (!isComposerImageMimeType(mimeType)) {
+    return createIssue('unsupported-reference-type', 'reference')
   }
 
-  if (file.size > COMPOSER_MAX_VIDEO_BYTES) {
-    return createIssue(
-      'reference-too-large',
-      'references',
-      'El vídeo supera el máximo de 50 MB.',
-    )
+  if (file.size > COMPOSER_MAX_IMAGE_BYTES) {
+    return createIssue('reference-too-large', 'reference')
   }
 
   return null
@@ -139,84 +128,74 @@ export function formatFileSize(sizeBytes: number): string {
   return `${formatted.replace(/,0$/, '')} MB`
 }
 
-export function formatReferenceCount(count: number): string {
-  const safeCount = Math.max(0, Math.trunc(count))
+export function formatComposerDuration(seconds: ComposerVideoDuration | number): string {
+  const safeSeconds = Math.max(0, Math.trunc(seconds))
+  const minutes = Math.floor(safeSeconds / 60)
+  const remainder = safeSeconds % 60
 
-  return safeCount === 1 ? '1 referencia' : `${safeCount} referencias`
+  return `${minutes}:${String(remainder).padStart(2, '0')}`
 }
 
-export function composerStageLabel(stage: ComposerGenerationStage): string {
+export function formatElapsedSeconds(seconds: number): string {
+  return formatComposerDuration(seconds)
+}
+
+export function composerStageLabel(stage: ComposerJobStage): string {
   return STAGE_LABELS[stage]
 }
 
-export function fnv1a32(value: string): number {
-  let hash = 0x811c9dc5
+export function getComposerPreset(preset: ComposerPreset): ComposerPresetDefinition {
+  const definition = COMPOSER_PRESETS.find((item) => item.preset === preset)
 
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193)
+  return definition ?? COMPOSER_PRESETS[0]!
+}
+
+export function getComposerModel(preset: ComposerPreset): ComposerModelCapabilities {
+  const model = COMPOSER_MODELS.find((item) => item.preset === preset)
+
+  return model ?? COMPOSER_MODELS[0]!
+}
+
+export function getComposerDurations(
+  preset: ComposerPreset,
+): readonly ComposerVideoDuration[] {
+  return getComposerPreset(preset).durations
+}
+
+export function isComposerDurationAllowed(
+  preset: ComposerPreset,
+  durationSeconds: number,
+): durationSeconds is ComposerVideoDuration {
+  return getComposerPreset(preset).durations.includes(
+    durationSeconds as ComposerVideoDuration,
+  )
+}
+
+export function resolveComposerDuration(
+  preset: ComposerPreset,
+  durationSeconds: ComposerVideoDuration,
+): ComposerVideoDuration {
+  if (isComposerDurationAllowed(preset, durationSeconds)) {
+    return durationSeconds
   }
 
-  return hash >>> 0
+  return getComposerPreset(preset).defaultDurationSeconds
 }
 
-function buildPromptKey(prompt: string): string {
-  return normalizeComposerPrompt(prompt).replace(/\s+/g, ' ').toLowerCase()
-}
-
-function buildSignature(
-  promptKey: string,
-  references: readonly ComposerReferenceSignature[],
-): string {
-  return JSON.stringify([
-    promptKey,
-    references.map((reference) => [
-      reference.kind,
-      reference.name,
-      reference.sizeBytes,
-    ]),
-  ])
+export function formatComposerReference(referenceCount: number): string {
+  return referenceCount > 0 ? '1 imagen' : 'Sin referencia'
 }
 
 export function buildComposerGenerationRequest(
   prompt: string,
-  references: readonly ComposerReference[],
-  attempt: number,
+  preset: ComposerPreset,
+  durationSeconds: ComposerVideoDuration,
+  referenceUrl: string | null,
 ): ComposerGenerationRequest {
   return {
     prompt: normalizeComposerPrompt(prompt),
-    references: references.map((reference) => ({
-      kind: reference.kind,
-      name: reference.name,
-      sizeBytes: reference.sizeBytes,
-    })),
-    attempt: Math.max(1, Math.trunc(attempt)),
-  }
-}
-
-export function buildGeneratedShortPreview(
-  request: ComposerGenerationRequest,
-): GeneratedShortPreview {
-  const attempt = Math.max(1, Math.trunc(request.attempt))
-  const promptKey = buildPromptKey(request.prompt)
-  const baseHash = fnv1a32(buildSignature(promptKey, request.references))
-
-  const posterIndex = (baseHash + attempt - 1) % COMPOSER_POSTERS.length
-  const titleIndex = (baseHash + (attempt - 1) * 3) % COMPOSER_TITLES.length
-  const durationRange = COMPOSER_MAX_DURATION_SECONDS - COMPOSER_MIN_DURATION_SECONDS + 1
-  const durationSeconds =
-    COMPOSER_MIN_DURATION_SECONDS + ((baseHash + (attempt - 1) * 7) % durationRange)
-  const hashHex = baseHash.toString(16).padStart(8, '0')
-  const poster = COMPOSER_POSTERS[posterIndex] ?? COMPOSER_POSTERS[0]!
-  const title = COMPOSER_TITLES[titleIndex] ?? COMPOSER_TITLES[0]!
-
-  return {
-    id: `preview-${hashHex}-${attempt}` as GeneratedShortPreviewId,
-    title,
-    poster,
-    durationSeconds,
-    prompt: request.prompt,
-    referenceCount: request.references.length,
-    attempt,
+    preset,
+    durationSeconds: resolveComposerDuration(preset, durationSeconds),
+    referenceUrl,
   }
 }

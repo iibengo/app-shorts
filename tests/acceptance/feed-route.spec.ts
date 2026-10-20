@@ -34,7 +34,7 @@ describe('GET /feed (regression acceptance)', () => {
     expect(html).toMatch(/<html\b[^>]*\blang="es"/)
     expect(html).toContain('<title>AI Shorts — Feed de prueba</title>')
     expect(html).toContain(
-      '<meta name="description" content="Feed de demostración de AI Shorts con seis shorts ficticios y un estudio de creación simulado.">',
+      '<meta name="description" content="Feed de demostración de AI Shorts con seis shorts ficticios y un estudio de creación con IA.">',
     )
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">')
   })

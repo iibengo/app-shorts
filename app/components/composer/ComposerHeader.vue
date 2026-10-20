@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import BrandMark from '~/components/ui/BrandMark.vue'
 
-const demoExplanation =
-  'DEMO. El estudio de creación es una simulación: no se crea ni se publica ningún vídeo real y los archivos no se suben.'
+const betaExplanation =
+  'BETA. La generación de vídeo con IA es real, consume créditos y puede tardar varios minutos.'
 </script>
 
 <template>
@@ -15,11 +15,11 @@ const demoExplanation =
         <BrandMark />
 
         <span
-          data-testid="composer-demo-badge"
+          data-testid="composer-beta-badge"
           role="note"
-          :aria-label="demoExplanation"
+          :aria-label="betaExplanation"
           class="rounded-full border border-brand-fuchsia/40 bg-black/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-fuchsia"
-        >DEMO</span>
+        >BETA</span>
       </div>
 
       <NuxtLink

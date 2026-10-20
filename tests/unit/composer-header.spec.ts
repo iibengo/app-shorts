@@ -5,8 +5,11 @@ import ComposerHeader from '~/components/composer/ComposerHeader.vue'
 const normalize = (value: string | null | undefined) =>
   (value ?? '').replace(/\s+/g, ' ').trim()
 
+const BETA_EXPLANATION =
+  'BETA. La generación de vídeo con IA es real, consume créditos y puede tardar varios minutos.'
+
 describe('ComposerHeader', () => {
-  it('renders the feed header landmark and the shared brand mark', async () => {
+  it('renders the header landmark and the shared brand mark', async () => {
     const wrapper = await mountSuspended(ComposerHeader)
 
     expect(wrapper.findAll('header')).toHaveLength(1)
@@ -14,14 +17,13 @@ describe('ComposerHeader', () => {
     expect(normalize(wrapper.get('[data-testid="brand-mark"]').text())).toContain('AI Shorts')
   })
 
-  it('renders the DEMO badge with the exact normative explanation', async () => {
+  it('renders the BETA badge with the exact accessible explanation', async () => {
     const wrapper = await mountSuspended(ComposerHeader)
-    const badge = wrapper.get('[data-testid="composer-demo-badge"]')
+    const badge = wrapper.get('[data-testid="composer-beta-badge"]')
 
-    expect(badge.text()).toBe('DEMO')
-    expect(badge.attributes('aria-label')).toBe(
-      'DEMO. El estudio de creación es una simulación: no se crea ni se publica ningún vídeo real y los archivos no se suben.',
-    )
+    expect(normalize(badge.text())).toBe('BETA')
+    expect(badge.attributes('aria-label')).toBe(BETA_EXPLANATION)
+    expect(badge.attributes('role')).toBe('note')
   })
 
   it('renders Volver al feed as a real link to /feed', async () => {
@@ -34,13 +36,16 @@ describe('ComposerHeader', () => {
     expect(link.attributes('type')).toBeUndefined()
   })
 
-  it('does not render generation controls, dialogs or dead links', async () => {
+  it('does not render DEMO, simulation, generation controls or dialogs', async () => {
     const wrapper = await mountSuspended(ComposerHeader)
     const html = wrapper.html()
 
+    expect(wrapper.find('[data-testid="composer-demo-badge"]').exists()).toBe(false)
     expect(wrapper.findAll('button')).toHaveLength(0)
     expect(wrapper.findAll('[role="dialog"]')).toHaveLength(0)
-    expect(html).not.toContain('Generar short')
+    expect(html).not.toContain('DEMO')
+    expect(html).not.toContain('SIMULACIÓN')
+    expect(html).not.toContain('Generar vídeo')
     expect(html).not.toContain('Próximamente')
     expect(wrapper.findAll('a')).toHaveLength(1)
   })

@@ -12,12 +12,18 @@ const PROMPT_ERROR: ComposerValidationIssue = {
   message: 'Escribe una idea para generar tu short.',
 }
 
-async function mountForm(prompt = '', promptIssue: ComposerValidationIssue | null = null) {
+async function mountForm(
+  prompt = '',
+  promptIssue: ComposerValidationIssue | null = null,
+  submitDisabled = false,
+) {
   return mountSuspended(ComposerPromptForm, {
     attachTo: document.body,
-    props: { prompt, promptIssue },
+    props: { prompt, promptIssue, submitDisabled },
     slots: {
-      references: '<div data-testid="references-slot">Referencias</div>',
+      preset: '<div data-testid="preset-slot">Preset</div>',
+      reference: '<div data-testid="reference-slot">Referencia</div>',
+      settings: '<div data-testid="settings-slot">Ajustes</div>',
     },
   })
 }
@@ -88,7 +94,7 @@ describe('ComposerPromptForm', () => {
     expect(wrapper.emitted('update:prompt')).toEqual([['Una idea'], ['Otra idea']])
   })
 
-  it('emits submit from the native form submission and not from the button click twice', async () => {
+  it('emits submit from the native form submission', async () => {
     const wrapper = await mountForm('Una idea')
 
     await wrapper.get('[data-testid="composer-form"]').trigger('submit')
@@ -97,14 +103,21 @@ describe('ComposerPromptForm', () => {
     expect(wrapper.emitted('update:prompt')).toBeUndefined()
   })
 
-  it('renders Generar short as the only submit control', async () => {
+  it('renders Generar vídeo as the only submit control', async () => {
     const wrapper = await mountForm('Una idea')
     const buttons = wrapper.findAll('button')
 
     expect(buttons).toHaveLength(1)
-    expect(normalize(buttons[0]?.text())).toBe('Generar short')
+    expect(normalize(buttons[0]?.text())).toBe('Generar vídeo')
     expect(buttons[0]?.attributes('type')).toBe('submit')
     expect(buttons[0]?.attributes('data-testid')).toBe('composer-generate')
+  })
+
+  it('disables the submit button while uploading or offline', async () => {
+    const wrapper = await mountForm('Una idea', null, true)
+    const button = wrapper.get('[data-testid="composer-generate"]')
+
+    expect(button.attributes('disabled')).toBeDefined()
   })
 
   it('exposes focusPrompt() and moves the focus to the textarea', async () => {
@@ -119,18 +132,21 @@ describe('ComposerPromptForm', () => {
     expect(document.activeElement).toBe(textarea.element)
   })
 
-  it('renders the references slot below the prompt', async () => {
+  it('renders the preset, reference and settings slots', async () => {
     const wrapper = await mountForm()
-    expect(wrapper.get('[data-testid="references-slot"]').text()).toBe('Referencias')
+
+    expect(wrapper.get('[data-testid="preset-slot"]').text()).toBe('Preset')
+    expect(wrapper.get('[data-testid="reference-slot"]').text()).toBe('Referencia')
+    expect(wrapper.get('[data-testid="settings-slot"]').text()).toBe('Ajustes')
   })
 
-  it('has no advanced creation configuration or multi-step navigation', async () => {
+  it('keeps free model, endpoint and aspect-ratio configuration out of the form', async () => {
     const wrapper = await mountForm('Una idea')
     const text = normalize(wrapper.text())
 
     expect(wrapper.findAll('select')).toHaveLength(0)
     expect(wrapper.findAll('input')).toHaveLength(0)
     expect(text).not.toMatch(/\bSiguiente\b|\bContinuar\b|\bModelo\b|\bEstilo\b/)
-    expect(text).not.toMatch(/\bDuración\b|\bAspect ratio\b|\bResolución\b|\bSemilla\b/)
+    expect(text).not.toMatch(/\bAspect ratio\b|\bResolución\b|\bSemilla\b|\bEndpoint\b/)
   })
 })

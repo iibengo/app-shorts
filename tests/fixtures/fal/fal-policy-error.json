@@ -1,0 +1,4 @@
+{
+  "detail": "The request was blocked by the NSFW safety checker.",
+  "code": "content_policy_violation"
+}

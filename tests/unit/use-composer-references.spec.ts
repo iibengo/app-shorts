@@ -5,26 +5,52 @@ import {
   useComposerReferences,
   type UseComposerReferencesReturn,
 } from '~/composables/useComposerReferences'
-import type { ComposerReferenceMimeType } from '~/models/composer'
+import {
+  ComposerApiClientError,
+  type ComposerApi,
+} from '~/composables/useComposerApi'
+import type { ComposerUploadTicket } from '~/models/composer'
 
-function makeFile(name: string, type: string, size: number): File {
+const TICKET: ComposerUploadTicket = {
+  uploadUrl: 'https://v3.fal.media/files/test/upload?signature=test',
+  fileUrl: 'https://v3.fal.media/files/test/composer-ref.webp',
+  expiresAt: '2030-01-01T00:00:00.000Z',
+  uploadHeaders: { 'Content-Type': 'image/png' },
+}
+
+function makeFile(name: string, type: string, size = 1_024): File {
   const file = new File(['x'], name, { type })
   Object.defineProperty(file, 'size', { configurable: true, value: size })
   return file
 }
 
-async function setupReferences() {
-  let api!: UseComposerReferencesReturn
+function createApi(overrides: Partial<ComposerApi> = {}) {
+  const createUploadTicket = vi.fn(async () => TICKET)
+  const uploadReference = vi.fn(async () => undefined)
+  const api = {
+    createUploadTicket,
+    uploadReference,
+    generate: vi.fn(),
+    getJob: vi.fn(),
+    cancelJob: vi.fn(),
+    ...overrides,
+  } as unknown as ComposerApi
+
+  return { api, createUploadTicket, uploadReference }
+}
+
+async function setupReferences(api: ComposerApi) {
+  let composable!: UseComposerReferencesReturn
   const wrapper = await mountSuspended(
     defineComponent({
       setup() {
-        api = useComposerReferences()
+        composable = useComposerReferences({ api })
         return () => h('div')
       },
     }),
   )
 
-  return { api, wrapper }
+  return { refs: composable, wrapper }
 }
 
 const createObjectURL = vi.fn((file: File) => `blob:mock/${file.name}`)
@@ -41,332 +67,333 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('useComposerReferences initial state', () => {
-  it('starts empty with no issues and can add more', async () => {
-    const { api } = await setupReferences()
+describe('useComposerReferences initial state and validation', () => {
+  it('starts empty and idle', async () => {
+    const { api } = createApi()
+    const { refs } = await setupReferences(api)
 
-    expect(api.references.value).toEqual([])
-    expect(api.issues.value).toEqual([])
-    expect(api.canAddMore.value).toBe(true)
-  })
-})
-
-describe('useComposerReferences validation', () => {
-  it('adds an image reference with a created ObjectURL and no File exposure', async () => {
-    const { api } = await setupReferences()
-    const file = makeFile('foto.png', 'image/png', 2048)
-
-    api.addFiles([file])
-
-    expect(createObjectURL).toHaveBeenCalledTimes(1)
-    expect(createObjectURL).toHaveBeenCalledWith(file)
-    expect(api.references.value).toEqual([
-      {
-        id: 'ref-1',
-        kind: 'image',
-        name: 'foto.png',
-        mimeType: 'image/png',
-        sizeBytes: 2048,
-        thumbnailUrl: 'blob:mock/foto.png',
-        durationSeconds: null,
-      },
-    ])
-    expect(Object.keys(api.references.value[0]!)).not.toContain('file')
-    expect(JSON.stringify(api.references.value[0])).not.toContain('File')
-    expect(api.issues.value).toEqual([])
+    expect(refs.reference.value).toBeNull()
+    expect(refs.uploadState.value).toBe('idle')
+    expect(refs.issues.value).toEqual([])
   })
 
-  it('adds a video reference without creating an ObjectURL', async () => {
-    const { api } = await setupReferences()
+  it('rejects an empty file before requesting a ticket', async () => {
+    const { api, createUploadTicket } = createApi()
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([makeFile('clip.mp4', 'video/mp4', 4096)])
+    await refs.selectFile(makeFile('vacio.png', 'image/png', 0))
 
-    expect(createObjectURL).not.toHaveBeenCalled()
-    expect(api.references.value[0]).toMatchObject({
-      id: 'ref-1',
-      kind: 'video',
-      name: 'clip.mp4',
-      mimeType: 'video/mp4',
-      sizeBytes: 4096,
-      thumbnailUrl: null,
-      durationSeconds: null,
-    })
-  })
-
-  it('normalises MIME parameters before accepting the file', async () => {
-    const { api } = await setupReferences()
-
-    api.addFiles([makeFile('foto.png', 'image/png; charset=binary', 1024)])
-
-    expect(api.references.value[0]).toMatchObject({
-      kind: 'image',
-      mimeType: 'image/png',
-    })
-  })
-
-  it('rejects empty, unknown and oversized files with the exact messages', async () => {
-    const { api } = await setupReferences()
-
-    api.addFiles([makeFile('vacio.png', 'image/png', 0)])
-    expect(api.issues.value).toEqual([
+    expect(refs.issues.value).toEqual([
       {
         code: 'reference-empty',
-        field: 'references',
+        field: 'reference',
         message: 'El archivo está vacío.',
       },
     ])
+    expect(createUploadTicket).not.toHaveBeenCalled()
+    expect(createObjectURL).not.toHaveBeenCalled()
+  })
 
-    api.addFiles([makeFile('raro.txt', 'text/plain', 10)])
-    expect(api.issues.value).toEqual([
+  it('rejects unsupported types without guessing from the extension', async () => {
+    const { api, createUploadTicket } = createApi()
+    const { refs } = await setupReferences(api)
+
+    await refs.selectFile(makeFile('foto.png', 'text/plain', 10))
+
+    expect(refs.issues.value).toEqual([
       {
-        code: 'reference-type',
-        field: 'references',
-        message: 'Formato no admitido. Usa PNG, JPG, WebP, MP4, WebM o MOV.',
+        code: 'unsupported-reference-type',
+        field: 'reference',
+        message: 'Formato no admitido. Usa PNG, JPG o WebP.',
       },
     ])
+    expect(createUploadTicket).not.toHaveBeenCalled()
+  })
 
-    api.addFiles([makeFile('grande.png', 'image/png', 8_388_609)])
-    expect(api.issues.value).toEqual([
+  it('accepts exactly 8 MiB and rejects one byte more without replacing a valid reference', async () => {
+    const { api } = createApi()
+    const { refs } = await setupReferences(api)
+
+    await refs.selectFile(makeFile('limite.png', 'image/png', 8_388_608))
+    expect(refs.reference.value?.fileName).toBe('limite.png')
+
+    await refs.selectFile(makeFile('grande.png', 'image/png', 8_388_609))
+
+    expect(refs.issues.value).toEqual([
       {
         code: 'reference-too-large',
-        field: 'references',
+        field: 'reference',
         message: 'La imagen supera el máximo de 8 MB.',
       },
     ])
-
-    api.addFiles([makeFile('grande.mp4', 'video/mp4', 52_428_801)])
-    expect(api.issues.value).toEqual([
-      {
-        code: 'reference-too-large',
-        field: 'references',
-        message: 'El vídeo supera el máximo de 50 MB.',
-      },
-    ])
-
-    expect(api.references.value).toEqual([])
+    expect(refs.reference.value?.fileName).toBe('limite.png')
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
   })
 
-  it('accepts files exactly at the byte limits', async () => {
-    const { api } = await setupReferences()
+  it('normalises MIME parameters before requesting the ticket', async () => {
+    const { api, createUploadTicket } = createApi()
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([
-      makeFile('limite.png', 'image/png', 8_388_608),
-      makeFile('limite.mp4', 'video/mp4', 52_428_800),
-    ])
+    await refs.selectFile(makeFile('foto.png', 'image/png; charset=binary', 10))
 
-    expect(api.references.value).toHaveLength(2)
-    expect(api.issues.value).toEqual([])
-  })
-
-  it('deduplicates issues by code within a single selection', async () => {
-    const { api } = await setupReferences()
-
-    api.addFiles([
-      makeFile('a.txt', 'text/plain', 10),
-      makeFile('b.gif', 'image/gif', 10),
-    ])
-
-    expect(api.issues.value).toHaveLength(1)
-    expect(api.issues.value[0]?.code).toBe('reference-type')
-  })
-
-  it('keeps distinct issue codes from the same selection', async () => {
-    const { api } = await setupReferences()
-
-    api.addFiles([
-      makeFile('vacio.png', 'image/png', 0),
-      makeFile('raro.txt', 'text/plain', 10),
-      makeFile('grande.png', 'image/png', 8_388_609),
-    ])
-
-    expect(api.issues.value.map((issue) => issue.code)).toEqual([
-      'reference-empty',
-      'reference-type',
-      'reference-too-large',
-    ])
-  })
-
-  it('never creates a reference for an invalid file', async () => {
-    const { api } = await setupReferences()
-
-    api.addFiles([makeFile('raro.txt', 'text/plain', 10)])
-
-    expect(api.references.value).toEqual([])
-    expect(createObjectURL).not.toHaveBeenCalled()
+    expect(createUploadTicket).toHaveBeenCalledWith({
+      fileName: 'foto.png',
+      contentType: 'image/png',
+      sizeBytes: 10,
+    })
   })
 })
 
-describe('useComposerReferences limit and ids', () => {
-  it('accepts at most three valid files and emits one references-limit issue', async () => {
-    const { api } = await setupReferences()
+describe('useComposerReferences signed upload flow', () => {
+  it('requests a ticket, performs the PUT and exposes only model-safe fields', async () => {
+    const { api, createUploadTicket, uploadReference } = createApi()
+    const { refs } = await setupReferences(api)
+    const file = makeFile('look.webp', 'image/webp', 482_133)
 
-    api.addFiles([
-      makeFile('a.png', 'image/png', 1024),
-      makeFile('b.jpg', 'image/jpeg', 1024),
-      makeFile('c.webp', 'image/webp', 1024),
-      makeFile('d.mp4', 'video/mp4', 1024),
-    ])
+    await refs.selectFile(file)
 
-    expect(api.references.value.map((reference) => reference.id)).toEqual([
-      'ref-1',
-      'ref-2',
-      'ref-3',
-    ])
-    expect(api.canAddMore.value).toBe(false)
-    expect(api.issues.value).toEqual([
-      {
-        code: 'references-limit',
-        field: 'references',
-        message: 'Puedes añadir hasta 3 referencias.',
-      },
-    ])
-    expect(createObjectURL).toHaveBeenCalledTimes(3)
+    expect(createUploadTicket).toHaveBeenCalledWith({
+      fileName: 'look.webp',
+      contentType: 'image/webp',
+      sizeBytes: 482_133,
+    })
+    expect(uploadReference).toHaveBeenCalledWith(
+      TICKET,
+      file,
+      expect.any(AbortSignal),
+    )
+    expect(refs.uploadState.value).toBe('idle')
+    expect(refs.reference.value).toMatchObject({
+      id: 'ref-1',
+      fileName: 'look.webp',
+      mimeType: 'image/webp',
+      sizeBytes: 482_133,
+      fileUrl: TICKET.fileUrl,
+      previewUrl: 'blob:mock/look.webp',
+      width: null,
+      height: null,
+      expiresAt: TICKET.expiresAt,
+    })
+    expect(Object.keys(refs.reference.value!)).not.toContain('file')
+    expect(JSON.stringify(refs.reference.value)).not.toContain('File')
   })
 
-  it('keeps protecting the limit on later programmatic calls', async () => {
-    const { api } = await setupReferences()
+  it('opens a new ticket when the upload URL returns 403', async () => {
+    const firstTicket = { ...TICKET, fileUrl: 'https://v3.fal.media/files/test/first.webp' }
+    const secondTicket = { ...TICKET, fileUrl: 'https://v3.fal.media/files/test/second.webp' }
+    const { api, createUploadTicket, uploadReference } = createApi()
+    createUploadTicket
+      .mockResolvedValueOnce(firstTicket)
+      .mockResolvedValueOnce(secondTicket)
+    uploadReference
+      .mockRejectedValueOnce(new ComposerApiClientError({
+        code: 'invalid-reference',
+        message: 'La imagen de referencia no es válida.',
+        retryable: false,
+      }, { status: 403 }))
+      .mockResolvedValueOnce(undefined)
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([
-      makeFile('a.png', 'image/png', 1024),
-      makeFile('b.png', 'image/png', 1024),
-      makeFile('c.png', 'image/png', 1024),
-    ])
-    api.addFiles([makeFile('d.png', 'image/png', 1024)])
+    await refs.selectFile(makeFile('a.png', 'image/png'))
 
-    expect(api.references.value).toHaveLength(3)
-    expect(api.issues.value.map((issue) => issue.code)).toEqual(['references-limit'])
+    expect(createUploadTicket).toHaveBeenCalledTimes(2)
+    expect(uploadReference).toHaveBeenCalledTimes(2)
+    expect(refs.reference.value?.fileUrl).toBe(secondTicket.fileUrl)
   })
 
-  it('does not reuse ids after removals or clears', async () => {
-    const { api } = await setupReferences()
+  it('renews an already expired ticket before retrying', async () => {
+    const expired = { ...TICKET, expiresAt: '2020-01-01T00:00:00.000Z' }
+    const { api, createUploadTicket, uploadReference } = createApi()
+    createUploadTicket
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(TICKET)
+    uploadReference
+      .mockRejectedValueOnce(new ComposerApiClientError({
+        code: 'internal-error',
+        message: 'No se pudo iniciar la generación. Inténtalo de nuevo.',
+        retryable: true,
+      }))
+      .mockResolvedValueOnce(undefined)
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([makeFile('a.png', 'image/png', 1024)])
-    expect(api.references.value[0]?.id).toBe('ref-1')
+    await refs.selectFile(makeFile('a.png', 'image/png'))
 
-    api.removeReference('ref-1')
-    api.addFiles([makeFile('b.png', 'image/png', 1024)])
-    expect(api.references.value[0]?.id).toBe('ref-2')
-
-    api.removeReference('ref-2')
-    api.clearReferences()
-    api.addFiles([makeFile('c.png', 'image/png', 1024)])
-    expect(api.references.value[0]?.id).toBe('ref-3')
+    expect(createUploadTicket).toHaveBeenCalledTimes(2)
+    expect(refs.reference.value?.expiresAt).toBe(TICKET.expiresAt)
   })
 
-  it('clears the visible limit issue when a reference is removed', async () => {
-    const { api } = await setupReferences()
+  it('retries once with the same ticket before surfacing an upload error', async () => {
+    const failure = new ComposerApiClientError({
+      code: 'internal-error',
+      message: 'No se pudo iniciar la generación. Inténtalo de nuevo.',
+      retryable: true,
+    })
+    const { api, createUploadTicket, uploadReference } = createApi()
+    uploadReference
+      .mockRejectedValueOnce(failure)
+      .mockRejectedValueOnce(failure)
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([
-      makeFile('a.png', 'image/png', 1024),
-      makeFile('b.png', 'image/png', 1024),
-      makeFile('c.png', 'image/png', 1024),
-      makeFile('d.png', 'image/png', 1024),
-    ])
+    await refs.selectFile(makeFile('a.png', 'image/png'))
 
-    expect(api.issues.value.map((issue) => issue.code)).toEqual(['references-limit'])
-
-    api.removeReference('ref-1')
-
-    expect(api.references.value).toHaveLength(2)
-    expect(api.canAddMore.value).toBe(true)
-    expect(api.issues.value).toEqual([])
+    expect(createUploadTicket).toHaveBeenCalledTimes(1)
+    expect(uploadReference).toHaveBeenCalledTimes(2)
+    expect(refs.uploadState.value).toBe('error')
+    expect(refs.reference.value).toBeNull()
   })
 
-  it('allows selecting the same file twice with a new id and ObjectURL', async () => {
-    const { api } = await setupReferences()
-    const file = makeFile('misma.png', 'image/png', 1024)
+  it('retries the upload from the same retained File after a failure', async () => {
+    const failure = new ComposerApiClientError({
+      code: 'internal-error',
+      message: 'No se pudo iniciar la generación. Inténtalo de nuevo.',
+      retryable: true,
+    })
+    const { api, uploadReference } = createApi()
+    uploadReference
+      .mockRejectedValueOnce(failure)
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce(undefined)
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([file])
-    api.addFiles([file])
+    await refs.selectFile(makeFile('a.png', 'image/png'))
+    expect(refs.uploadState.value).toBe('error')
 
-    expect(api.references.value.map((reference) => reference.id)).toEqual([
-      'ref-1',
-      'ref-2',
-    ])
+    await refs.retryUpload()
+
+    expect(refs.uploadState.value).toBe('idle')
+    expect(refs.reference.value?.fileName).toBe('a.png')
+    expect(uploadReference).toHaveBeenCalledTimes(3)
+  })
+
+  it('does nothing on retry without a pending File or while uploading', async () => {
+    const { api, uploadReference } = createApi()
+    const { refs } = await setupReferences(api)
+
+    await refs.retryUpload()
+    expect(uploadReference).not.toHaveBeenCalled()
+
+    const pending = new Promise<void>(() => {})
+    uploadReference.mockReturnValueOnce(pending)
+    void refs.selectFile(makeFile('a.png', 'image/png'))
+
+    expect(refs.uploadState.value).toBe('uploading')
+    await refs.retryUpload()
+    expect(uploadReference).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useComposerReferences single-reference lifecycle', () => {
+  it('replaces the previous reference with a new id and revokes its ObjectURL', async () => {
+    const { api } = createApi()
+    const { refs } = await setupReferences(api)
+
+    await refs.selectFile(makeFile('a.png', 'image/png'))
+    const firstUrl = refs.reference.value?.previewUrl
+
+    await refs.selectFile(makeFile('b.png', 'image/png'))
+
+    expect(refs.reference.value?.id).toBe('ref-2')
+    expect(refs.reference.value?.fileName).toBe('b.png')
+    expect(revokeObjectURL).toHaveBeenCalledWith(firstUrl)
     expect(createObjectURL).toHaveBeenCalledTimes(2)
   })
-})
 
-describe('useComposerReferences ObjectURL lifecycle', () => {
-  it('revokes the image ObjectURL on remove and forgets the retained File', async () => {
-    const { api } = await setupReferences()
+  it('does not reuse ids after removal', async () => {
+    const { api } = createApi()
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([makeFile('a.png', 'image/png', 1024)])
-    const url = api.references.value[0]?.thumbnailUrl
-    expect(url).toBe('blob:mock/a.png')
+    await refs.selectFile(makeFile('a.png', 'image/png'))
+    expect(refs.reference.value?.id).toBe('ref-1')
 
-    api.removeReference('ref-1')
+    refs.removeReference()
+    await refs.selectFile(makeFile('b.png', 'image/png'))
+    expect(refs.reference.value?.id).toBe('ref-2')
+  })
+
+  it('revokes the ObjectURL on remove and discards the file', async () => {
+    const { api, uploadReference } = createApi()
+    const { refs } = await setupReferences(api)
+
+    await refs.selectFile(makeFile('a.png', 'image/png'))
+    const url = refs.reference.value?.previewUrl
+
+    refs.removeReference()
 
     expect(revokeObjectURL).toHaveBeenCalledWith(url)
-    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
-    expect(api.references.value).toEqual([])
+    expect(refs.reference.value).toBeNull()
+    expect(refs.uploadState.value).toBe('idle')
+    expect(refs.issues.value).toEqual([])
+
+    await refs.retryUpload()
+    expect(uploadReference).toHaveBeenCalledTimes(1)
   })
 
-  it('does not revoke anything for a video or an unknown id', async () => {
-    const { api } = await setupReferences()
+  it('aborts the in-flight PUT and revokes the preview on remove', async () => {
+    let receivedSignal: AbortSignal | undefined
+    const { api } = createApi({
+      uploadReference: vi.fn((_ticket, _file, signal?: AbortSignal) => {
+        receivedSignal = signal
+        return new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        })
+      }),
+    })
+    const { refs } = await setupReferences(api)
+    const selecting = refs.selectFile(makeFile('a.png', 'image/png'))
 
-    api.addFiles([makeFile('clip.mp4', 'video/mp4', 1024)])
-    api.removeReference('ref-1')
-    api.removeReference('ref-99')
+    await Promise.resolve()
+    await Promise.resolve()
 
-    expect(revokeObjectURL).not.toHaveBeenCalled()
-  })
+    expect(refs.uploadState.value).toBe('uploading')
+    expect(receivedSignal?.aborted).toBe(false)
 
-  it('revokes every image URL on clear and leaves videos untouched', async () => {
-    const { api } = await setupReferences()
+    refs.removeReference()
+    await selecting
 
-    api.addFiles([
-      makeFile('a.png', 'image/png', 1024),
-      makeFile('b.jpg', 'image/jpeg', 1024),
-      makeFile('c.mp4', 'video/mp4', 1024),
-    ])
-
-    api.clearReferences()
-
-    expect(revokeObjectURL).toHaveBeenCalledTimes(2)
+    expect(receivedSignal?.aborted).toBe(true)
+    expect(refs.reference.value).toBeNull()
+    expect(refs.uploadState.value).toBe('idle')
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock/a.png')
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock/b.jpg')
-    expect(api.references.value).toEqual([])
-    expect(api.canAddMore.value).toBe(true)
   })
 
-  it('revokes every image URL when the composable owner unmounts', async () => {
-    const { api, wrapper } = await setupReferences()
-
-    api.addFiles([
-      makeFile('a.png', 'image/png', 1024),
-      makeFile('b.png', 'image/png', 1024),
-    ])
+  it('revokes the ObjectURL and aborts on unmount', async () => {
+    let receivedSignal: AbortSignal | undefined
+    const { api } = createApi({
+      uploadReference: vi.fn((_ticket, _file, signal?: AbortSignal) => {
+        receivedSignal = signal
+        return new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        })
+      }),
+    })
+    const { refs, wrapper } = await setupReferences(api)
+    const selecting = refs.selectFile(makeFile('a.png', 'image/png'))
+    await Promise.resolve()
+    await Promise.resolve()
 
     wrapper.unmount()
+    await selecting
 
-    expect(revokeObjectURL).toHaveBeenCalledTimes(2)
+    expect(receivedSignal?.aborted).toBe(true)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock/a.png')
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock/b.png')
   })
 
-  it('falls back to a null thumbnail when createObjectURL throws', async () => {
-    const { api } = await setupReferences()
-    vi.mocked(URL.createObjectURL).mockImplementationOnce(() => {
-      throw new Error('not available')
-    })
-
-    expect(() => api.addFiles([makeFile('a.png', 'image/png', 1024)])).not.toThrow()
-    expect(api.references.value[0]?.thumbnailUrl).toBeNull()
-    expect(api.issues.value).toEqual([])
-  })
-
-  it('falls back to a null thumbnail when createObjectURL does not exist', async () => {
-    const { api } = await setupReferences()
+  it('keeps working without URL.createObjectURL', async () => {
     const original = URL.createObjectURL
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
       value: undefined,
     })
+    const { api } = createApi()
+    const { refs } = await setupReferences(api)
 
     try {
-      expect(() => api.addFiles([makeFile('a.png', 'image/png', 1024)])).not.toThrow()
-      expect(api.references.value[0]?.thumbnailUrl).toBeNull()
+      await refs.selectFile(makeFile('a.png', 'image/png'))
+      expect(refs.reference.value?.previewUrl).toBeNull()
     } finally {
       Object.defineProperty(URL, 'createObjectURL', {
         configurable: true,
@@ -376,8 +403,9 @@ describe('useComposerReferences ObjectURL lifecycle', () => {
   })
 
   it('ignores a missing or throwing revokeObjectURL', async () => {
-    const { api } = await setupReferences()
-    api.addFiles([makeFile('a.png', 'image/png', 1024)])
+    const { api } = createApi()
+    const { refs } = await setupReferences(api)
+    await refs.selectFile(makeFile('a.png', 'image/png'))
 
     const original = URL.revokeObjectURL
     Object.defineProperty(URL, 'revokeObjectURL', {
@@ -386,7 +414,7 @@ describe('useComposerReferences ObjectURL lifecycle', () => {
     })
 
     try {
-      expect(() => api.removeReference('ref-1')).not.toThrow()
+      expect(() => refs.removeReference()).not.toThrow()
     } finally {
       Object.defineProperty(URL, 'revokeObjectURL', {
         configurable: true,
@@ -394,34 +422,21 @@ describe('useComposerReferences ObjectURL lifecycle', () => {
       })
     }
 
+    await refs.selectFile(makeFile('b.png', 'image/png'))
     vi.mocked(URL.revokeObjectURL).mockImplementationOnce(() => {
       throw new Error('cannot revoke')
     })
-
-    api.addFiles([makeFile('b.png', 'image/png', 1024)])
-    expect(() => api.removeReference('ref-2')).not.toThrow()
-  })
-})
-
-describe('useComposerReferences issue clearing', () => {
-  it('clears issues on demand and replaces them on the next selection', async () => {
-    const { api } = await setupReferences()
-
-    api.addFiles([makeFile('raro.txt', 'text/plain', 10)])
-    expect(api.issues.value).toHaveLength(1)
-
-    api.clearIssues()
-    expect(api.issues.value).toEqual([])
-
-    api.addFiles([makeFile('a.png', 'image/png', 1024)])
-    expect(api.issues.value).toEqual([])
+    expect(() => refs.removeReference()).not.toThrow()
   })
 
-  it('accepts a valid MIME union reference at compile time', async () => {
-    const { api } = await setupReferences()
-    const mime: ComposerReferenceMimeType = 'image/webp'
+  it('clears issues on demand', async () => {
+    const { api } = createApi()
+    const { refs } = await setupReferences(api)
 
-    api.addFiles([makeFile('a.webp', mime, 1024)])
-    expect(api.references.value[0]?.mimeType).toBe('image/webp')
+    await refs.selectFile(makeFile('raro.txt', 'text/plain', 10))
+    expect(refs.issues.value).toHaveLength(1)
+
+    refs.clearIssues()
+    expect(refs.issues.value).toEqual([])
   })
 })

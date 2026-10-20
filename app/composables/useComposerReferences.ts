@@ -1,52 +1,42 @@
 import {
-  computed,
   getCurrentInstance,
   onBeforeUnmount,
   ref,
-  type ComputedRef,
   type Ref,
 } from 'vue'
-import {
-  COMPOSER_MAX_REFERENCES,
-} from '~/data/composer'
 import type {
+  ComposerImageMimeType,
   ComposerReference,
   ComposerReferenceId,
-  ComposerReferenceMimeType,
+  ComposerReferenceUploadRequest,
+  ComposerUploadTicket,
   ComposerValidationIssue,
 } from '~/models/composer'
 import {
-  getReferenceKind,
-  isComposerReferenceMimeType,
+  isComposerImageMimeType,
   normalizeComposerMimeType,
   validateReferenceFile,
 } from '~/utils/composer'
+import type { ComposerApi } from './useComposerApi'
+import { toComposerApiClientError } from './useComposerApi'
+
+export type ComposerUploadState = 'idle' | 'uploading' | 'error'
+
+export interface UseComposerReferencesOptions {
+  readonly api: ComposerApi
+}
 
 export interface UseComposerReferencesReturn {
-  references: Ref<ComposerReference[]>
+  reference: Ref<ComposerReference | null>
+  uploadState: Ref<ComposerUploadState>
   issues: Ref<ComposerValidationIssue[]>
-  canAddMore: ComputedRef<boolean>
-  addFiles: (files: readonly File[]) => void
-  removeReference: (id: ComposerReferenceId) => void
-  clearReferences: () => void
+  selectFile: (file: File) => Promise<void>
+  removeReference: () => void
+  retryUpload: () => Promise<void>
   clearIssues: () => void
 }
 
-function dedupeIssues(
-  source: readonly ComposerValidationIssue[],
-): ComposerValidationIssue[] {
-  const byCode = new Map<string, ComposerValidationIssue>()
-
-  for (const issue of source) {
-    if (!byCode.has(issue.code)) {
-      byCode.set(issue.code, issue)
-    }
-  }
-
-  return [...byCode.values()]
-}
-
-function createThumbnail(file: File): string | null {
+function createObjectUrl(file: File): string | null {
   if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
     return null
   }
@@ -58,125 +48,209 @@ function createThumbnail(file: File): string | null {
   }
 }
 
-function revokeThumbnail(url: string | null): void {
+function revokeObjectUrl(url: string | null): void {
   if (!url) return
   if (typeof URL === 'undefined' || typeof URL.revokeObjectURL !== 'function') return
 
   try {
     URL.revokeObjectURL(url)
   } catch {
-    // A failed revocation must never break the composer flow.
+    // Revoking a stale object URL must never break the composer flow.
   }
 }
 
-export function useComposerReferences(): UseComposerReferencesReturn {
-  const references = ref<ComposerReference[]>([])
+export function useComposerReferences(
+  options: UseComposerReferencesOptions,
+): UseComposerReferencesReturn {
+  const reference = ref<ComposerReference | null>(null)
+  const uploadState = ref<ComposerUploadState>('idle')
   const issues = ref<ComposerValidationIssue[]>([])
-  const files = new Map<ComposerReferenceId, File>()
+
+  let pendingFile: File | null = null
+  let pendingPreviewUrl: string | null = null
+  let abortController: AbortController | null = null
   let nextReferenceNumber = 1
-
-  const canAddMore = computed(() => references.value.length < COMPOSER_MAX_REFERENCES)
-
-  function createReference(file: File): ComposerReference | null {
-    const mimeType = normalizeComposerMimeType(file.type)
-
-    if (!isComposerReferenceMimeType(mimeType)) {
-      return null
-    }
-
-    const id = `ref-${nextReferenceNumber}` as ComposerReferenceId
-    nextReferenceNumber += 1
-
-    const kind = getReferenceKind(mimeType)
-    const reference: ComposerReference = {
-      id,
-      kind,
-      name: file.name,
-      mimeType: mimeType as ComposerReferenceMimeType,
-      sizeBytes: file.size,
-      thumbnailUrl: kind === 'image' ? createThumbnail(file) : null,
-      durationSeconds: null,
-    }
-
-    files.set(id, file)
-
-    return reference
-  }
-
-  function addFiles(selectedFiles: readonly File[]): void {
-    if (selectedFiles.length === 0) return
-
-    const nextIssues: ComposerValidationIssue[] = []
-    let reachedLimit = false
-
-    for (const file of selectedFiles) {
-      if (references.value.length >= COMPOSER_MAX_REFERENCES) {
-        reachedLimit = true
-        break
-      }
-
-      const issue = validateReferenceFile(file)
-
-      if (issue) {
-        nextIssues.push(issue)
-        continue
-      }
-
-      const reference = createReference(file)
-
-      if (reference) {
-        references.value = [...references.value, reference]
-      }
-    }
-
-    if (references.value.length >= COMPOSER_MAX_REFERENCES && reachedLimit) {
-      nextIssues.push({
-        code: 'references-limit',
-        field: 'references',
-        message: 'Puedes añadir hasta 3 referencias.',
-      })
-    }
-
-    issues.value = dedupeIssues(nextIssues)
-  }
-
-  function removeReference(id: ComposerReferenceId): void {
-    const reference = references.value.find((item) => item.id === id)
-
-    if (!reference) return
-
-    revokeThumbnail(reference.thumbnailUrl)
-    files.delete(id)
-    references.value = references.value.filter((item) => item.id !== id)
-    // Issues describe the last selection; after a removal the limit/stale
-    // messages no longer reflect the visible list.
-    issues.value = []
-  }
-
-  function clearReferences(): void {
-    for (const reference of references.value) {
-      revokeThumbnail(reference.thumbnailUrl)
-    }
-
-    files.clear()
-    references.value = []
-  }
+  let runId = 0
 
   function clearIssues(): void {
     issues.value = []
   }
 
+  function discardReference(): void {
+    abortController?.abort()
+    abortController = null
+    revokeObjectUrl(reference.value?.previewUrl ?? pendingPreviewUrl)
+    revokeObjectUrl(pendingPreviewUrl)
+    reference.value = null
+    pendingFile = null
+    pendingPreviewUrl = null
+    uploadState.value = 'idle'
+    issues.value = []
+  }
+
+  function buildUploadRequest(file: File): ComposerReferenceUploadRequest | null {
+    const mimeType = normalizeComposerMimeType(file.type)
+
+    if (!isComposerImageMimeType(mimeType)) {
+      return null
+    }
+
+    return {
+      fileName: file.name,
+      contentType: mimeType as ComposerImageMimeType,
+      sizeBytes: file.size,
+    }
+  }
+
+  async function uploadOnce(
+    request: ComposerReferenceUploadRequest,
+    file: File,
+    signal: AbortSignal,
+  ): Promise<ComposerUploadTicket> {
+    const ticket = await options.api.createUploadTicket(request)
+
+    try {
+      await options.api.uploadReference(ticket, file, signal)
+
+      return ticket
+    } catch (error) {
+      if (signal.aborted) {
+        throw error
+      }
+
+      const clientError = toComposerApiClientError(error)
+      const ticketExpired = Date.parse(ticket.expiresAt) <= Date.now()
+      const shouldRenewTicket = ticketExpired || clientError.status === 403
+
+      if (shouldRenewTicket) {
+        const freshTicket = await options.api.createUploadTicket(request)
+        await options.api.uploadReference(freshTicket, file, signal)
+
+        return freshTicket
+      }
+
+      await options.api.uploadReference(ticket, file, signal)
+
+      return ticket
+    }
+  }
+
+  async function runUpload(
+    file: File,
+    previewUrl: string | null,
+    request: ComposerReferenceUploadRequest,
+  ): Promise<void> {
+    const currentRun = ++runId
+    const controller = new AbortController()
+
+    abortController = controller
+    uploadState.value = 'uploading'
+    issues.value = []
+
+    try {
+      const ticket = await uploadOnce(request, file, controller.signal)
+
+      if (currentRun !== runId || controller.signal.aborted) {
+        return
+      }
+
+      const id = `ref-${nextReferenceNumber}` as ComposerReferenceId
+      nextReferenceNumber += 1
+
+      reference.value = {
+        id,
+        fileName: file.name,
+        mimeType: request.contentType,
+        sizeBytes: file.size,
+        fileUrl: ticket.fileUrl,
+        previewUrl,
+        width: null,
+        height: null,
+        expiresAt: ticket.expiresAt,
+      }
+      pendingFile = null
+      pendingPreviewUrl = null
+      abortController = null
+      uploadState.value = 'idle'
+    } catch {
+      if (currentRun !== runId || controller.signal.aborted) {
+        return
+      }
+
+      uploadState.value = 'error'
+    }
+  }
+
+  async function selectFile(file: File): Promise<void> {
+    if (uploadState.value === 'uploading') {
+      return
+    }
+
+    const issue = validateReferenceFile(file)
+
+    if (issue) {
+      issues.value = [issue]
+      return
+    }
+
+    const request = buildUploadRequest(file)
+
+    if (!request) {
+      issues.value = [
+        {
+          code: 'unsupported-reference-type',
+          field: 'reference',
+          message: 'Formato no admitido. Usa PNG, JPG o WebP.',
+        },
+      ]
+      return
+    }
+
+    abortController?.abort()
+    revokeObjectUrl(reference.value?.previewUrl ?? null)
+    revokeObjectUrl(pendingPreviewUrl)
+    reference.value = null
+    pendingFile = file
+    pendingPreviewUrl = createObjectUrl(file)
+    issues.value = []
+
+    await runUpload(file, pendingPreviewUrl, request)
+  }
+
+  async function retryUpload(): Promise<void> {
+    if (uploadState.value === 'uploading' || !pendingFile) {
+      return
+    }
+
+    const file = pendingFile
+    const request = buildUploadRequest(file)
+
+    if (!request) {
+      return
+    }
+
+    await runUpload(file, pendingPreviewUrl, request)
+  }
+
+  function removeReference(): void {
+    runId += 1
+    discardReference()
+  }
+
   if (getCurrentInstance()) {
-    onBeforeUnmount(clearReferences)
+    onBeforeUnmount(() => {
+      runId += 1
+      discardReference()
+    })
   }
 
   return {
-    references,
+    reference,
+    uploadState,
     issues,
-    canAddMore,
-    addFiles,
+    selectFile,
     removeReference,
-    clearReferences,
+    retryUpload,
     clearIssues,
   }
 }
