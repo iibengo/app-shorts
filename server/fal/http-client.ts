@@ -1,6 +1,8 @@
+import type { Readable } from 'node:stream'
 import { ComposerError, isComposerError } from '../shared/errors'
 import {
   assertFalApiUrl,
+  assertSecureUploadUrl,
   isContentBlockedPayload,
 } from './types'
 
@@ -19,8 +21,16 @@ export interface FalHttpResponse<T> {
   readonly headers: Headers
 }
 
+export interface FalBinaryUploadRequest {
+  readonly url: string
+  readonly body: Uint8Array | Readable
+  readonly contentType: string
+  readonly timeoutMs: number
+}
+
 export interface FalHttpClient {
   request<T>(request: FalHttpRequest): Promise<FalHttpResponse<T>>
+  uploadBinary?(request: FalBinaryUploadRequest): Promise<FalHttpResponse<unknown>>
 }
 
 export interface FalHttpClientOptions {
@@ -118,6 +128,65 @@ export class NativeFalHttpClient implements FalHttpClient {
     this.allowedOrigins = options.allowedOrigins
     this.allowInsecure = options.allowInsecure ?? false
     this.fetchImpl = options.fetchImpl ?? fetch
+  }
+
+  async uploadBinary(
+    request: FalBinaryUploadRequest,
+  ): Promise<FalHttpResponse<unknown>> {
+    let url: string
+
+    try {
+      url = assertSecureUploadUrl(request.url)
+    } catch {
+      throw new ComposerError('provider-invalid-output')
+    }
+
+    const controller = new AbortController()
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, request.timeoutMs)
+    const streaming = typeof (request.body as { pipe?: unknown }).pipe === 'function'
+
+    try {
+      const init = {
+        method: 'PUT',
+        headers: { 'Content-Type': request.contentType },
+        body: request.body,
+        signal: controller.signal,
+        redirect: 'error',
+        credentials: 'omit',
+        cache: 'no-store',
+        ...(streaming ? { duplex: 'half' } : {}),
+      } as RequestInit
+
+      // The signed upload URL is pre-authorized by the provider: no credentials.
+      const response = await this.fetchImpl(url, init)
+      const data = await readResponseBody(response)
+
+      if (!response.ok) {
+        throw mapHttpError(response.status, data, response.headers)
+      }
+
+      return {
+        status: response.status,
+        data,
+        headers: response.headers,
+      }
+    } catch (error) {
+      if (isComposerError(error)) {
+        throw error
+      }
+
+      if (timedOut) {
+        throw new ComposerError('provider-timeout')
+      }
+
+      throw new ComposerError('provider-error')
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   async request<T>(request: FalHttpRequest): Promise<FalHttpResponse<T>> {

@@ -1,0 +1,16 @@
+{
+  "title": "Plan roto",
+  "logline": "Un plan que no cumple el esquema pedido.",
+  "beats": [
+    {
+      "order": 1,
+      "visualPrompt": "Una escena con <b>HTML</b> que el director no debería devolver nunca.",
+      "narration": "Esta narración contiene marcas no permitidas."
+    },
+    {
+      "order": 2,
+      "visualPrompt": "Una segunda escena correcta en apariencia pero el plan tiene menos beats.",
+      "narration": "El número de beats no coincide con el pedido."
+    }
+  ]
+}

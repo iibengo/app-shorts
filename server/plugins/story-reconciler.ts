@@ -1,0 +1,53 @@
+import { createStoryRuntime } from '../story/runtime'
+
+interface ReconcilerGlobal {
+  storyReconcilerTimer?: ReturnType<typeof setInterval>
+}
+
+export default defineNitroPlugin((nitroApp) => {
+  if (process.env.NODE_ENV === 'test') {
+    return
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return
+  }
+
+  const runtime = createStoryRuntime(
+    useRuntimeConfig() as unknown as Parameters<typeof createStoryRuntime>[0],
+  )
+  const reconciler = runtime.reconciler
+
+  if (!reconciler || !runtime.reconcilerEnabled) {
+    return
+  }
+
+  const globalState = globalThis as unknown as ReconcilerGlobal
+
+  if (globalState.storyReconcilerTimer) {
+    return
+  }
+
+  let running = false
+
+  const timer = setInterval(() => {
+    if (running) return
+
+    running = true
+
+    void reconciler
+      .runOnce()
+      .catch(() => undefined)
+      .finally(() => {
+        running = false
+      })
+  }, runtime.reconcilerIntervalMs)
+
+  timer.unref?.()
+  globalState.storyReconcilerTimer = timer
+
+  nitroApp.hooks.hook('close', () => {
+    clearInterval(timer)
+    delete globalState.storyReconcilerTimer
+  })
+})

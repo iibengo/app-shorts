@@ -1,0 +1,26 @@
+{
+  "title": "El último tren",
+  "logline": "Una viajera pierde el último tren y encuentra algo inesperado.",
+  "beats": [
+    {
+      "order": 1,
+      "visualPrompt": "Una joven espera sola en el andén de una estación vacía al anochecer.",
+      "narration": "El reloj marca las once y el andén está desierto."
+    },
+    {
+      "order": 2,
+      "visualPrompt": "El tren pasa sin detenerse y deja una maleta olvidada sobre el banco.",
+      "narration": "Un vagón iluminado cruza y algo queda atrás."
+    },
+    {
+      "order": 3,
+      "visualPrompt": "La joven abre la maleta y encuentra fotografías de su propia infancia.",
+      "narration": "Dentro hay fotos que solo ella podría recordar."
+    },
+    {
+      "order": 4,
+      "visualPrompt": "Amanece mientras la joven sonríe con las fotografías en las manos.",
+      "narration": "Cuando sale el sol, ya sabe a dónde ir."
+    }
+  ]
+}

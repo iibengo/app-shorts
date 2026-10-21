@@ -1,0 +1,31 @@
+{
+  "title": "El azúcar lo sabe",
+  "logline": "Una repostera descubre que sus postres anticipan lo que va a pasar.",
+  "beats": [
+    {
+      "order": 1,
+      "visualPrompt": "Una repostera abre su obrador al amanecer entre bandejas de hojaldre.",
+      "narration": "Cada mañana, antes de encender el horno, Clara escucha."
+    },
+    {
+      "order": 2,
+      "visualPrompt": "La repostera observa cómo el merengue dibuja una figura imposible en el bol.",
+      "narration": "El azúcar se mueve como si quisiera contar algo."
+    },
+    {
+      "order": 3,
+      "visualPrompt": "Un cliente entra en la pastelería y reconoce la figura dibujada en el merengue.",
+      "narration": "El primer cliente trae la cara que anunciaba el postre."
+    },
+    {
+      "order": 4,
+      "visualPrompt": "La repostera duda junto a la ventana con una bandeja de tartas recién hechas.",
+      "narration": "Clara entiende que no todos los avisos son buenos."
+    },
+    {
+      "order": 5,
+      "visualPrompt": "La repostera cierra la pastelería de noche y apaga la última luz del obrador.",
+      "narration": "Esa noche decide no volver a preguntar al azúcar."
+    }
+  ]
+}

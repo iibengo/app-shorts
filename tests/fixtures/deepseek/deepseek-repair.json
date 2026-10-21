@@ -1,0 +1,31 @@
+{
+  "title": "Reparación válida",
+  "logline": "El segundo intento del director devuelve un plan correcto.",
+  "beats": [
+    {
+      "order": 1,
+      "visualPrompt": "Una cocina pequeña se ilumina con la primera luz de la mañana.",
+      "narration": "La casa despierta antes que sus dueños."
+    },
+    {
+      "order": 2,
+      "visualPrompt": "Una taza humeante espera sobre una mesa de madera desgastada.",
+      "narration": "Alguien preparó el desayuno sin hacer ruido."
+    },
+    {
+      "order": 3,
+      "visualPrompt": "Una nota manuscrita descansa junto a la taza y una llave vieja.",
+      "narration": "La nota solo dice que la llave abre el jardín."
+    },
+    {
+      "order": 4,
+      "visualPrompt": "Una puerta de cristal se abre hacia un jardín cubierto de niebla.",
+      "narration": "Al otro lado, la niebla guarda una sorpresa."
+    },
+    {
+      "order": 5,
+      "visualPrompt": "Una figura querida espera sentada entre las flores del jardín.",
+      "narration": "El reencuentro ocurre sin una sola palabra."
+    }
+  ]
+}

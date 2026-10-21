@@ -1,0 +1,36 @@
+{
+  "title": "La casa que respira",
+  "logline": "Una familia descubre que su nueva casa cambia de habitaciones cada noche.",
+  "beats": [
+    {
+      "order": 1,
+      "visualPrompt": "Una familia descarga cajas frente a una casa antigua al borde del bosque.",
+      "narration": "La casa lleva vacía treinta años y huele a lluvia."
+    },
+    {
+      "order": 2,
+      "visualPrompt": "La hija pequeña recorre un pasillo que antes no existía en los planos.",
+      "narration": "Esa noche aparece un pasillo que nadie había visto."
+    },
+    {
+      "order": 3,
+      "visualPrompt": "El padre dibuja los planos de la planta mientras las paredes parecen moverse.",
+      "narration": "Cada mañana el plano tiene una puerta nueva."
+    },
+    {
+      "order": 4,
+      "visualPrompt": "La madre encuentra una habitación llena de muebles cubiertos con sábanas.",
+      "narration": "Detrás de una puerta esperan muebles de otra época."
+    },
+    {
+      "order": 5,
+      "visualPrompt": "La familia se reúne en el salón con linternas y el plano sobre la mesa.",
+      "narration": "Deciden pasar una noche despiertos para entenderla."
+    },
+    {
+      "order": 6,
+      "visualPrompt": "Al amanecer la casa amanece quieta y la familia duerme en el jardín.",
+      "narration": "La casa deja de moverse cuando todos duermen fuera."
+    }
+  ]
+}
