@@ -4,33 +4,128 @@
   "beats": [
     {
       "order": 1,
+      "sceneRole": "establishing",
       "visualPrompt": "Una familia descarga cajas frente a una casa antigua al borde del bosque.",
-      "narration": "La casa lleva vacía treinta años y huele a lluvia."
+      "narration": "La casa lleva vacía treinta años y huele a lluvia.",
+      "characters": [
+        "lucia"
+      ],
+      "props": [
+        "linterna"
+      ],
+      "camera": "wide",
+      "continuityFromPrevious": null,
+      "transition": "cut"
     },
     {
       "order": 2,
+      "sceneRole": "development",
       "visualPrompt": "La hija pequeña recorre un pasillo que antes no existía en los planos.",
-      "narration": "Esa noche aparece un pasillo que nadie había visto."
+      "narration": "Esa noche aparece un pasillo que nadie había visto.",
+      "characters": [
+        "lucia"
+      ],
+      "props": [
+        "linterna"
+      ],
+      "camera": "medium",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     },
     {
       "order": 3,
+      "sceneRole": "escalation",
       "visualPrompt": "El padre dibuja los planos de la planta mientras las paredes parecen moverse.",
-      "narration": "Cada mañana el plano tiene una puerta nueva."
+      "narration": "Cada mañana el plano tiene una puerta nueva.",
+      "characters": [
+        "lucia"
+      ],
+      "props": [
+        "linterna"
+      ],
+      "camera": "close-up",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     },
     {
       "order": 4,
+      "sceneRole": "climax",
       "visualPrompt": "La madre encuentra una habitación llena de muebles cubiertos con sábanas.",
-      "narration": "Detrás de una puerta esperan muebles de otra época."
+      "narration": "Detrás de una puerta esperan muebles de otra época.",
+      "characters": [
+        "lucia"
+      ],
+      "props": [
+        "linterna"
+      ],
+      "camera": "tracking",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     },
     {
       "order": 5,
+      "sceneRole": "development",
       "visualPrompt": "La familia se reúne en el salón con linternas y el plano sobre la mesa.",
-      "narration": "Deciden pasar una noche despiertos para entenderla."
+      "narration": "Deciden pasar una noche despiertos para entenderla.",
+      "characters": [
+        "lucia"
+      ],
+      "props": [
+        "linterna"
+      ],
+      "camera": "detail",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     },
     {
       "order": 6,
+      "sceneRole": "resolution",
       "visualPrompt": "Al amanecer la casa amanece quieta y la familia duerme en el jardín.",
-      "narration": "La casa deja de moverse cuando todos duermen fuera."
+      "narration": "La casa deja de moverse cuando todos duermen fuera.",
+      "characters": [
+        "lucia"
+      ],
+      "props": [
+        "linterna"
+      ],
+      "camera": "high-angle",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     }
-  ]
+  ],
+  "storyBible": {
+    "style": "animación 3D cartoon, paleta fría y texturas de madera, sin grano",
+    "location": {
+      "name": "Casa del bosque",
+      "description": "Casa antigua de madera rodeada de pinos y niebla baja."
+    },
+    "timeOfDay": "night",
+    "weather": "fog",
+    "leadCharacterId": "lucia",
+    "signaturePropId": "linterna",
+    "characters": [
+      {
+        "id": "lucia",
+        "name": "Lucía",
+        "description": "Niña curiosa de trenza castaña que explora la casa.",
+        "wardrobe": "Pijama verde y zapatillas grises."
+      }
+    ],
+    "props": [
+      {
+        "id": "linterna",
+        "name": "Linterna",
+        "description": "Linterna amarilla con la carcasa rayada."
+      }
+    ],
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "tormenta",
+      "texto"
+    ],
+    "continuityRules": [
+      "La linterna amarilla acompaña a Lucía en todas las escenas."
+    ]
+  }
 }

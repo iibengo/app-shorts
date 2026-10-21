@@ -1,4 +1,5 @@
 import {
+  STORY_CAMERA_LABELS,
   STORY_MAX_IMAGE_BYTES,
   STORY_MAX_NARRATION_LENGTH,
   STORY_MAX_PREMISE_LENGTH,
@@ -8,18 +9,30 @@ import {
   STORY_MIN_VISUAL_PROMPT_LENGTH,
   STORY_POLL_AFTER_MS,
   STORY_PRESETS,
+  STORY_QC_ISSUE_COPY,
   STORY_SCENE_DURATION_SECONDS,
+  STORY_SCENE_ROLE_LABELS,
   STORY_TERMINAL_STATUSES,
+  STORY_TIME_OF_DAY_LABELS,
+  STORY_WEATHER_LABELS,
   type StoryStepId,
 } from '~/data/story'
 import type {
   SceneStatus,
+  StoryBible,
+  StoryBeat,
+  StoryCameraShot,
   StoryImageMimeType,
   StoryJobError,
   StoryModelId,
+  StoryPlan,
   StoryPreset,
+  StoryQCIssueCode,
   StoryScene,
   StorySceneCount,
+  StorySceneRole,
+  StoryTimeOfDay,
+  StoryWeather,
   StoryStatus,
 } from '~/models/story'
 
@@ -188,7 +201,12 @@ export function isStoryTerminal(status: StoryStatus): boolean {
 export function storyStepForStatus(status: StoryStatus): StoryStepId {
   if (status === 'GENERATING_KEYFRAMES') return 'images'
   if (status === 'WAITING_APPROVAL') return 'images'
-  if (status === 'GENERATING_VIDEOS' || status === 'VIDEOS_READY') return 'videos'
+  if (
+    status === 'GENERATING_VIDEOS'
+    || status === 'VIDEOS_READY'
+    || status === 'QC'
+    || status === 'WAITING_QC'
+  ) return 'videos'
   if (status === 'READY') return 'result'
 
   return 'plan'
@@ -272,4 +290,85 @@ export function preferredPollDelay(pollAfterMs: number | undefined): number {
   const value = typeof pollAfterMs === 'number' ? pollAfterMs : STORY_POLL_AFTER_MS
 
   return Math.min(10_000, Math.max(1_000, Math.trunc(value)))
+}
+
+export function storyTimeOfDayLabel(value: StoryTimeOfDay): string {
+  return STORY_TIME_OF_DAY_LABELS[value]
+}
+
+export function storyWeatherLabel(value: StoryWeather): string {
+  return STORY_WEATHER_LABELS[value]
+}
+
+export function storyCameraLabel(value: StoryCameraShot): string {
+  return STORY_CAMERA_LABELS[value]
+}
+
+export function storySceneRoleLabel(value: StorySceneRole): string {
+  return STORY_SCENE_ROLE_LABELS[value]
+}
+
+export function storyQcIssueCopy(code: StoryQCIssueCode): string {
+  return STORY_QC_ISSUE_COPY[code]
+}
+
+export function storyBeatForScene(
+  plan: StoryPlan | null,
+  order: number,
+): StoryBeat | null {
+  return plan?.beats.find((beat) => beat.order === order) ?? null
+}
+
+export function storyCharacterLabel(bible: StoryBible, id: string): string | null {
+  const character = bible.characters.find((item) => item.id === id)
+
+  return character ? `${character.name} · ${character.wardrobe}` : null
+}
+
+export function storyPropLabel(bible: StoryBible, id: string): string | null {
+  const prop = bible.props.find((item) => item.id === id)
+
+  return prop ? `${prop.name} · ${prop.description}` : null
+}
+
+export function storySceneCharacterNames(
+  bible: StoryBible | null,
+  beat: StoryBeat | null,
+): readonly string[] {
+  if (!bible || !beat) return []
+
+  return beat.characters
+    .map((id) => bible.characters.find((character) => character.id === id)?.name)
+    .filter((name): name is string => typeof name === 'string')
+}
+
+export function storyScenePropNames(
+  bible: StoryBible | null,
+  beat: StoryBeat | null,
+): readonly string[] {
+  if (!bible || !beat) return []
+
+  return beat.props
+    .map((id) => bible.props.find((prop) => prop.id === id)?.name)
+    .filter((name): name is string => typeof name === 'string')
+}
+
+export function storyQcBlockingCount(
+  issues: readonly { readonly severity: string }[],
+): number {
+  return issues.filter((issue) => issue.severity === 'blocking').length
+}
+
+export function storyQcWarningCount(
+  issues: readonly { readonly severity: string }[],
+): number {
+  return issues.filter((issue) => issue.severity === 'warning').length
+}
+
+export function canRetryQcVideo(scene: StoryScene): boolean {
+  return scene.status === 'VIDEO_FAILED' && scene.videoAttempts < 2
+}
+
+export function canRecoverQcScene(scene: StoryScene): boolean {
+  return scene.status === 'VIDEO_READY' && scene.keyframeAttempts < 2
 }

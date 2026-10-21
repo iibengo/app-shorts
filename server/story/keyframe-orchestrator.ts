@@ -4,6 +4,15 @@ import { FluxKontextAdapter } from '../fal/adapters/flux-kontext-adapter'
 import type { KeyframeAdapter } from '../fal/adapters/types'
 import { StoryError, toStoryError } from './errors'
 import type { SceneRecord, StoryRecord } from './repository'
+import {
+  storyBeatForScene,
+  storyPromptComposer,
+} from './story-prompt-composer'
+
+export {
+  storyKeyframeFluxPrompt,
+  storyKeyframeKontextPrompt,
+} from './story-prompt-composer'
 
 export interface ProviderSubmission {
   readonly requestId: string
@@ -22,14 +31,6 @@ export interface KeyframeOrchestrator {
   cancel(scene: SceneRecord): Promise<void>
 }
 
-export function storyKeyframeFluxPrompt(visualPrompt: string): string {
-  return `Cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Single clear subject, natural lighting, photorealistic, no text, no watermark, no logo.`
-}
-
-export function storyKeyframeKontextPrompt(visualPrompt: string): string {
-  return `Using the reference image as the visual anchor, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Preserve subject identity, clothing and color palette. No text, no watermark, no logo.`
-}
-
 export class NativeKeyframeOrchestrator implements KeyframeOrchestrator {
   private readonly queue: FalQueueService
   private readonly flux: KeyframeAdapter
@@ -43,15 +44,26 @@ export class NativeKeyframeOrchestrator implements KeyframeOrchestrator {
 
   async submit(scene: SceneRecord, story: StoryRecord): Promise<ProviderSubmission> {
     const adapter = this.selectAdapter(story)
-    const prompt = story.referenceUrl
-      ? storyKeyframeKontextPrompt(scene.visualPrompt)
-      : storyKeyframeFluxPrompt(scene.visualPrompt)
+    const beat = storyBeatForScene(
+      story.plan,
+      {
+        order: scene.order,
+        visualPrompt: scene.visualPrompt,
+        narration: scene.narration,
+      },
+      story.scenes.length,
+    )
+    const composed = storyPromptComposer.composeKeyframe({
+      bible: story.plan?.storyBible ?? null,
+      beat,
+      hasReference: story.referenceUrl !== null,
+    })
 
     try {
       const submission = await this.queue.submit(
         adapter.modelId,
         adapter.buildInput({
-          prompt,
+          prompt: composed.prompt,
           referenceUrl: story.referenceUrl,
         }),
       )

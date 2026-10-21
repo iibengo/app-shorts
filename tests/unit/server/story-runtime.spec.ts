@@ -90,8 +90,35 @@ describe('createStoryRuntime configuration', () => {
     expect(runtime.assembler).not.toBeNull()
   })
 
-  it('applies the story configuration with safe numeric fallbacks', () => {
+  it('reads the QC configuration defaults and overrides', () => {
     vi.stubEnv('DATABASE_URL', '')
+
+    const disabled = createStoryRuntime({
+      falKey: FAL_KEY,
+      deepseekKey: DEEPSEEK_KEY,
+      story: {},
+    })
+
+    expect(disabled.qcEnabled).toBe(false)
+    expect(disabled.qcMinConfidence).toBe(0.7)
+    expect(disabled.costQcUsd).toBe(0.02)
+
+    const enabled = createStoryRuntime({
+      falKey: FAL_KEY,
+      deepseekKey: DEEPSEEK_KEY,
+      story: {
+        qcEnabled: true,
+        qcMinConfidence: 0.55,
+        costQcUsd: 0.03,
+      },
+    })
+
+    expect(enabled.qcEnabled).toBe(true)
+    expect(enabled.qcMinConfidence).toBe(0.55)
+    expect(enabled.costQcUsd).toBe(0.03)
+  })
+
+  it('applies the story configuration with safe numeric fallbacks', () => {    vi.stubEnv('DATABASE_URL', '')
 
     const runtime = createStoryRuntime({
       falKey: FAL_KEY,

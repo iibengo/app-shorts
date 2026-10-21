@@ -1,8 +1,14 @@
 import type {
+  StoryCameraShot,
   StoryImageMimeType,
   StoryPreset,
+  StoryQCIssueCode,
+  StoryQCSeverity,
   StorySceneCount,
+  StorySceneRole,
   StoryStatus,
+  StoryTimeOfDay,
+  StoryWeather,
 } from '~/models/story'
 
 export const STORY_MIN_PREMISE_LENGTH = 10
@@ -89,7 +95,91 @@ export const STORY_TERMINAL_STATUSES: readonly StoryStatus[] = [
   'READY',
   'FAILED',
   'CANCELLED',
+  'WAITING_QC',
 ]
+
+export const STORY_TIME_OF_DAY_LABELS: Readonly<Record<StoryTimeOfDay, string>> = {
+  dawn: 'Amanecer',
+  morning: 'Mañana',
+  noon: 'Mediodía',
+  afternoon: 'Tarde',
+  'golden-hour': 'Hora dorada',
+  dusk: 'Atardecer',
+  night: 'Noche',
+}
+
+export const STORY_WEATHER_LABELS: Readonly<Record<StoryWeather, string>> = {
+  clear: 'Despejado',
+  cloudy: 'Nublado',
+  overcast: 'Cubierto',
+  'light-rain': 'Llovizna',
+  rain: 'Lluvia',
+  storm: 'Tormenta',
+  snow: 'Nieve',
+  fog: 'Niebla',
+  windy: 'Viento',
+}
+
+export const STORY_CAMERA_LABELS: Readonly<Record<StoryCameraShot, string>> = {
+  wide: 'Plano general',
+  medium: 'Plano medio',
+  'close-up': 'Primer plano',
+  'low-angle': 'Contrapicado',
+  'high-angle': 'Picado',
+  tracking: 'Travelling',
+  'over-the-shoulder': 'Plano sobre el hombro',
+  detail: 'Detalle',
+}
+
+export const STORY_SCENE_ROLE_LABELS: Readonly<Record<StorySceneRole, string>> = {
+  establishing: 'Presentación',
+  development: 'Desarrollo',
+  escalation: 'Ascenso',
+  climax: 'Clímax',
+  resolution: 'Resolución',
+}
+
+export const STORY_QC_ISSUE_COPY: Readonly<Record<StoryQCIssueCode, string>> = {
+  'missing-lead-character': 'El personaje principal no aparece en esta escena.',
+  'missing-character': 'Falta un personaje que debería aparecer.',
+  'extra-character': 'Aparece un personaje que no está en la historia.',
+  'wrong-wardrobe': 'La ropa de un personaje no coincide con la historia.',
+  'missing-prop': 'Falta un objeto importante de la escena.',
+  'wrong-prop': 'Aparece un objeto o vehículo que no corresponde.',
+  'wrong-location': 'La localización no coincide con la historia.',
+  'wrong-weather': 'El clima no coincide con la historia.',
+  'wrong-time-of-day': 'La hora del día no coincide con la historia.',
+  'continuity-break': 'La escena no continúa de forma coherente con la anterior.',
+  'text-or-watermark': 'Hay texto, logotipo o marca de agua en la imagen.',
+  'visual-artifact': 'Hay artefactos visuales en la imagen.',
+  'frames-unavailable': 'No se pudieron extraer los fotogramas de esta escena.',
+  'technical-duration': 'El clip no dura 6 segundos.',
+  'technical-streams': 'El clip tiene audio o pistas no permitidas.',
+  'technical-aspect': 'El clip no es vertical 9:16.',
+  'technical-resolution': 'La resolución del clip es demasiado baja.',
+}
+
+export const STORY_QC_SEVERITY_LABELS: Readonly<Record<StoryQCSeverity, string>> = {
+  blocking: 'Problema',
+  warning: 'Aviso',
+}
+
+export const STORY_BIBLE_LABELS = {
+  summary: 'Continuidad de la historia',
+  style: 'Estilo visual',
+  location: 'Localización',
+  time: 'Hora',
+  weather: 'Clima',
+  characters: 'Personajes',
+  props: 'Objetos',
+  forbidden: 'No debe aparecer',
+  sceneCharacters: 'Personajes',
+  sceneProps: 'Objetos',
+  sceneCamera: 'Cámara',
+  sceneContinuity: 'Continuidad',
+  noProps: 'Sin objetos',
+  firstScene: 'Abre la historia',
+} as const
 
 export const STORY_COPY = {
   brand: 'AI Shorts',
@@ -117,7 +207,7 @@ export const STORY_COPY = {
   referenceReady: 'Imagen lista.',
   referenceRetry: 'Reintentar subida',
   privacy:
-    'Tu premisa se envía a DeepSeek para escribir el guion y a Fal para generar las imágenes y los vídeos. AI Shorts guarda la historia 24 horas para que puedas volver a ella desde este navegador. La imagen de referencia se elimina de Fal en 1 hora.',
+    'Tu premisa se envía a DeepSeek para escribir el guion. Fal genera las imágenes y los vídeos, y DeepSeek revisa fotogramas de los clips para comprobar la continuidad. AI Shorts guarda la historia 24 horas para que puedas volver a ella desde este navegador. La imagen de referencia se elimina de Fal en 1 hora.',
   create: 'Crear historia',
   planning: 'Escribiendo el guion',
   planningNote: 'La IA está preparando las escenas. Puede tardar unos segundos.',
@@ -143,6 +233,32 @@ export const STORY_COPY = {
   assemblyStepUpload: 'Subiendo el resultado',
   assemblyNote:
     'Estamos uniendo las escenas con cortes secos. Sin música, voz ni texto en pantalla.',
+  qcProgressTitle: 'Revisando la continuidad',
+  qcProgressNote:
+    'Comprobamos que cada escena mantiene a los mismos personajes, la ropa, los objetos, la hora y el clima.',
+  qcTitle: 'Revisa la continuidad',
+  qcIntro:
+    'Estas son las escenas de tu historia. Puedes reintentar una escena, regenerar su imagen y su vídeo, aprobar de todos modos o cancelar.',
+  qcVerdictProblems: 'Hemos encontrado {n} problemas de continuidad.',
+  qcVerdictWarnings: 'Hemos encontrado {n} avisos de continuidad.',
+  qcVerdictNone: 'No hemos encontrado problemas de continuidad.',
+  qcVerdictUnavailable: 'La revisión automática no está disponible.',
+  qcVerdictNeedsReview: 'No hemos podido confirmar la continuidad con suficiente confianza.',
+  qcRetryBlocked:
+    'No se puede volver a revisar mientras una escena tenga el vídeo roto.',
+  qcUnavailable:
+    'La revisión automática no está disponible. Revisa las escenas antes de continuar.',
+  qcFramesMissing: 'Fotogramas no disponibles.',
+  qcFramesAlt: 'Fotogramas de la escena {n}: inicio, medio y final',
+  qcOverrideWarning:
+    'Al aprobar de todos modos, la historia puede mantener los problemas detectados.',
+  qcOverrideConfirm: 'Entiendo que el vídeo puede tener errores de continuidad.',
+  qcOverride: 'Aprobar de todos modos',
+  qcRetry: 'Volver a revisar',
+  qcRecover: 'Regenerar imagen y vídeo',
+  qcRecoverVideo: 'Reintentar vídeo',
+  qcRetryLimit: 'No quedan reintentos para esta escena.',
+  resultManualReview: 'Continuidad revisada manualmente.',
   cancel: 'Cancelar historia',
   cancelled: 'Historia cancelada.',
   failedTitle: 'No se pudo completar la historia',

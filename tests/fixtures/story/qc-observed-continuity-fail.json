@@ -1,0 +1,14 @@
+{
+  "characters": ["bart"],
+  "wardrobeMismatch": ["bart"],
+  "unknownCharacters": true,
+  "props": [],
+  "unknownProps": true,
+  "locationMatches": true,
+  "weatherMatches": false,
+  "timeOfDayMatches": false,
+  "continuityMatches": false,
+  "textOrWatermark": false,
+  "artifacts": false,
+  "confidence": 0.62
+}

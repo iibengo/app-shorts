@@ -40,7 +40,7 @@ describe('StoryCreateForm', () => {
       'Máximo 600 caracteres.',
     )
     expect(wrapper.get('[data-testid="story-privacy"]').text()).toContain(
-      'Tu premisa se envía a DeepSeek para escribir el guion y a Fal para generar las imágenes y los vídeos.',
+      'DeepSeek revisa fotogramas de los clips para comprobar la continuidad.',
     )
     expect(normalize(wrapper.get('[data-testid="story-create"]').text())).toBe('Crear historia')
   })

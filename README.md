@@ -146,8 +146,40 @@ Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reu
 - Fase 0 de Spec 005 completada: `server/fal/` y `server/shared/` extraídos con shims de compatibilidad en `server/composer/`.
 - Spec 005 implementada: Story Composer con `/story`, `/story/[id]`, reconciliador con leases, FFmpeg y persistencia PostgreSQL.
 - Prisma 7 + PostgreSQL preparados: `prisma/schema.prisma` con `Story`/`Scene`, Docker local y migración inicial aplicada.
-- Suite automatizada: **1505 tests en verde** (7 skips opt-in); los 613 tests de 004 siguen intactos.
+- Spec 006 implementada: Story Bible, continuidad en prompts, QC de fotogramas y estados `QC`/`WAITING_QC`.
+- Suite automatizada: **1799 tests en verde** (8 skips opt-in, 117 archivos); los 613 tests de 004 siguen intactos.
 - Build Node/Nitro correcto.
 - Smoke real de Fal opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
 - Pendiente de QA manual de accesibilidad/navegador y validación de CORS/lifecycle reales en el entorno de despliegue.
 - Pendiente de ampliar las guardas estáticas a `server/fal/**` y `server/shared/**` en Spec 005.
+
+## Spec 006 — Continuidad de historias
+
+La Spec 006 añade una Story Bible al director, propaga un bloque global idéntico a keyframes y vídeos, y ejecuta un QC de fotogramas antes del montaje.
+
+- Estados nuevos de `StoryStatus`: `QC` (QC en curso) y `WAITING_QC` (revisión humana).
+- Columnas nuevas en `Story`: `qcJson` (`JSONB`, nullable) y `qcCheckedAt` (`TIMESTAMP(3)`, nullable). Sin backfill; las filas de 005 siguen válidas.
+- Migración: `prisma/migrations/20261021221044_story_qc/migration.sql`.
+- La historia no llega a `ASSEMBLING` sin `qc.status = PASSED` o `qc.override.approved = true`.
+- Si DeepSeek Vision no está configurado, falla o devuelve JSON inválido dos veces, el QC queda `UNAVAILABLE` y la persona revisa manualmente. Nunca se inventa un `PASSED`.
+- Los strips de QC (JPEG) se suben a Fal con prefijo `story-qc-` y lifecycle de 24 h.
+
+### Variables de QC
+
+| Variable | Default | Uso |
+|----------|---------|-----|
+| `NUXT_STORY_COST_QC_USD` | `0.02` | Coste estimado por evaluación de visión y escena. |
+| `NUXT_STORY_QC_ENABLED` | `false` | Interruptor del QC con visión. Desactivado por defecto hasta cerrar G1/G2. |
+| `NUXT_STORY_QC_TIMEOUT_MS` | `240000` | Presupuesto total del QC por historia. |
+| `NUXT_STORY_QC_LEASE_MS` | `300000` | Lease de la fase `QC`. |
+| `NUXT_STORY_QC_CONCURRENCY` | `1` | Historias en QC por instancia. |
+| `NUXT_STORY_QC_MIN_CONFIDENCE` | `0.7` | Umbral de confianza para `PASSED`. |
+| `NUXT_STORY_QC_RETRY_LIMIT` | `3` | `qc/retry` por hora y por historia. |
+| `NUXT_STORY_QC_RETRY_WINDOW_MS` | `3600000` | Ventana de `qc/retry`. |
+| `NUXT_STORY_QC_MODEL` | `deepseek-flash` | Modelo fijo, allowlist server-side. |
+
+La evaluación es **secuencial** por la dependencia de la observación anterior (`previous`). No se promete concurrencia de evaluación: por eso no se expone `NUXT_STORY_QC_EVAL_CONCURRENCY`.
+
+El QC con visión queda desactivado por defecto (`NUXT_STORY_QC_ENABLED=false`) hasta cerrar los gates G1/G2. El QC técnico y la revisión manual siguen disponibles.
+
+Los smokes de visión (`RUN_STORY_QC_VISION_SMOKE=1`) y de FFmpeg (`RUN_FFMPEG_SMOKE=1`) son opt-in y nunca se ejecutan en CI.

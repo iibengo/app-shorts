@@ -2,13 +2,22 @@
 import { computed, ref, watch } from 'vue'
 import AppButton from '~/components/ui/AppButton.vue'
 import {
+  STORY_BIBLE_LABELS,
   STORY_COPY,
   STORY_MAX_VISUAL_PROMPT_LENGTH,
 } from '~/data/story'
-import type { StoryBeatUpdateRequest, StoryScene } from '~/models/story'
+import type {
+  StoryBeat,
+  StoryBible,
+  StoryBeatUpdateRequest,
+  StoryScene,
+} from '~/models/story'
 import {
   canRegenerateKeyframe,
   storyAttemptLabel,
+  storyCameraLabel,
+  storySceneCharacterNames,
+  storyScenePropNames,
   storySceneTitle,
   validateStoryVisualPrompt,
 } from '~/utils/story'
@@ -17,6 +26,8 @@ const props = defineProps<{
   scene: StoryScene
   total: number
   disabled: boolean
+  bible?: StoryBible | null
+  beat?: StoryBeat | null
 }>()
 
 const emit = defineEmits<{
@@ -34,6 +45,19 @@ const regenerateDisabled = computed(() => (
   props.disabled || isRegenerating.value || !canRegenerate.value
 ))
 const promptIssue = computed(() => validateStoryVisualPrompt(promptDraft.value))
+const characterNames = computed(() =>
+  storySceneCharacterNames(props.bible ?? null, props.beat ?? null),
+)
+const propNames = computed(() =>
+  storyScenePropNames(props.bible ?? null, props.beat ?? null),
+)
+const showBible = computed(() => Boolean(props.bible && props.beat))
+const continuityLabel = computed(() => (
+  props.beat?.continuityFromPrevious ?? STORY_BIBLE_LABELS.firstScene
+))
+const cameraLabel = computed(() =>
+  props.beat ? storyCameraLabel(props.beat.camera) : '',
+)
 
 watch(
   () => props.scene.visualPrompt,
@@ -128,6 +152,46 @@ defineExpose({ focusCard })
         rows="4"
         class="mt-1 w-full resize-y rounded-xl border border-white/15 bg-brand-ink px-3 py-2 text-base leading-relaxed text-brand-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-fuchsia focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface forced-colors:border forced-colors:border-[ButtonText]"
       />
+    </div>
+
+    <div
+      v-if="showBible"
+      data-testid="story-scene-bible"
+      class="mt-3 rounded-xl border border-white/10 bg-brand-ink p-3 text-sm"
+    >
+      <dl class="space-y-2">
+        <div data-testid="story-scene-characters">
+          <dt class="text-xs font-medium text-brand-muted">
+            {{ STORY_BIBLE_LABELS.sceneCharacters }}
+          </dt>
+          <dd class="mt-0.5 text-brand-text">
+            {{ characterNames.length > 0 ? characterNames.join(', ') : '—' }}
+          </dd>
+        </div>
+
+        <div data-testid="story-scene-props">
+          <dt class="text-xs font-medium text-brand-muted">
+            {{ STORY_BIBLE_LABELS.sceneProps }}
+          </dt>
+          <dd class="mt-0.5 text-brand-text">
+            {{ propNames.length > 0 ? propNames.join(', ') : STORY_BIBLE_LABELS.noProps }}
+          </dd>
+        </div>
+
+        <div data-testid="story-scene-camera">
+          <dt class="text-xs font-medium text-brand-muted">
+            {{ STORY_BIBLE_LABELS.sceneCamera }}
+          </dt>
+          <dd class="mt-0.5 text-brand-text">{{ cameraLabel }}</dd>
+        </div>
+
+        <div data-testid="story-scene-continuity">
+          <dt class="text-xs font-medium text-brand-muted">
+            {{ STORY_BIBLE_LABELS.sceneContinuity }}
+          </dt>
+          <dd class="mt-0.5 leading-relaxed text-brand-text">{{ continuityLabel }}</dd>
+        </div>
+      </dl>
     </div>
 
     <p

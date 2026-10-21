@@ -8,6 +8,7 @@ export interface StoryCostConfig {
   readonly keyframeReferenceCostUsd: number
   readonly videoFastCostUsd: number
   readonly videoQualityCostUsd: number
+  readonly qcUnitCostUsd: number
   readonly dailyBudgetUsd: number
 }
 
@@ -21,6 +22,9 @@ export interface StoryCostGuard {
   estimateAfterKeyframeAttempt(story: StoryRecord): number
   estimateAfterVideoAttempt(story: StoryRecord): number
   estimateVideosApproval(story: StoryRecord): number
+  estimateAfterQc(story: StoryRecord): number
+  recordQcEvaluations(storyId: string, count: number): void
+  forgetStory(storyId: string): void
   assertWithinBudget(costUsd: number): void
 }
 
@@ -31,6 +35,7 @@ export interface StoryCostConfigOptions {
   readonly keyframeReferenceCostUsd?: number
   readonly videoFastCostUsd?: number
   readonly videoQualityCostUsd?: number
+  readonly qcUnitCostUsd?: number
   readonly dailyBudgetUsd?: number
 }
 
@@ -41,6 +46,7 @@ export const DEFAULT_STORY_COST_CONFIG: StoryCostConfig = {
   keyframeReferenceCostUsd: 0.08,
   videoFastCostUsd: 0.35,
   videoQualityCostUsd: 0.7,
+  qcUnitCostUsd: 0.02,
   dailyBudgetUsd: 50,
 }
 
@@ -62,6 +68,7 @@ function roundUsd(value: number): number {
 
 export class NativeStoryCostGuard implements StoryCostGuard {
   private readonly config: StoryCostConfig
+  private readonly qcEvaluations = new Map<string, number>()
 
   constructor(config: StoryCostConfig = DEFAULT_STORY_COST_CONFIG) {
     this.config = config
@@ -80,11 +87,16 @@ export class NativeStoryCostGuard implements StoryCostGuard {
       (total, scene) => total + scene.videoAttempts,
       0,
     )
+    const qcUnits = Math.max(
+      this.qcEvaluations.get(story.id) ?? 0,
+      story.qc?.scenes.filter((scene) => scene.observed !== null).length ?? 0,
+    )
 
     return roundUsd(
       this.config.directorCostUsd
       + keyframeUnits * unitKeyframeCost(story, this.config)
-      + videoUnits * unitVideoCost(story, this.config),
+      + videoUnits * unitVideoCost(story, this.config)
+      + qcUnits * this.config.qcUnitCostUsd,
     )
   }
 
@@ -121,6 +133,31 @@ export class NativeStoryCostGuard implements StoryCostGuard {
     return roundUsd(this.estimate(story) + pending * unitVideoCost(story, this.config))
   }
 
+  estimateAfterQc(story: StoryRecord): number {
+    return roundUsd(
+      this.estimate(story) + story.scenes.length * this.config.qcUnitCostUsd,
+    )
+  }
+
+  recordQcEvaluations(storyId: string, count: number): void {
+    if (count <= 0) return
+
+    const next = (this.qcEvaluations.get(storyId) ?? 0) + count
+    this.qcEvaluations.set(storyId, next)
+
+    if (this.qcEvaluations.size > 5_000) {
+      const oldest = this.qcEvaluations.keys().next().value
+
+      if (oldest !== undefined) {
+        this.qcEvaluations.delete(oldest)
+      }
+    }
+  }
+
+  forgetStory(storyId: string): void {
+    this.qcEvaluations.delete(storyId)
+  }
+
   assertWithinBudget(costUsd: number): void {
     if (costUsd > this.config.maxStoryCostUsd) {
       throw new StoryError('story-budget-exhausted')
@@ -142,6 +179,8 @@ export function createStoryCostGuard(
       options.videoFastCostUsd ?? DEFAULT_STORY_COST_CONFIG.videoFastCostUsd,
     videoQualityCostUsd:
       options.videoQualityCostUsd ?? DEFAULT_STORY_COST_CONFIG.videoQualityCostUsd,
+    qcUnitCostUsd:
+      options.qcUnitCostUsd ?? DEFAULT_STORY_COST_CONFIG.qcUnitCostUsd,
     dailyBudgetUsd:
       options.dailyBudgetUsd ?? DEFAULT_STORY_COST_CONFIG.dailyBudgetUsd,
   })

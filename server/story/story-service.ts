@@ -62,6 +62,9 @@ export interface StoryService {
   approve(id: string, sessionId: string): Promise<StoryRecord>
   retryVideo(id: string, sessionId: string, sceneId: string): Promise<StoryRecord>
   requestAssembly(id: string, sessionId: string): Promise<StoryRecord>
+  retryQc(id: string, sessionId: string): Promise<StoryRecord>
+  approveQc(id: string, sessionId: string): Promise<StoryRecord>
+  recoverScene(id: string, sessionId: string, sceneId: string): Promise<StoryRecord>
   cancel(id: string, sessionId: string): Promise<StoryRecord>
 }
 
@@ -159,7 +162,12 @@ function storyErrorDto(story: StoryRecord): Story['error'] {
 }
 
 function pollAfterFor(status: StoryStatus, pollAfterMs: number): number {
-  if (status === 'READY' || status === 'FAILED' || status === 'CANCELLED') {
+  if (
+    status === 'READY'
+    || status === 'FAILED'
+    || status === 'CANCELLED'
+    || status === 'WAITING_QC'
+  ) {
     return 0
   }
 
@@ -171,6 +179,9 @@ export function toStoryDto(story: StoryRecord, pollAfterMs: number, now: number)
     story.referenceUrl !== null
     && story.referenceExpiresAt !== null
     && story.referenceExpiresAt.getTime() > now
+  const qcHidden =
+    (story.status === 'ASSEMBLING' || story.status === 'READY')
+    && story.qc?.override == null
 
   return {
     id: story.id,
@@ -202,6 +213,7 @@ export function toStoryDto(story: StoryRecord, pollAfterMs: number, now: number)
     expiresAt: story.expiresAt.toISOString(),
     version: story.version,
     error: storyErrorDto(story),
+    qc: qcHidden ? null : story.qc,
     pollAfterMs: pollAfterFor(story.status, pollAfterMs),
   }
 }
@@ -513,8 +525,9 @@ export class StoryServiceImpl implements StoryService {
     }
 
     const retryableFailure = story.status === 'FAILED' && story.errorCode === 'video-failed'
+    const qcRetry = story.status === 'WAITING_QC'
 
-    if (story.status !== 'GENERATING_VIDEOS' && !retryableFailure) {
+    if (story.status !== 'GENERATING_VIDEOS' && !retryableFailure && !qcRetry) {
       throw new StoryError('story-not-ready')
     }
 
@@ -530,11 +543,12 @@ export class StoryServiceImpl implements StoryService {
 
     const storyUpdated = await this.repository.updateStory(
       story.id,
-      { statuses: ['GENERATING_VIDEOS', 'FAILED'], version: story.version },
+      { statuses: ['GENERATING_VIDEOS', 'FAILED', 'WAITING_QC'], version: story.version },
       {
         status: 'GENERATING_VIDEOS',
         errorCode: null,
         errorMessage: null,
+        ...(qcRetry ? { qc: null, qcCheckedAt: null } : {}),
       },
     )
 
@@ -572,8 +586,17 @@ export class StoryServiceImpl implements StoryService {
   async requestAssembly(id: string, sessionId: string): Promise<StoryRecord> {
     const story = await this.findOwned(id, sessionId)
 
-    if (story.status === 'READY' || story.status === 'ASSEMBLING') {
+    if (
+      story.status === 'READY'
+      || story.status === 'ASSEMBLING'
+      || story.status === 'VIDEOS_READY'
+      || story.status === 'QC'
+    ) {
       return story
+    }
+
+    if (story.status === 'WAITING_QC') {
+      throw new StoryError('story-not-ready')
     }
 
     const retryableFailure =
@@ -584,7 +607,14 @@ export class StoryServiceImpl implements StoryService {
         || story.errorCode === 'ffmpeg-not-configured'
       )
 
-    if (story.status !== 'VIDEOS_READY' && !retryableFailure) {
+    if (!retryableFailure) {
+      throw new StoryError('story-not-ready')
+    }
+
+    const qcAllowsAssembly =
+      story.qc?.status === 'PASSED' || story.qc?.override?.approved === true
+
+    if (!qcAllowsAssembly) {
       throw new StoryError('story-not-ready')
     }
 
@@ -592,16 +622,9 @@ export class StoryServiceImpl implements StoryService {
       throw new StoryError('story-not-ready')
     }
 
-    const queue = await this.repository.countByStatus('VIDEOS_READY')
-    const waiting = story.status === 'VIDEOS_READY' ? queue - 1 : queue
-
-    if (waiting >= 2) {
-      throw new StoryError('assembly-busy', { retryAfterSeconds: 30 })
-    }
-
     const updated = await this.repository.updateStory(
       story.id,
-      { statuses: ['VIDEOS_READY', 'FAILED'], version: story.version },
+      { statuses: ['FAILED'], version: story.version },
       {
         status: 'VIDEOS_READY',
         errorCode: null,
@@ -614,6 +637,172 @@ export class StoryServiceImpl implements StoryService {
     }
 
     this.onEvent({ event: 'story.assembly.request', storyId: story.id })
+
+    return this.reload(story.id)
+  }
+
+  async retryQc(id: string, sessionId: string): Promise<StoryRecord> {
+    const story = await this.findOwned(id, sessionId)
+
+    if (story.status === 'VIDEOS_READY' || story.status === 'QC') {
+      return story
+    }
+
+    if (story.status !== 'WAITING_QC') {
+      throw new StoryError('story-not-ready')
+    }
+
+    if (!story.scenes.every((scene) => scene.status === 'VIDEO_READY')) {
+      throw new StoryError('story-not-ready')
+    }
+
+    this.rateLimiter.consumeCommand(sessionId)
+    this.rateLimiter.consumeQcRetry(story.id)
+
+    const updated = await this.repository.updateStory(
+      story.id,
+      { statuses: ['WAITING_QC'], version: story.version },
+      {
+        status: 'VIDEOS_READY',
+        qc: null,
+        qcCheckedAt: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    )
+
+    if (updated === 0) {
+      throw new StoryError('story-not-ready')
+    }
+
+    this.onEvent({ event: 'story.qc.retry', storyId: story.id })
+
+    return this.reload(story.id)
+  }
+
+  async approveQc(id: string, sessionId: string): Promise<StoryRecord> {
+    const story = await this.findOwned(id, sessionId)
+
+    if (
+      (story.status === 'ASSEMBLING' || story.status === 'READY')
+      && story.qc?.override?.approved === true
+    ) {
+      return story
+    }
+
+    if (story.status !== 'WAITING_QC' || story.qc === null) {
+      throw new StoryError('story-not-ready')
+    }
+
+    if (!story.scenes.every((scene) => scene.status === 'VIDEO_READY')) {
+      throw new StoryError('story-not-ready')
+    }
+
+    const override = {
+      at: new Date(this.now()).toISOString(),
+      approved: true as const,
+    }
+    const updated = await this.repository.updateStory(
+      story.id,
+      { statuses: ['WAITING_QC'], version: story.version },
+      {
+        status: 'ASSEMBLING',
+        qc: { ...story.qc, override },
+        qcCheckedAt: story.qcCheckedAt,
+        errorCode: null,
+        errorMessage: null,
+      },
+    )
+
+    if (updated === 0) {
+      const current = await this.findOwned(id, sessionId)
+
+      if (
+        (current.status === 'ASSEMBLING' || current.status === 'READY')
+        && current.qc?.override?.approved === true
+      ) {
+        return current
+      }
+
+      throw new StoryError('story-not-ready')
+    }
+
+    this.onEvent({ event: 'story.qc.override', storyId: story.id })
+
+    return this.reload(story.id)
+  }
+
+  async recoverScene(
+    id: string,
+    sessionId: string,
+    sceneId: string,
+  ): Promise<StoryRecord> {
+    const story = await this.findOwned(id, sessionId)
+    const scene = story.scenes.find((item) => item.id === sceneId)
+
+    if (!scene) {
+      throw new StoryError('beat-not-found')
+    }
+
+    if (scene.status !== 'VIDEO_READY') {
+      throw new StoryError('scene-not-ready')
+    }
+
+    if (story.status !== 'WAITING_QC') {
+      throw new StoryError('story-not-ready')
+    }
+
+    if (scene.keyframeAttempts >= 2) {
+      throw new StoryError('keyframe-limit-reached')
+    }
+
+    this.costGuard.assertWithinBudget(this.costGuard.estimateAfterKeyframeAttempt(story))
+
+    const storyUpdated = await this.repository.updateStory(
+      story.id,
+      { statuses: ['WAITING_QC'], version: story.version },
+      {
+        status: 'GENERATING_KEYFRAMES',
+        qc: null,
+        qcCheckedAt: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    )
+
+    if (storyUpdated === 0) {
+      throw new StoryError('story-not-ready')
+    }
+
+    const sceneUpdated = await this.repository.updateScene(
+      story.id,
+      scene.id,
+      { statuses: ['VIDEO_READY'] },
+      {
+        status: 'KEYFRAME_QUEUED',
+        videoUrl: null,
+        videoRequestId: null,
+        videoStatusUrl: null,
+        videoResponseUrl: null,
+        videoCancelUrl: null,
+        videoError: null,
+        keyframeRequestId: null,
+        keyframeStatusUrl: null,
+        keyframeResponseUrl: null,
+        keyframeCancelUrl: null,
+        keyframeError: null,
+      },
+    )
+
+    if (sceneUpdated === 0) {
+      throw new StoryError('scene-not-ready')
+    }
+
+    this.onEvent({
+      event: 'story.qc.recover',
+      storyId: story.id,
+      sceneOrder: scene.order,
+    })
 
     return this.reload(story.id)
   }
@@ -639,6 +828,19 @@ export class StoryServiceImpl implements StoryService {
       }
 
       throw new StoryError('cancel-failed')
+    }
+
+    if (story.status === 'WAITING_QC') {
+      for (const scene of story.scenes) {
+        if (scene.status === 'CANCELLED') continue
+
+        await this.repository.updateScene(
+          story.id,
+          scene.id,
+          { statuses: [scene.status] },
+          { status: 'CANCELLED' },
+        )
+      }
     }
 
     await this.cancelProviderJobs(story)

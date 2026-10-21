@@ -130,6 +130,35 @@ describe('POST /api/story/[id]/beats/[beatId]/retry success', () => {
     expect((response.body as { status: string }).status).toBe('GENERATING_VIDEOS')
     expect(repository.find(story.id)?.errorCode).toBeNull()
   })
+
+  it('accepts WAITING_QC with a failed scene and clears the QC report', async () => {
+    const base = videoStory({ status: 'WAITING_QC' })
+    const story = {
+      ...base,
+      qc: {
+        status: 'FAILED' as const,
+        errorCode: null,
+        evaluator: 'vision' as const,
+        checkedAt: new Date().toISOString(),
+        confidence: 0.5,
+        scenes: [],
+        issues: [],
+        override: null,
+      },
+      qcCheckedAt: new Date(),
+    }
+    const { post, repository } = setup(story)
+
+    const response = await post()
+
+    expect(response.status).toBe(202)
+    expect((response.body as { status: string }).status).toBe('GENERATING_VIDEOS')
+    expect(repository.find(story.id)).toMatchObject({
+      status: 'GENERATING_VIDEOS',
+      qc: null,
+      qcCheckedAt: null,
+    })
+  })
 })
 
 describe('POST /api/story/[id]/beats/[beatId]/retry guards', () => {

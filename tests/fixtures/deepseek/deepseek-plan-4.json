@@ -4,23 +4,99 @@
   "beats": [
     {
       "order": 1,
+      "sceneRole": "establishing",
       "visualPrompt": "Una joven espera sola en el andén de una estación vacía al anochecer.",
-      "narration": "El reloj marca las once y el andén está desierto."
+      "narration": "El reloj marca las once y el andén está desierto.",
+      "characters": [
+        "viajera"
+      ],
+      "props": [
+        "maleta"
+      ],
+      "camera": "wide",
+      "continuityFromPrevious": null,
+      "transition": "cut"
     },
     {
       "order": 2,
+      "sceneRole": "development",
       "visualPrompt": "El tren pasa sin detenerse y deja una maleta olvidada sobre el banco.",
-      "narration": "Un vagón iluminado cruza y algo queda atrás."
+      "narration": "Un vagón iluminado cruza y algo queda atrás.",
+      "characters": [
+        "viajera"
+      ],
+      "props": [
+        "maleta"
+      ],
+      "camera": "medium",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     },
     {
       "order": 3,
+      "sceneRole": "climax",
       "visualPrompt": "La joven abre la maleta y encuentra fotografías de su propia infancia.",
-      "narration": "Dentro hay fotos que solo ella podría recordar."
+      "narration": "Dentro hay fotos que solo ella podría recordar.",
+      "characters": [
+        "viajera"
+      ],
+      "props": [
+        "maleta"
+      ],
+      "camera": "close-up",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     },
     {
       "order": 4,
+      "sceneRole": "resolution",
       "visualPrompt": "Amanece mientras la joven sonríe con las fotografías en las manos.",
-      "narration": "Cuando sale el sol, ya sabe a dónde ir."
+      "narration": "Cuando sale el sol, ya sabe a dónde ir.",
+      "characters": [
+        "viajera"
+      ],
+      "props": [
+        "maleta"
+      ],
+      "camera": "tracking",
+      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "transition": "cut"
     }
-  ]
+  ],
+  "storyBible": {
+    "style": "animación 3D cartoon, tonos azules y violetas, sin grano",
+    "location": {
+      "name": "Estación de tren",
+      "description": "Andén vacío con bancos de madera y reloj antiguo."
+    },
+    "timeOfDay": "dusk",
+    "weather": "clear",
+    "leadCharacterId": "viajera",
+    "signaturePropId": "maleta",
+    "characters": [
+      {
+        "id": "viajera",
+        "name": "Viajera",
+        "description": "Joven de abrigo largo que espera sola en el andén.",
+        "wardrobe": "Abrigo largo gris y bufanda roja."
+      }
+    ],
+    "props": [
+      {
+        "id": "maleta",
+        "name": "Maleta",
+        "description": "Maleta de cuero marrón con cierres dorados."
+      }
+    ],
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "lluvia",
+      "tormenta",
+      "texto"
+    ],
+    "continuityRules": [
+      "El abrigo gris y la bufanda roja no cambian en ninguna escena."
+    ]
+  }
 }

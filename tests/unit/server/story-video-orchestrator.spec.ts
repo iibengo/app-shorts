@@ -9,6 +9,10 @@ import {
 } from '../../../server/story/video-orchestrator'
 import type { FalQueueService } from '../../../server/fal/queue-service'
 import { makeSceneRecord, makeStoryRecord } from '../../helpers/story'
+import {
+  storyBeatForScene,
+  storyPromptComposer,
+} from '../../../server/story/story-prompt-composer'
 import minimaxResult from '../../fixtures/fal/minimax-result.json'
 
 const KEYFRAME = 'https://v3.fal.media/files/test/keyframe.jpeg'
@@ -61,13 +65,18 @@ describe('NativeVideoOrchestrator.submit', () => {
     const orchestrator = new NativeVideoOrchestrator(queue)
     const story = makeStoryRecord({ preset: 'fast' })
     const target = scene({ order: 1, keyframeUrl: KEYFRAME, visualPrompt: VISUAL_PROMPT })
+    const composed = storyPromptComposer.composeVideo({
+      bible: story.plan?.storyBible ?? null,
+      beat: storyBeatForScene(story.plan, target),
+      preset: 'fast',
+    })
 
     const submission = await orchestrator.submit(target, story)
 
     expect(submit).toHaveBeenCalledWith(
       'fal-ai/minimax/hailuo-02/standard/image-to-video',
       {
-        prompt: storyVideoPrompt(VISUAL_PROMPT),
+        prompt: composed.prompt,
         image_url: KEYFRAME,
         duration: '6',
         resolution: '768P',
@@ -86,19 +95,22 @@ describe('NativeVideoOrchestrator.submit', () => {
     const { queue, submit } = fakeQueue()
     const orchestrator = new NativeVideoOrchestrator(queue)
     const story = makeStoryRecord({ preset: 'quality' })
+    const target = scene({ order: 1, keyframeUrl: KEYFRAME, visualPrompt: VISUAL_PROMPT })
+    const composed = storyPromptComposer.composeVideo({
+      bible: story.plan?.storyBible ?? null,
+      beat: storyBeatForScene(story.plan, target),
+      preset: 'quality',
+    })
 
-    await orchestrator.submit(
-      scene({ order: 1, keyframeUrl: KEYFRAME, visualPrompt: VISUAL_PROMPT }),
-      story,
-    )
+    await orchestrator.submit(target, story)
 
     expect(submit).toHaveBeenCalledWith(
       'fal-ai/kling-video/v2.5-turbo/pro/image-to-video',
       {
-        prompt: storyVideoPrompt(VISUAL_PROMPT),
+        prompt: composed.prompt,
         image_url: KEYFRAME,
         duration: '10',
-        negative_prompt: 'blur, distortion, flicker, text, watermark, logo, low quality, deformed hands',
+        negative_prompt: composed.negativePrompt,
         cfg_scale: 0.5,
       },
     )

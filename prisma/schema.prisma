@@ -13,6 +13,8 @@ enum StoryStatus {
   WAITING_APPROVAL
   GENERATING_VIDEOS
   VIDEOS_READY
+  QC
+  WAITING_QC
   ASSEMBLING
   READY
   FAILED
@@ -48,6 +50,8 @@ model Story {
   planJson            Json?
   finalVideoUrl       String?     @db.Text
   finalVideoExpiresAt DateTime?
+  qcJson              Json?
+  qcCheckedAt         DateTime?
   errorCode           String?
   errorMessage        String?     @db.Text
   idempotencyKey      String?

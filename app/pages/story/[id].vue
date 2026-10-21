@@ -9,6 +9,8 @@ import StoryHeader from '~/components/story/StoryHeader.vue'
 import StoryPlanProgress from '~/components/story/StoryPlanProgress.vue'
 import StoryReview from '~/components/story/StoryReview.vue'
 import StoryVideoProgress from '~/components/story/StoryVideoProgress.vue'
+import StoryQCProgress from '~/components/story/StoryQCProgress.vue'
+import StoryQCReview from '~/components/story/StoryQCReview.vue'
 import StoryAssemblyProgress from '~/components/story/StoryAssemblyProgress.vue'
 import StoryResult from '~/components/story/StoryResult.vue'
 import AppButton from '~/components/ui/AppButton.vue'
@@ -52,6 +54,9 @@ const {
   approve,
   retryScene,
   retryAssembly,
+  retryQc,
+  approveQc,
+  recoverScene,
   cancel: cancelStory,
   restart,
   retryPolling,
@@ -127,6 +132,30 @@ async function handleRetryVideo(sceneId: string): Promise<void> {
 
 async function handleRetryAssembly(): Promise<void> {
   const job = await retryAssembly()
+
+  if (!job) {
+    await focusError()
+  }
+}
+
+async function handleRetryQc(): Promise<void> {
+  const job = await retryQc()
+
+  if (!job) {
+    await focusError()
+  }
+}
+
+async function handleApproveQc(): Promise<void> {
+  const job = await approveQc()
+
+  if (!job) {
+    await focusError()
+  }
+}
+
+async function handleRecoverScene(sceneId: string): Promise<void> {
+  const job = await recoverScene(sceneId)
 
   if (!job) {
     await focusError()
@@ -275,6 +304,21 @@ watch(
         :is-slow="isSlow"
         @cancel="handleCancel"
         @retry="handleRetryVideo"
+      />
+
+      <StoryQCProgress
+        v-else-if="state.status === 'qc'"
+      />
+
+      <StoryQCReview
+        v-else-if="state.status === 'waiting-qc' && story"
+        :story="story"
+        @retry="handleRetryQc"
+        @recover="handleRecoverScene"
+        @retry-video="handleRetryVideo"
+        @approve="handleApproveQc"
+        @cancel="handleCancel"
+        @start-over="handleStartOver"
       />
 
       <StoryAssemblyProgress

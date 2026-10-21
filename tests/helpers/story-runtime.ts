@@ -5,6 +5,7 @@ import type { StoryService } from '../../server/story/story-service'
 import type { KeyframeOrchestrator } from '../../server/story/keyframe-orchestrator'
 import type { VideoOrchestrator } from '../../server/story/video-orchestrator'
 import type { StoryCostConfigOptions } from '../../server/story/cost'
+import type { StoryQCService } from '../../server/story/qc-service'
 import type { FalStorageService } from '../../server/fal/storage-service'
 import {
   DEFAULT_STORY_RATE_LIMIT_CONFIG,
@@ -21,11 +22,15 @@ export interface StoryRuntimeOptions {
   readonly service?: StoryService | null
   readonly keyframes?: KeyframeOrchestrator | null
   readonly videos?: VideoOrchestrator | null
+  readonly qcService?: StoryQCService | null
   readonly storage?: FalStorageService | null
   readonly hasFalKey?: boolean
   readonly hasDeepSeekKey?: boolean
   readonly hasDatabase?: boolean
   readonly hasFfmpeg?: boolean
+  readonly qcEnabled?: boolean
+  readonly qcMinConfidence?: number
+  readonly costQcUsd?: number
   readonly pollAfterMs?: number
   readonly now?: () => number
   readonly rateLimit?: Partial<StoryRateLimitConfig>
@@ -79,6 +84,10 @@ export function makeStoryRuntime(options: StoryRuntimeOptions = {}): StoryRuntim
     keyframes,
     videos,
     assembler: null,
+    qcService: options.qcService ?? null,
+    qcEnabled: options.qcEnabled ?? false,
+    qcMinConfidence: options.qcMinConfidence ?? 0.7,
+    costQcUsd: options.costQcUsd ?? 0.02,
     hasFfmpeg: options.hasFfmpeg ?? true,
     videoConcurrency: 2,
     assemblyTimeoutMs: 180_000,

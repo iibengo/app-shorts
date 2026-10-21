@@ -15,11 +15,25 @@ vi.stubGlobal('defineEventHandler', (handler: unknown) => handler)
 
 const { default: assembleStory } = await import('../../../server/api/story/[id]/assemble.post')
 
+function passedQc() {
+  return {
+    status: 'PASSED' as const,
+    errorCode: null,
+    evaluator: 'vision' as const,
+    checkedAt: new Date().toISOString(),
+    confidence: 0.9,
+    scenes: [],
+    issues: [],
+    override: null,
+  }
+}
+
 function videosReadyStory(id = 'story-videos-ready', sessionId = SESSION_ID) {
   return makeStoryRecord({
     id,
     sessionId,
     status: 'VIDEOS_READY',
+    qc: passedQc(),
     scenes: makeScenes(5, {
       status: 'VIDEO_READY',
       keyframeAttempts: 1,
@@ -149,18 +163,15 @@ describe('POST /api/story/[id]/assemble guards', () => {
     expect(errorCode(response)).toBe('ffmpeg-not-configured')
   })
 
-  it('returns 429 assembly-busy when more than two stories are waiting', async () => {
-    const { post } = setup([
-      videosReadyStory(),
-      videosReadyStory('story-ready-2', 'other-session-1'),
-      videosReadyStory('story-ready-3', 'other-session-2'),
-    ])
+  it('returns 409 from WAITING_QC', async () => {
+    const base = videosReadyStory()
+    const story = { ...base, status: 'WAITING_QC' as const }
+    const { post } = setup([story])
 
     const response = await post()
 
-    expect(response.status).toBe(429)
-    expect(errorCode(response)).toBe('assembly-busy')
-    expect(Number(response.headers.get('retry-after'))).toBe(30)
+    expect(response.status).toBe(409)
+    expect(errorCode(response)).toBe('story-not-ready')
   })
 
   it('returns 429 rate-limited after the assembly limit', async () => {

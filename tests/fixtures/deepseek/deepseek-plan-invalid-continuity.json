@@ -1,0 +1,78 @@
+{
+  "title": "Fuga en el parque",
+  "logline": "Bart quiere demostrar que su patinete es el más rápido del parque.",
+  "storyBible": {
+    "style": "animación 3D cartoon, colores saturados, sin grano",
+    "location": {
+      "name": "Parque de Springfield",
+      "description": "Sendero de tierra, césped verde, árboles frondosos y una rampa roja."
+    },
+    "timeOfDay": "golden-hour",
+    "weather": "clear",
+    "leadCharacterId": "bart",
+    "signaturePropId": "skateboard",
+    "characters": [
+      {
+        "id": "bart",
+        "name": "Bart",
+        "description": "Niño de piel amarilla y pelo puntiagudo.",
+        "wardrobe": "Camiseta naranja, shorts azules y zapatillas azules."
+      }
+    ],
+    "props": [
+      {
+        "id": "skateboard",
+        "name": "Patinete azul",
+        "description": "Patinete azul con manillar negro y ruedas rojas."
+      }
+    ],
+    "forbidden": ["Homer", "bicicleta", "lluvia", "tormenta", "noche", "texto"],
+    "continuityRules": ["El atardecer dorado no cambia en ninguna escena."]
+  },
+  "beats": [
+    {
+      "order": 1,
+      "sceneRole": "establishing",
+      "visualPrompt": "Bart llega al parque con su patinete azul bajo la luz dorada del atardecer.",
+      "narration": "Bart llega al parque con su patinete azul.",
+      "characters": ["bart"],
+      "props": ["skateboard"],
+      "camera": "wide",
+      "continuityFromPrevious": null,
+      "transition": "cut"
+    },
+    {
+      "order": 2,
+      "sceneRole": "development",
+      "visualPrompt": "Bart acelera por el sendero de tierra con el patinete azul.",
+      "narration": "Bart acelera por el sendero de tierra.",
+      "characters": ["bart"],
+      "props": ["skateboard"],
+      "camera": "tracking",
+      "continuityFromPrevious": "El patinete azul sigue en el mismo sendero de tierra.",
+      "transition": "cut"
+    },
+    {
+      "order": 3,
+      "sceneRole": "escalation",
+      "visualPrompt": "Bart salta la rampa roja con el patinete azul y cae de pie.",
+      "narration": "La rampa roja pone a prueba su equilibrio.",
+      "characters": ["bart"],
+      "props": ["skateboard"],
+      "camera": "low-angle",
+      "continuityFromPrevious": "La rampa roja aparece al final del mismo sendero.",
+      "transition": "cut"
+    },
+    {
+      "order": 4,
+      "sceneRole": "resolution",
+      "visualPrompt": "Bart celebra junto a la rampa roja con el patinete azul en la mano.",
+      "narration": "Bart celebra con su patinete azul.",
+      "characters": [],
+      "props": ["skateboard"],
+      "camera": "medium",
+      "continuityFromPrevious": "Bart sigue junto a la rampa roja después del salto.",
+      "transition": "cut"
+    }
+  ]
+}

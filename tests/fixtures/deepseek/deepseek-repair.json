@@ -1,31 +1,117 @@
 {
   "title": "Reparación válida",
   "logline": "El segundo intento del director devuelve un plan correcto.",
+  "storyBible": {
+    "style": "animación 3D cartoon, colores cálidos y saturados, sin grano",
+    "location": {
+      "name": "Obrador de Clara",
+      "description": "Cocina pequeña con azulejos blancos, horno antiguo y bandejas de hojaldre."
+    },
+    "timeOfDay": "morning",
+    "weather": "clear",
+    "leadCharacterId": "clara",
+    "signaturePropId": "merengue",
+    "characters": [
+      {
+        "id": "clara",
+        "name": "Clara",
+        "description": "Repostera joven de pelo recogido y delantal de rayas azules.",
+        "wardrobe": "Delantal de rayas azules sobre camisa blanca y pantalón oscuro."
+      }
+    ],
+    "props": [
+      {
+        "id": "merengue",
+        "name": "Merengue",
+        "description": "Bol metálico con merengue brillante que dibuja figuras imposibles."
+      }
+    ],
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "lluvia",
+      "noche",
+      "texto"
+    ],
+    "continuityRules": [
+      "El delantal de Clara no cambia en ninguna escena."
+    ]
+  },
   "beats": [
     {
       "order": 1,
-      "visualPrompt": "Una cocina pequeña se ilumina con la primera luz de la mañana.",
-      "narration": "La casa despierta antes que sus dueños."
+      "sceneRole": "establishing",
+      "visualPrompt": "Clara abre el obrador al amanecer entre bandejas de hojaldre y luz cálida.",
+      "narration": "Cada mañana, antes de encender el horno, Clara escucha.",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "camera": "wide",
+      "continuityFromPrevious": null,
+      "transition": "cut"
     },
     {
       "order": 2,
-      "visualPrompt": "Una taza humeante espera sobre una mesa de madera desgastada.",
-      "narration": "Alguien preparó el desayuno sin hacer ruido."
+      "sceneRole": "development",
+      "visualPrompt": "Clara observa cómo el merengue dibuja una figura imposible en el bol metálico.",
+      "narration": "El azúcar se mueve como si quisiera contar algo.",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "camera": "close-up",
+      "continuityFromPrevious": "El merengue sigue en el mismo bol metálico sobre la mesa.",
+      "transition": "cut"
     },
     {
       "order": 3,
-      "visualPrompt": "Una nota manuscrita descansa junto a la taza y una llave vieja.",
-      "narration": "La nota solo dice que la llave abre el jardín."
+      "sceneRole": "escalation",
+      "visualPrompt": "Un cliente entra en la pastelería y reconoce la figura dibujada en el merengue.",
+      "narration": "El primer cliente trae la cara que anunciaba el postre.",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "camera": "medium",
+      "continuityFromPrevious": "El cliente entra por la puerta que Clara acaba de mirar.",
+      "transition": "cut"
     },
     {
       "order": 4,
-      "visualPrompt": "Una puerta de cristal se abre hacia un jardín cubierto de niebla.",
-      "narration": "Al otro lado, la niebla guarda una sorpresa."
+      "sceneRole": "climax",
+      "visualPrompt": "Clara duda junto a la ventana con una bandeja de tartas recién hechas.",
+      "narration": "Clara entiende que no todos los avisos son buenos.",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "camera": "over-the-shoulder",
+      "continuityFromPrevious": "La bandeja pasa del mostrador a las manos de Clara.",
+      "transition": "cut"
     },
     {
       "order": 5,
-      "visualPrompt": "Una figura querida espera sentada entre las flores del jardín.",
-      "narration": "El reencuentro ocurre sin una sola palabra."
+      "sceneRole": "resolution",
+      "visualPrompt": "Clara cierra la pastelería con la última luz de la mañana y apaga el horno.",
+      "narration": "Esa mañana decide no volver a preguntar al azúcar.",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "camera": "detail",
+      "continuityFromPrevious": "El merengue queda tapado en el mismo bol antes de salir.",
+      "transition": "cut"
     }
   ]
 }

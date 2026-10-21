@@ -21,6 +21,7 @@ import {
 import type { MediaStorage, MediaStorageUploadInput } from '../../../server/fal/media-storage'
 import type { DownloadedClip, MediaDownloader, StoryClip } from '../../../server/story/media-downloader'
 import { createFfmpegRunner } from '../../../server/story/ffmpeg-runner'
+import { createStoryFrameExtractor } from '../../../server/story/qc-frames'
 
 const run = promisify(execFile)
 const ffmpegPath = process.env.FFMPEG_PATH?.trim() || 'ffmpeg'
@@ -75,14 +76,19 @@ class MemoryStorage implements MediaStorage {
   }
 }
 
-async function makeClip(path: string, color: string, seconds: number): Promise<void> {
+async function makeClip(
+  path: string,
+  color: string,
+  seconds: number,
+  size = '640x360',
+): Promise<void> {
   await run(ffmpegPath, [
     '-nostdin',
     '-y',
     '-f',
     'lavfi',
     '-i',
-    `color=c=${color}:s=640x360:d=${seconds}:r=30`,
+    `color=c=${color}:s=${size}:d=${seconds}:r=30`,
     '-pix_fmt',
     'yuv420p',
     '-c:v',
@@ -102,6 +108,8 @@ describe.skipIf(!enabled)('FFmpeg assembly smoke (RUN_FFMPEG_SMOKE=1)', () => {
 
     await makeClip(join(sourceDir, 'source-1.mp4'), 'red', 3)
     await makeClip(join(sourceDir, 'source-2.mp4'), 'blue', 3)
+    // Vertical 9:16 clip for the QC strip extraction (720x1280, 6 s).
+    await makeClip(join(sourceDir, 'source-3.mp4'), 'green', 6, '720x1280')
   })
 
   afterAll(async () => {
@@ -169,5 +177,68 @@ describe.skipIf(!enabled)('FFmpeg assembly smoke (RUN_FFMPEG_SMOKE=1)', () => {
     expect(bytes.indexOf('moov')).toBeGreaterThan(0)
     expect(bytes.indexOf('moov')).toBeLessThan(bytes.indexOf('mdat'))
     expect(existsSync(output)).toBe(true)
+  }, 120_000)
+
+  it('extracts and uploads a 1080x640 JPEG QC strip', async () => {
+    const storage = new MemoryStorage()
+    const extractor = createStoryFrameExtractor({
+      downloader: new LocalFileDownloader(sourceDir),
+      runner: createFfmpegRunner(),
+      mediaStorage: storage,
+      ffmpegPath,
+      ffprobePath,
+    })
+
+    const strips = await extractor.extract({
+      storyId: 'smoke-story',
+      clips: [{
+        sceneId: 'smoke-scene',
+        order: 3,
+        url: 'https://v3.fal.media/files/test/source-3.mp4',
+      }],
+    })
+
+    expect(strips).toHaveLength(1)
+    expect(strips[0]).toMatchObject({
+      sceneId: 'smoke-scene',
+      order: 3,
+      technical: [],
+      durationSeconds: expect.any(Number),
+    })
+    expect(strips[0]?.framesUrl).toMatch(/^https:\/\/v3\.fal\.media\//)
+    expect(storage.upload).toMatchObject({
+      contentType: 'image/jpeg',
+      lifecycleSeconds: 86_400,
+    })
+    expect(storage.upload?.fileName).toMatch(/^story-qc-.*\.jpg$/)
+
+    const bytes = storage.bytes!
+
+    expect(bytes[0]).toBe(0xff)
+    expect(bytes[1]).toBe(0xd8)
+
+    const stripPath = join(sourceDir, 'qc-strip.jpg')
+
+    writeFileSync(stripPath, bytes)
+
+    const probe = await run(ffprobePath, [
+      '-v',
+      'error',
+      '-print_format',
+      'json',
+      '-show_streams',
+      stripPath,
+    ])
+    const payload = JSON.parse(probe.stdout) as {
+      streams: { codec_type: string; codec_name: string; width: number; height: number }[]
+    }
+
+    expect(payload.streams).toHaveLength(1)
+    expect(payload.streams[0]).toMatchObject({
+      codec_type: 'video',
+      codec_name: 'mjpeg',
+      width: 1_080,
+      height: 640,
+    })
   }, 120_000)
 })

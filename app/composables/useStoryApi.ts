@@ -26,6 +26,9 @@ export interface StoryApi {
   approve(storyId: string): Promise<StoryJob>
   retryVideo(storyId: string, sceneId: string): Promise<StoryJob>
   assemble(storyId: string): Promise<StoryJob>
+  retryQc(storyId: string): Promise<StoryJob>
+  approveQc(storyId: string): Promise<StoryJob>
+  recoverScene(storyId: string, sceneId: string): Promise<StoryJob>
   cancel(storyId: string): Promise<Story>
 }
 
@@ -163,7 +166,7 @@ function uploadErrorForStatus(status: number): StoryJobError {
 export function useStoryApi(): StoryApi {
   async function postJson<T>(
     url: string,
-    body: StoryCreateRequest | StoryBeatUpdateRequest,
+    body: StoryCreateRequest | StoryBeatUpdateRequest | { readonly confirm: true },
     options: { readonly idempotencyKey?: string } = {},
   ): Promise<T> {
     try {
@@ -288,6 +291,23 @@ export function useStoryApi(): StoryApi {
     return postEmpty<StoryJob>(`/api/story/${encodeURIComponent(storyId)}/assemble`)
   }
 
+  async function retryQc(storyId: string): Promise<StoryJob> {
+    return postEmpty<StoryJob>(`/api/story/${encodeURIComponent(storyId)}/qc/retry`)
+  }
+
+  async function approveQc(storyId: string): Promise<StoryJob> {
+    return postJson<StoryJob>(
+      `/api/story/${encodeURIComponent(storyId)}/qc/approve`,
+      { confirm: true },
+    )
+  }
+
+  async function recoverScene(storyId: string, sceneId: string): Promise<StoryJob> {
+    return postEmpty<StoryJob>(
+      `/api/story/${encodeURIComponent(storyId)}/beats/${encodeURIComponent(sceneId)}/recover`,
+    )
+  }
+
   async function cancel(storyId: string): Promise<Story> {
     return postEmpty<Story>(`/api/story/${encodeURIComponent(storyId)}/cancel`)
   }
@@ -301,6 +321,9 @@ export function useStoryApi(): StoryApi {
     approve,
     retryVideo,
     assemble,
+    retryQc,
+    approveQc,
+    recoverScene,
     cancel,
   }
 }

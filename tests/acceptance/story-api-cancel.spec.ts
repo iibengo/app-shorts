@@ -101,6 +101,32 @@ describe('POST /api/story/[id]/cancel success', () => {
     expect(repository.find(story.id)?.status).toBe('CANCELLED')
   })
 
+  it('cancels a story in WAITING_QC and cancels every scene', async () => {
+    const story = makeStoryRecord({
+      status: 'WAITING_QC',
+      qc: {
+        status: 'FAILED',
+        errorCode: null,
+        evaluator: 'vision',
+        checkedAt: new Date().toISOString(),
+        confidence: 0.5,
+        scenes: [],
+        issues: [],
+        override: null,
+      },
+      scenes: makeScenes(5, { status: 'VIDEO_READY', videoAttempts: 1, keyframeAttempts: 1 }),
+    })
+    const { post, repository } = setup(story)
+    const response = await post()
+    const body = response.body as { status: string; scenes: { status: string }[] }
+
+    expect(response.status).toBe(200)
+    expect(body.status).toBe('CANCELLED')
+    expect(body.scenes.every((scene) => scene.status === 'CANCELLED')).toBe(true)
+    expect(repository.find(story.id)?.scenes.every((scene) => scene.status === 'CANCELLED'))
+      .toBe(true)
+  })
+
   it('is idempotent when the story is already cancelled', async () => {
     const { post, repository } = setup(makeStoryRecord({ status: 'CANCELLED' }))
     repository.clearCalls()

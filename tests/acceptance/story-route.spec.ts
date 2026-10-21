@@ -15,7 +15,7 @@ const COPY = {
   nojs:
     'La creación de historias necesita JavaScript. Puedes volver al feed de prueba.',
   privacy:
-    'Tu premisa se envía a DeepSeek para escribir el guion y a Fal para generar las imágenes y los vídeos. AI Shorts guarda la historia 24 horas para que puedas volver a ella desde este navegador. La imagen de referencia se elimina de Fal en 1 hora.',
+    'Tu premisa se envía a DeepSeek para escribir el guion. Fal genera las imágenes y los vídeos, y DeepSeek revisa fotogramas de los clips para comprobar la continuidad. AI Shorts guarda la historia 24 horas para que puedas volver a ella desde este navegador. La imagen de referencia se elimina de Fal en 1 hora.',
 } as const
 
 const normalize = (value: string | null | undefined) =>

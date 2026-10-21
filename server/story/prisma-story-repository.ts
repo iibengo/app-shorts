@@ -1,5 +1,7 @@
-import type {
+import {
   Prisma,
+} from '../generated/prisma/client'
+import type {
   PrismaClient,
   Scene as SceneRow,
   Story as StoryRow,
@@ -9,12 +11,14 @@ import type {
   StoryErrorCode,
   StoryPlan,
   StoryPreset,
+  StoryQC,
   StoryStatus,
 } from '~/models/story'
 import { getPrisma } from '../db/prisma'
 import { StoryError, isStoryErrorCode } from './errors'
 import { rebuildPlan } from './repository'
 import type {
+  ApplyQcResultInput,
   CreateStoryRecord,
   SceneGuard,
   ScenePatch,
@@ -25,6 +29,7 @@ import type {
   StoryRepository,
 } from './repository'
 import { validateDirectorPlan } from './plan-validator'
+import { parsePersistedStoryQC } from './qc-validator'
 
 type StoryRowWithScenes = StoryRow & { readonly scenes: readonly SceneRow[] }
 
@@ -34,6 +39,8 @@ const STORY_STATUSES: readonly StoryStatus[] = [
   'WAITING_APPROVAL',
   'GENERATING_VIDEOS',
   'VIDEOS_READY',
+  'QC',
+  'WAITING_QC',
   'ASSEMBLING',
   'READY',
   'FAILED',
@@ -58,6 +65,7 @@ const ACTIVE_STORY_STATUSES: readonly StoryStatus[] = [
   'WAITING_APPROVAL',
   'GENERATING_VIDEOS',
   'VIDEOS_READY',
+  'QC',
   'ASSEMBLING',
 ]
 
@@ -65,6 +73,7 @@ const CLAIMABLE_STORY_STATUSES: readonly StoryStatus[] = [
   'GENERATING_KEYFRAMES',
   'GENERATING_VIDEOS',
   'VIDEOS_READY',
+  'QC',
   'ASSEMBLING',
 ]
 
@@ -73,6 +82,8 @@ const CANCELLABLE_STORY_STATUSES: readonly StoryStatus[] = [
   'WAITING_APPROVAL',
   'GENERATING_VIDEOS',
   'VIDEOS_READY',
+  'QC',
+  'WAITING_QC',
   'ASSEMBLING',
 ]
 
@@ -137,7 +148,9 @@ function mapScene(row: SceneRow): SceneRecord {
 
 function parsePlan(value: Prisma.JsonValue | null, story: StoryRowWithScenes): StoryPlan | null {
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-    const validation = validateDirectorPlan(value, story.sceneCount)
+    const validation = validateDirectorPlan(value, story.sceneCount, {
+      allowLegacyBible: true,
+    })
 
     if (validation.ok) {
       return validation.plan
@@ -162,6 +175,28 @@ function parsePlan(value: Prisma.JsonValue | null, story: StoryRowWithScenes): S
   })
 }
 
+function parseQc(row: StoryRowWithScenes): StoryQC | null {
+  if (row.qcJson === null) {
+    return null
+  }
+
+  const parsed = parsePersistedStoryQC(row.qcJson)
+
+  if (!parsed || row.qcCheckedAt === null) {
+    console.warn(JSON.stringify({
+      event: 'story.qc.invalid',
+      storyId: row.id,
+    }))
+
+    return null
+  }
+
+  return {
+    ...parsed,
+    checkedAt: new Date(row.qcCheckedAt.getTime()).toISOString(),
+  }
+}
+
 function mapStory(row: StoryRowWithScenes): StoryRecord {
   return {
     id: row.id,
@@ -179,6 +214,8 @@ function mapStory(row: StoryRowWithScenes): StoryRecord {
     plan: parsePlan(row.planJson, row),
     finalVideoUrl: row.finalVideoUrl,
     finalVideoExpiresAt: toDate(row.finalVideoExpiresAt),
+    qc: parseQc(row),
+    qcCheckedAt: toDate(row.qcCheckedAt),
     errorCode: toStoryErrorCode(row.errorCode),
     errorMessage: row.errorMessage,
     idempotencyKey: row.idempotencyKey,
@@ -237,13 +274,26 @@ function storyPatchData(patch: StoryPatch): Prisma.StoryUpdateManyMutationInput 
       : (patch.plan as unknown as Prisma.InputJsonValue)
   }
 
+  if (patch.qc !== undefined) {
+    if (patch.qc === null) {
+      data.qcJson = Prisma.DbNull
+    } else {
+      const { checkedAt, ...persisted } = patch.qc
+      void checkedAt
+      data.qcJson = persisted as unknown as Prisma.InputJsonValue
+    }
+  }
+
+  if (patch.qcCheckedAt !== undefined) {
+    data.qcCheckedAt = patch.qcCheckedAt
+  }
+
   data.version = { increment: 1 }
 
   return data
 }
 
-function scenePatchData(patch: ScenePatch): Prisma.SceneUpdateManyMutationInput {
-  const data: Prisma.SceneUpdateManyMutationInput = {}
+function scenePatchData(patch: ScenePatch): Prisma.SceneUpdateManyMutationInput {  const data: Prisma.SceneUpdateManyMutationInput = {}
 
   if (patch.status !== undefined) data.status = patch.status
   if (patch.visualPrompt !== undefined) data.visualPrompt = patch.visualPrompt
@@ -266,6 +316,13 @@ function scenePatchData(patch: ScenePatch): Prisma.SceneUpdateManyMutationInput 
   if (patch.videoAttempts !== undefined) data.videoAttempts = patch.videoAttempts
 
   return data
+}
+
+class QcResultConflictError extends Error {
+  constructor() {
+    super('qc-result-conflict')
+    this.name = 'QcResultConflictError'
+  }
 }
 
 export class PrismaStoryRepository implements StoryRepository {
@@ -406,6 +463,49 @@ export class PrismaStoryRepository implements StoryRepository {
     })
 
     return result.count
+  }
+
+  async applyQcResult(input: ApplyQcResultInput): Promise<boolean> {
+    try {
+      return await this.client.$transaction(async (tx) => {
+        const storyUpdate = await tx.story.updateMany({
+          where: { id: input.storyId, ...storyGuardWhere(input.storyGuard) },
+          data: {
+            ...storyPatchData(input.storyPatch),
+            ...(input.leaseUntil === undefined
+              ? {}
+              : { leaseUntil: input.leaseUntil }),
+          },
+        })
+
+        if (storyUpdate.count === 0) {
+          return false
+        }
+
+        for (const scene of input.scenes) {
+          const sceneUpdate = await tx.scene.updateMany({
+            where: {
+              id: scene.sceneId,
+              storyId: input.storyId,
+              ...sceneGuardWhere(scene.guard),
+            },
+            data: scenePatchData(scene.patch),
+          })
+
+          if (sceneUpdate.count === 0) {
+            throw new QcResultConflictError()
+          }
+        }
+
+        return true
+      })
+    } catch (error) {
+      if (error instanceof QcResultConflictError) {
+        return false
+      }
+
+      throw error
+    }
   }
 
   async cancel(id: string, sessionId: string, now: Date): Promise<boolean> {

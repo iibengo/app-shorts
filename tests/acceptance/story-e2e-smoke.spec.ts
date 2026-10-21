@@ -102,6 +102,34 @@ describe.skipIf(!enabled)('Story end-to-end smoke (RUN_STORY_SMOKE=1)', () => {
     expect(approve.status).toBe(202)
     expect((await approve.json() as StoryJob).status).toBe('GENERATING_VIDEOS')
 
+    const reviewed = await waitFor(
+      story.id,
+      cookie,
+      (value) => value.status === 'READY' || value.status === 'WAITING_QC',
+      15 * 60_000,
+    )
+
+    if (reviewed.status === 'WAITING_QC') {
+      expect(reviewed.qc).not.toBeNull()
+      expect(reviewed.qc?.status).not.toBe('PASSED')
+      expect(reviewed.pollAfterMs).toBe(0)
+
+      // The persisted report survives a reload without another QC.
+      const reloaded = await getStory(story.id, cookie)
+
+      expect(reloaded.qc).toEqual(reviewed.qc)
+      expect(reloaded.pollAfterMs).toBe(0)
+
+      const override = await fetch(`${BASE}/api/story/${story.id}/qc/approve`, {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      })
+
+      expect(override.status).toBe(202)
+      expect((await override.json() as StoryJob).status).toBe('ASSEMBLING')
+    }
+
     const ready = await waitFor(
       story.id,
       cookie,
@@ -113,5 +141,9 @@ describe.skipIf(!enabled)('Story end-to-end smoke (RUN_STORY_SMOKE=1)', () => {
     expect(ready.scenes.every((scene) => scene.status === 'VIDEO_READY')).toBe(true)
     expect(ready.totalDurationSeconds).toBe(24)
     expect(ready.pollAfterMs).toBe(0)
+
+    if (reviewed.status === 'WAITING_QC') {
+      expect(ready.qc?.override?.approved).toBe(true)
+    }
   }, 20 * 60_000)
 })

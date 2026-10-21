@@ -7,6 +7,7 @@ import type {
   StoryStatus,
 } from '~/models/story'
 import type {
+  ApplyQcResultInput,
   CreateStoryRecord,
   SceneGuard,
   ScenePatch,
@@ -129,6 +130,8 @@ export function makeStoryRecord(overrides: Partial<StoryRecord> = {}): StoryReco
     plan,
     finalVideoUrl: overrides.finalVideoUrl ?? null,
     finalVideoExpiresAt: overrides.finalVideoExpiresAt ?? null,
+    qc: overrides.qc ?? null,
+    qcCheckedAt: overrides.qcCheckedAt ?? null,
     errorCode: overrides.errorCode ?? null,
     errorMessage: overrides.errorMessage ?? null,
     idempotencyKey: overrides.idempotencyKey ?? null,
@@ -171,6 +174,7 @@ const CLAIMABLE: readonly StoryStatus[] = [
   'GENERATING_KEYFRAMES',
   'GENERATING_VIDEOS',
   'VIDEOS_READY',
+  'QC',
   'ASSEMBLING',
 ]
 
@@ -179,6 +183,7 @@ const ACTIVE: readonly StoryStatus[] = [
   'WAITING_APPROVAL',
   'GENERATING_VIDEOS',
   'VIDEOS_READY',
+  'QC',
   'ASSEMBLING',
 ]
 
@@ -187,6 +192,8 @@ const CANCELLABLE: readonly StoryStatus[] = [
   'WAITING_APPROVAL',
   'GENERATING_VIDEOS',
   'VIDEOS_READY',
+  'QC',
+  'WAITING_QC',
   'ASSEMBLING',
 ]
 
@@ -404,6 +411,51 @@ export class FakeStoryRepository implements StoryRepository {
     this.records[index] = { ...story, scenes }
 
     return 1
+  }
+
+  async applyQcResult(input: ApplyQcResultInput): Promise<boolean> {
+    this.calls.push('applyQcResult')
+    const index = this.records.findIndex((story) => story.id === input.storyId)
+
+    if (index < 0) return false
+
+    const story = this.records[index]!
+
+    if (!withinStoryGuard(story, input.storyGuard)) {
+      return false
+    }
+
+    for (const update of input.scenes) {
+      const scene = story.scenes.find((item) => item.id === update.sceneId)
+
+      if (!scene || !withinSceneGuard(scene, update.guard)) {
+        return false
+      }
+    }
+
+    const updatedStory = {
+      ...mergeDefined(story, input.storyPatch),
+      ...(input.leaseUntil === undefined ? {} : { leaseUntil: input.leaseUntil }),
+      version: story.version + 1,
+      updatedAt: new Date(story.updatedAt.getTime() + 1_000),
+    }
+
+    const scenes = updatedStory.scenes.slice()
+
+    for (const update of input.scenes) {
+      const sceneIndex = scenes.findIndex((item) => item.id === update.sceneId)
+
+      if (sceneIndex < 0) continue
+
+      scenes[sceneIndex] = {
+        ...mergeDefined(scenes[sceneIndex]!, update.patch),
+        updatedAt: new Date(scenes[sceneIndex]!.updatedAt.getTime() + 1_000),
+      }
+    }
+
+    this.records[index] = { ...updatedStory, scenes }
+
+    return true
   }
 
   async cancel(id: string, sessionId: string, now: Date): Promise<boolean> {
@@ -738,6 +790,7 @@ export function makeStoryDto(
     expiresAt: overrides.expiresAt ?? '2026-10-22T18:00:00.000Z',
     version: overrides.version ?? 1,
     error: overrides.error ?? null,
+    qc: overrides.qc ?? null,
     pollAfterMs: overrides.pollAfterMs ?? 2_500,
   }
 }

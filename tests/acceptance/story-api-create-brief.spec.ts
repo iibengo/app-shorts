@@ -5,6 +5,7 @@ import { createStoryDirector } from '../../../server/story/director'
 import { analyzePremise, renderBriefBlock } from '../../../server/story/premise-brief'
 import { startDeepSeekStub } from '../helpers/deepseek-stub'
 import { FakeStoryRepository } from '../helpers/story'
+import invalidContinuity from '../fixtures/deepseek/deepseek-plan-invalid-continuity.json'
 import { makeStoryRuntime } from '../helpers/story-runtime'
 import { callStoryRoute } from '../helpers/story-route'
 
@@ -80,6 +81,20 @@ describe('POST /api/story with a short premise and a real decorated director', (
     expect(repository.records[0]?.premise).toBe(PREMISE)
   })
 
+  it('rejects an invalid continuity bible twice with 502 and creates nothing', async () => {
+    stub.state.contents = [invalidContinuity, invalidContinuity]
+    const { repository, post } = setup()
+
+    const response = await post({ premise: PREMISE, sceneCount: 4 })
+
+    expect(response.status).toBe(502)
+    expect((response.body as { error?: { code?: string } }).error?.code)
+      .toBe('director-invalid-output')
+    expect(stub.requests).toHaveLength(2)
+    expect(repository.records).toHaveLength(0)
+    expect(JSON.stringify(response.body)).not.toContain('Bart')
+  })
+
   it('sends the premise verbatim plus the deterministic brief', async () => {
     const { post } = setup()
 
@@ -93,7 +108,7 @@ describe('POST /api/story with a short premise and a real decorated director', (
     const content = body.messages[1]?.content
 
     expect(body.model).toBe('deepseek-flash')
-    expect(body.max_tokens).toBe(1_400)
+    expect(body.max_tokens).toBe(3_000)
     expect(typeof content).toBe('string')
 
     const text = content as string
@@ -115,7 +130,7 @@ describe('POST /api/story with a short premise and a real decorated director', (
     const record = repository.records[0]!
 
     expect(record.plan).not.toBeNull()
-    expect(Object.keys(record.plan ?? {}).sort()).toEqual(['beats', 'logline', 'title'])
+    expect(Object.keys(record.plan ?? {}).sort()).toEqual(['beats', 'logline', 'storyBible', 'title'])
     expect(JSON.stringify(record)).not.toContain('Brief de producción')
     expect(JSON.stringify(response.body)).not.toContain('Brief de producción')
   })

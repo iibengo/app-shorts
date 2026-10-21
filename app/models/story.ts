@@ -4,6 +4,8 @@ export type StoryStatus =
   | 'WAITING_APPROVAL'
   | 'GENERATING_VIDEOS'
   | 'VIDEOS_READY'
+  | 'QC'
+  | 'WAITING_QC'
   | 'ASSEMBLING'
   | 'READY'
   | 'FAILED'
@@ -33,16 +35,179 @@ export type StoryAspectRatio = '9:16'
 
 export type StoryImageMimeType = 'image/png' | 'image/jpeg' | 'image/webp'
 
+export type StoryTimeOfDay =
+  | 'dawn'
+  | 'morning'
+  | 'noon'
+  | 'afternoon'
+  | 'golden-hour'
+  | 'dusk'
+  | 'night'
+
+export type StoryWeather =
+  | 'clear'
+  | 'cloudy'
+  | 'overcast'
+  | 'light-rain'
+  | 'rain'
+  | 'storm'
+  | 'snow'
+  | 'fog'
+  | 'windy'
+
+export type StoryCameraShot =
+  | 'wide'
+  | 'medium'
+  | 'close-up'
+  | 'low-angle'
+  | 'high-angle'
+  | 'tracking'
+  | 'over-the-shoulder'
+  | 'detail'
+
+export type StorySceneRole =
+  | 'establishing'
+  | 'development'
+  | 'escalation'
+  | 'climax'
+  | 'resolution'
+
+export type StoryTransition = 'cut'
+
+export interface StoryLocation {
+  readonly name: string
+  readonly description: string
+}
+
+export interface StoryCharacter {
+  readonly id: string
+  readonly name: string
+  readonly description: string
+  readonly wardrobe: string
+}
+
+export interface StoryProp {
+  readonly id: string
+  readonly name: string
+  readonly description: string
+}
+
+export interface StoryBible {
+  readonly style: string
+  readonly location: StoryLocation
+  readonly timeOfDay: StoryTimeOfDay
+  readonly weather: StoryWeather
+  readonly leadCharacterId: string
+  readonly signaturePropId: string | null
+  readonly characters: readonly StoryCharacter[]
+  readonly props: readonly StoryProp[]
+  readonly forbidden: readonly string[]
+  readonly continuityRules: readonly string[]
+}
+
 export interface StoryBeat {
   readonly order: number
+  readonly sceneRole: StorySceneRole
   readonly visualPrompt: string
   readonly narration: string
+  readonly characters: readonly string[]
+  readonly props: readonly string[]
+  readonly camera: StoryCameraShot
+  readonly continuityFromPrevious: string | null
+  readonly transition: StoryTransition
 }
 
 export interface StoryPlan {
   readonly title: string
   readonly logline: string
+  /** `null` solo en planes persistidos antes de 006. */
+  readonly storyBible: StoryBible | null
   readonly beats: readonly StoryBeat[]
+}
+
+export type StoryQCStatus = 'PASSED' | 'NEEDS_REVIEW' | 'FAILED' | 'UNAVAILABLE'
+
+export type StoryQCEvaluator = 'vision' | 'none'
+
+export type StoryQCErrorCode =
+  | 'qc-disabled'
+  | 'qc-not-configured'
+  | 'qc-budget-skipped'
+  | 'qc-frames-failed'
+  | 'qc-evaluator-unavailable'
+  | 'qc-evaluator-timeout'
+  | 'qc-evaluator-invalid-output'
+
+export type StoryQCSeverity = 'blocking' | 'warning'
+
+export type StoryQCFrame = 'start' | 'middle' | 'end' | 'clip'
+
+export type StoryQCIssueCode =
+  | 'missing-lead-character'
+  | 'missing-character'
+  | 'extra-character'
+  | 'wrong-wardrobe'
+  | 'missing-prop'
+  | 'wrong-prop'
+  | 'wrong-location'
+  | 'wrong-weather'
+  | 'wrong-time-of-day'
+  | 'continuity-break'
+  | 'text-or-watermark'
+  | 'visual-artifact'
+  | 'frames-unavailable'
+  | 'technical-duration'
+  | 'technical-streams'
+  | 'technical-aspect'
+  | 'technical-resolution'
+
+export interface StoryQCIssue {
+  readonly code: StoryQCIssueCode
+  readonly severity: StoryQCSeverity
+  readonly sceneId: string
+  readonly order: number
+  readonly frame: StoryQCFrame
+}
+
+/** Observación normalizada del evaluador. Sin texto libre y solo con ids de la biblia. */
+export interface StoryQCObserved {
+  readonly characters: readonly string[]
+  readonly wardrobeMismatch: readonly string[]
+  readonly unknownCharacters: boolean
+  readonly props: readonly string[]
+  readonly unknownProps: boolean
+  readonly locationMatches: boolean
+  readonly weatherMatches: boolean
+  readonly timeOfDayMatches: boolean
+  readonly continuityMatches: boolean
+  readonly textOrWatermark: boolean
+  readonly artifacts: boolean
+}
+
+export interface StoryQCSceneResult {
+  readonly sceneId: string
+  readonly order: number
+  readonly framesUrl: string | null
+  readonly technical: 'pass' | 'fail'
+  readonly observed: StoryQCObserved | null
+  readonly confidence: number | null
+  readonly issues: readonly StoryQCIssue[]
+}
+
+export interface StoryQCOverride {
+  readonly at: string
+  readonly approved: true
+}
+
+export interface StoryQC {
+  readonly status: StoryQCStatus
+  readonly errorCode: StoryQCErrorCode | null
+  readonly evaluator: StoryQCEvaluator
+  readonly checkedAt: string
+  readonly confidence: number | null
+  readonly scenes: readonly StoryQCSceneResult[]
+  readonly issues: readonly StoryQCIssue[]
+  readonly override: StoryQCOverride | null
 }
 
 export type StoryErrorCode =
@@ -148,6 +313,7 @@ export interface Story {
   readonly expiresAt: string
   readonly version: number
   readonly error: StoryJobError | null
+  readonly qc: StoryQC | null
   readonly pollAfterMs: number
 }
 
@@ -200,6 +366,8 @@ export type StoryGenerationState =
   | { readonly status: 'keyframes'; readonly story: Story }
   | { readonly status: 'review'; readonly story: Story }
   | { readonly status: 'videos'; readonly story: Story }
+  | { readonly status: 'qc'; readonly story: Story }
+  | { readonly status: 'waiting-qc'; readonly story: Story }
   | { readonly status: 'assembling'; readonly story: Story }
   | { readonly status: 'ready'; readonly story: Story }
   | {

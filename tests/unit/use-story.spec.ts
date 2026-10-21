@@ -45,6 +45,9 @@ function createApi(overrides: Partial<StoryApi> = {}) {
   const approve = vi.fn(async () => jobFor('GENERATING_VIDEOS'))
   const retryVideo = vi.fn(async () => jobFor('GENERATING_VIDEOS'))
   const assemble = vi.fn(async () => jobFor('VIDEOS_READY'))
+  const retryQc = vi.fn(async () => jobFor('VIDEOS_READY'))
+  const approveQc = vi.fn(async () => jobFor('ASSEMBLING'))
+  const recoverScene = vi.fn(async () => jobFor('GENERATING_KEYFRAMES'))
   const cancel = vi.fn(async () => storyFor('CANCELLED'))
 
   const api = {
@@ -56,11 +59,26 @@ function createApi(overrides: Partial<StoryApi> = {}) {
     approve,
     retryVideo,
     assemble,
+    retryQc,
+    approveQc,
+    recoverScene,
     cancel,
     ...overrides,
   } as unknown as StoryApi
 
-  return { api, getStory, createStory, updateKeyframe, approve, retryVideo, assemble, cancel }
+  return {
+    api,
+    getStory,
+    createStory,
+    updateKeyframe,
+    approve,
+    retryVideo,
+    assemble,
+    retryQc,
+    approveQc,
+    recoverScene,
+    cancel,
+  }
 }
 
 async function setupComposable(api: StoryApi, storyId?: string) {
@@ -180,7 +198,9 @@ describe('useStory load and state mapping', () => {
     ['GENERATING_KEYFRAMES', 'keyframes', 'Preparando las imágenes'],
     ['WAITING_APPROVAL', 'review', 'Revisa las imágenes'],
     ['GENERATING_VIDEOS', 'videos', 'Generando los vídeos'],
-    ['VIDEOS_READY', 'assembling', 'Montando el vídeo final'],
+    ['VIDEOS_READY', 'qc', 'Revisando la continuidad'],
+    ['QC', 'qc', 'Revisando la continuidad'],
+    ['WAITING_QC', 'waiting-qc', 'Revisa la continuidad'],
     ['ASSEMBLING', 'assembling', 'Montando el vídeo final'],
     ['READY', 'ready', 'Tu historia'],
     ['CANCELLED', 'cancelled', 'Historia cancelada.'],
@@ -553,6 +573,46 @@ describe('useStory commands', () => {
 
     expect(retryVideo).toHaveBeenCalledWith('story-test-0001', 'scene-3')
     expect(assemble).toHaveBeenCalledWith('story-test-0001')
+  })
+
+  it('runs the QC commands and the scene recovery through the API', async () => {
+    const { composable, retryQc, approveQc, recoverScene } = await loaded()
+
+    const retried = await composable.retryQc()
+    const approved = await composable.approveQc()
+    const recovered = await composable.recoverScene('scene-4')
+
+    expect(retryQc).toHaveBeenCalledWith('story-test-0001')
+    expect(approveQc).toHaveBeenCalledWith('story-test-0001')
+    expect(recoverScene).toHaveBeenCalledWith('story-test-0001', 'scene-4')
+    expect(retried?.status).toBe('VIDEOS_READY')
+    expect(approved?.status).toBe('ASSEMBLING')
+    expect(recovered?.status).toBe('GENERATING_KEYFRAMES')
+  })
+
+  it('does not schedule polling in WAITING_QC', async () => {
+    vi.useFakeTimers()
+    const { api, getStory } = createApi()
+    getStory.mockResolvedValueOnce(storyFor('WAITING_QC', {
+      pollAfterMs: 0,
+      scenes: Array.from({ length: 5 }, (_value, index) =>
+        makeSceneDto({
+          order: index + 1,
+          status: 'VIDEO_READY',
+          keyframeAttempts: 1,
+          videoAttempts: 1,
+        }),
+      ),
+    }))
+    const { composable } = await setupComposable(api)
+
+    await composable.loadStory('story-test-0001')
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    expect(composable.state.value.status).toBe('waiting-qc')
+    expect(getStory).toHaveBeenCalledTimes(1)
+
+    vi.useRealTimers()
   })
 
   it('exposes a command error and keeps the story', async () => {

@@ -18,6 +18,8 @@ export interface VideoInput {
   readonly prompt: string
   readonly keyframeUrl: string
   readonly durationSeconds: ComposerVideoDuration
+  /** Opcional. Si falta, cada adaptador usa su comportamiento actual. */
+  readonly negativePrompt?: string
 }
 
 export interface VideoOutput {

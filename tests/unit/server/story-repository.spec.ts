@@ -55,6 +55,8 @@ function storyRow(overrides: AnyRecord = {}): AnyRecord {
     planJson: plan5,
     finalVideoUrl: null,
     finalVideoExpiresAt: null,
+    qcJson: null,
+    qcCheckedAt: null,
     errorCode: null,
     errorMessage: null,
     idempotencyKey: null,
@@ -294,8 +296,69 @@ describe('PrismaStoryRepository reads and mapping', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 
-  it('falls back to safe domain values for unknown database enums', async () => {
+  it('maps a valid qcJson only when qcCheckedAt is present', async () => {
     const { client, repo } = repository()
+    const qcJson = {
+      status: 'UNAVAILABLE',
+      errorCode: 'qc-not-configured',
+      evaluator: 'none',
+      confidence: null,
+      scenes: [
+        {
+          sceneId: 'scene-row-1',
+          order: 1,
+          framesUrl: null,
+          technical: 'pass',
+          observed: null,
+          confidence: null,
+          issues: [],
+        },
+      ],
+      issues: [],
+      override: null,
+    }
+    client.story.findUnique.mockResolvedValue(storyRow({
+      qcJson,
+      qcCheckedAt: NOW,
+    }))
+
+    const story = await repo.findById('story-row-1')
+
+    expect(story?.qc?.status).toBe('UNAVAILABLE')
+    expect(story?.qc?.checkedAt).toBe(NOW.toISOString())
+    expect(story?.qc?.issues.some((issue) => issue.code === 'frames-unavailable'))
+      .toBe(true)
+  })
+
+  it('returns qc null for invalid qcJson or a missing qcCheckedAt', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { client, repo } = repository()
+    client.story.findUnique.mockResolvedValueOnce(storyRow({
+      qcJson: { status: 'OK' },
+      qcCheckedAt: NOW,
+    }))
+    client.story.findUnique.mockResolvedValueOnce(storyRow({
+      qcJson: {
+        status: 'FAILED',
+        errorCode: null,
+        evaluator: 'vision',
+        confidence: 0.5,
+        scenes: [],
+        issues: [],
+        override: null,
+      },
+      qcCheckedAt: null,
+    }))
+
+    expect((await repo.findById('story-row-1'))?.qc).toBeNull()
+    expect((await repo.findById('story-row-1'))?.qc).toBeNull()
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({
+      event: 'story.qc.invalid',
+      storyId: 'story-row-1',
+    }))
+  })
+
+  it('falls back to safe domain values for unknown database enums', async () => {    const { client, repo } = repository()
     client.story.findUnique.mockResolvedValue(storyRow({
       status: 'UNKNOWN',
       preset: 'experimental',
@@ -324,11 +387,38 @@ describe('PrismaStoryRepository claim and leases', () => {
 
     expect(args).toMatchObject({
       where: {
-        status: { in: ['GENERATING_KEYFRAMES', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'ASSEMBLING'] },
+        status: { in: ['GENERATING_KEYFRAMES', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'QC', 'ASSEMBLING'] },
         OR: [{ leaseUntil: null }, { leaseUntil: { lt: NOW } }],
       },
       orderBy: { updatedAt: 'asc' },
       take: 5,
+    })
+  })
+
+  it('renews the lease in the same applyQcResult transition', async () => {
+    const { client, repo } = repository()
+    client.story.updateMany.mockResolvedValue({ count: 1 })
+    const leaseUntil = new Date(NOW.getTime() + 240_000)
+
+    expect(await repo.applyQcResult({
+      storyId: 'story-row-1',
+      storyGuard: { statuses: ['QC'], version: 3 },
+      storyPatch: { status: 'ASSEMBLING' },
+      scenes: [],
+      leaseUntil,
+    })).toBe(true)
+
+    expect(client.story.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'story-row-1',
+        status: { in: ['QC'] },
+        version: 3,
+      },
+      data: expect.objectContaining({
+        status: 'ASSEMBLING',
+        leaseUntil,
+        version: { increment: 1 },
+      }),
     })
   })
 
@@ -342,7 +432,7 @@ describe('PrismaStoryRepository claim and leases', () => {
     expect(client.story.updateMany).toHaveBeenCalledWith({
       where: {
         id: 'story-row-1',
-        status: { in: ['GENERATING_KEYFRAMES', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'ASSEMBLING'] },
+        status: { in: ['GENERATING_KEYFRAMES', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'QC', 'ASSEMBLING'] },
         OR: [{ leaseUntil: null }, { leaseUntil: { lt: NOW } }],
       },
       data: {
@@ -475,7 +565,7 @@ describe('PrismaStoryRepository cancel and cleanup', () => {
         id: 'story-row-1',
         sessionId: 'session-row-1',
         status: {
-          in: ['GENERATING_KEYFRAMES', 'WAITING_APPROVAL', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'ASSEMBLING'],
+          in: ['GENERATING_KEYFRAMES', 'WAITING_APPROVAL', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'QC', 'WAITING_QC', 'ASSEMBLING'],
         },
       },
       data: {
@@ -517,14 +607,14 @@ describe('PrismaStoryRepository cancel and cleanup', () => {
     expect(activeArgs.where).toEqual({
       sessionId: 'session-row-1',
       status: {
-        in: ['GENERATING_KEYFRAMES', 'WAITING_APPROVAL', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'ASSEMBLING'],
+        in: ['GENERATING_KEYFRAMES', 'WAITING_APPROVAL', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'QC', 'ASSEMBLING'],
       },
     })
 
     const globalArgs = client.story.count.mock.calls[1]![0] as AnyRecord
     expect(globalArgs.where).toEqual({
       status: {
-        in: ['GENERATING_KEYFRAMES', 'WAITING_APPROVAL', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'ASSEMBLING'],
+        in: ['GENERATING_KEYFRAMES', 'WAITING_APPROVAL', 'GENERATING_VIDEOS', 'VIDEOS_READY', 'QC', 'ASSEMBLING'],
       },
     })
 

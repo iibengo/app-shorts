@@ -10,6 +10,7 @@ defineProps<{
   <div
     data-testid="story-error"
     role="alert"
+    tabindex="-1"
     class="mt-6 rounded-2xl border border-brand-fuchsia/40 bg-brand-fuchsia/10 p-3 text-sm leading-relaxed text-brand-text forced-colors:border forced-colors:border-[ButtonText]"
   >
     <p>{{ error.message }}</p>

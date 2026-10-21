@@ -53,7 +53,7 @@ export class KlingVideoAdapter implements VideoAdapter {
       prompt: input.prompt,
       image_url: input.keyframeUrl,
       duration: input.durationSeconds === 5 ? '5' : '10',
-      negative_prompt: KLING_NEGATIVE_PROMPT,
+      negative_prompt: input.negativePrompt ?? KLING_NEGATIVE_PROMPT,
       cfg_scale: 0.5,
     }
   }

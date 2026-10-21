@@ -84,9 +84,9 @@ const SCENE_BUDGETS: readonly {
   readonly plan: unknown
   readonly maxTokens: number
 }[] = [
-  { sceneCount: 4, plan: plan4, maxTokens: 1_400 },
-  { sceneCount: 5, plan: plan5, maxTokens: 1_400 },
-  { sceneCount: 6, plan: plan6, maxTokens: 1_900 },
+  { sceneCount: 4, plan: plan4, maxTokens: 2_600 },
+  { sceneCount: 5, plan: plan5, maxTokens: 3_000 },
+  { sceneCount: 6, plan: plan6, maxTokens: 3_400 },
 ]
 
 function emitRecorder(): {
@@ -131,22 +131,22 @@ function codeOf(error: unknown): string | undefined {
 
 describe('director output budget', () => {
   it('derives max_tokens from the scene count', () => {
-    expect(DIRECTOR_MAX_TOKENS).toBe(1_400)
-    expect(DIRECTOR_MAX_TOKENS_LIMIT).toBe(2_000)
+    expect(DIRECTOR_MAX_TOKENS).toBe(3_000)
+    expect(DIRECTOR_MAX_TOKENS_LIMIT).toBe(4_000)
 
-    expect(directorMaxTokens(4)).toBe(1_400)
-    expect(directorMaxTokens(5)).toBe(1_400)
-    expect(directorMaxTokens(6)).toBe(1_900)
-    expect(directorMaxTokens(3)).toBe(1_400)
-    expect(directorMaxTokens(9)).toBe(1_400)
+    expect(directorMaxTokens(4)).toBe(2_600)
+    expect(directorMaxTokens(5)).toBe(3_000)
+    expect(directorMaxTokens(6)).toBe(3_400)
+    expect(directorMaxTokens(3)).toBe(3_000)
+    expect(directorMaxTokens(9)).toBe(3_000)
     expect(directorMaxTokens(6)).toBeLessThanOrEqual(DIRECTOR_MAX_TOKENS_LIMIT)
   })
 
-  it('caps the repair at 2000 tokens', () => {
-    expect(directorRepairMaxTokens(1_400)).toBe(1_900)
-    expect(directorRepairMaxTokens(1_800)).toBe(2_000)
-    expect(directorRepairMaxTokens(1_900)).toBe(2_000)
-    expect(directorRepairMaxTokens(2_000)).toBe(2_000)
+  it('caps the repair at 4000 tokens', () => {
+    expect(directorRepairMaxTokens(2_600)).toBe(3_400)
+    expect(directorRepairMaxTokens(3_000)).toBe(3_800)
+    expect(directorRepairMaxTokens(3_400)).toBe(4_000)
+    expect(directorRepairMaxTokens(4_000)).toBe(4_000)
   })
 
   it.each(SCENE_BUDGETS)(
@@ -165,7 +165,7 @@ describe('director output budget', () => {
       expect(result.beats).toHaveLength(sceneCount)
       expect(requests).toHaveLength(1)
       expect(requests[0]?.body.max_tokens).toBe(maxTokens)
-      expect(requests[0]?.body.max_tokens).toBeLessThanOrEqual(2_000)
+      expect(requests[0]?.body.max_tokens).toBeLessThanOrEqual(4_000)
     },
   )
 })
@@ -253,8 +253,8 @@ describe('director truncation repair', () => {
 
     expect(plan.beats).toHaveLength(5)
     expect(requests).toHaveLength(2)
-    expect(requests[0]?.body.max_tokens).toBe(1_400)
-    expect(requests[1]?.body.max_tokens).toBe(1_900)
+    expect(requests[0]?.body.max_tokens).toBe(3_000)
+    expect(requests[1]?.body.max_tokens).toBe(3_800)
 
     const repairMessages = requests[1]!.body.messages
     const repairText = repairMessages
@@ -276,7 +276,7 @@ describe('director truncation repair', () => {
     ])
   })
 
-  it('caps the repair budget at 2000 tokens for six scenes', async () => {
+  it('caps the repair budget at 4000 tokens for six scenes', async () => {
     const { director, requests } = directorWith([
       { content: 'esto no es json', finishReason: 'length' },
       { content: planContent(plan6), finishReason: 'stop' },
@@ -285,11 +285,11 @@ describe('director truncation repair', () => {
     await director.createPlan({ premise: PREMISE, sceneCount: 6, referenceUrl: null })
 
     expect(requests).toHaveLength(2)
-    expect(requests[0]?.body.max_tokens).toBe(1_900)
-    expect(requests[1]?.body.max_tokens).toBe(2_000)
+    expect(requests[0]?.body.max_tokens).toBe(3_400)
+    expect(requests[1]?.body.max_tokens).toBe(4_000)
   })
 
-  it('keeps the base budget and no note for a non truncated failure', async () => {
+  it('uses the repair budget and no note for a non truncated failure', async () => {
     const { director, requests } = directorWith([
       { content: 'esto no es json', finishReason: 'stop' },
       { content: planContent(plan5), finishReason: 'stop' },
@@ -298,7 +298,7 @@ describe('director truncation repair', () => {
     await director.createPlan({ premise: PREMISE, sceneCount: 5, referenceUrl: null })
 
     expect(requests).toHaveLength(2)
-    expect(requests[1]?.body.max_tokens).toBe(1_400)
+    expect(requests[1]?.body.max_tokens).toBe(3_800)
 
     const repairText = requests[1]!.body.messages
       .filter((message) => message.role === 'user')

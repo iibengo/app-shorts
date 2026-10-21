@@ -10,6 +10,10 @@ import {
 } from '../../../server/story/keyframe-orchestrator'
 import type { FalQueueService } from '../../../server/fal/queue-service'
 import { makeSceneRecord, makeStoryRecord } from '../../helpers/story'
+import {
+  storyBeatForScene,
+  storyPromptComposer,
+} from '../../../server/story/story-prompt-composer'
 import fluxDev from '../../fixtures/fal/flux-dev-result.json'
 
 const REFERENCE = 'https://v3.fal.media/files/test/reference.webp'
@@ -55,11 +59,17 @@ describe('NativeKeyframeOrchestrator.submit', () => {
     const orchestrator = new NativeKeyframeOrchestrator(queue)
     const story = makeStoryRecord({ referenceUrl: null })
     const target = scene({ order: 1, visualPrompt: VISUAL_PROMPT })
+    const beat = storyBeatForScene(story.plan, target)
+    const expectedPrompt = storyPromptComposer.composeKeyframe({
+      bible: story.plan?.storyBible ?? null,
+      beat,
+      hasReference: false,
+    }).prompt
 
     const submission = await orchestrator.submit(target, story)
 
     expect(submit).toHaveBeenCalledWith('fal-ai/flux/dev', {
-      prompt: storyKeyframeFluxPrompt(VISUAL_PROMPT),
+      prompt: expectedPrompt,
       image_size: { width: 1152, height: 2048 },
       num_images: 1,
       output_format: 'jpeg',
@@ -81,10 +91,18 @@ describe('NativeKeyframeOrchestrator.submit', () => {
       referenceExpiresAt: new Date(Date.now() + 3_600_000),
     })
 
-    await orchestrator.submit(scene({ order: 2, visualPrompt: VISUAL_PROMPT }), story)
+    const target = scene({ order: 2, visualPrompt: VISUAL_PROMPT })
+    const beat = storyBeatForScene(story.plan, target)
+    const expectedPrompt = storyPromptComposer.composeKeyframe({
+      bible: story.plan?.storyBible ?? null,
+      beat,
+      hasReference: true,
+    }).prompt
+
+    await orchestrator.submit(target, story)
 
     expect(submit).toHaveBeenCalledWith('fal-ai/flux-pro/kontext', {
-      prompt: storyKeyframeKontextPrompt(VISUAL_PROMPT),
+      prompt: expectedPrompt,
       image_url: REFERENCE,
       aspect_ratio: '9:16',
       output_format: 'jpeg',

@@ -52,6 +52,9 @@ export interface UseStoryReturn {
   approve: () => Promise<StoryJob | null>
   retryScene: (sceneId: string) => Promise<StoryJob | null>
   retryAssembly: () => Promise<StoryJob | null>
+  retryQc: () => Promise<StoryJob | null>
+  approveQc: () => Promise<StoryJob | null>
+  recoverScene: (sceneId: string) => Promise<StoryJob | null>
   cancel: () => Promise<Story | null>
   restart: () => void
   clearError: () => void
@@ -66,7 +69,9 @@ const STATUS_MESSAGES: Readonly<Record<StoryStatus, string>> = {
   GENERATING_KEYFRAMES: 'Preparando las imágenes',
   WAITING_APPROVAL: 'Revisa las imágenes',
   GENERATING_VIDEOS: 'Generando los vídeos',
-  VIDEOS_READY: 'Montando el vídeo final',
+  VIDEOS_READY: 'Revisando la continuidad',
+  QC: 'Revisando la continuidad',
+  WAITING_QC: 'Revisa la continuidad',
   ASSEMBLING: 'Montando el vídeo final',
   READY: 'Tu historia',
   FAILED: 'No se pudo completar la historia',
@@ -82,7 +87,15 @@ function stateForStory(story: Story): StoryGenerationState {
     return { status: 'videos', story }
   }
 
-  if (story.status === 'VIDEOS_READY' || story.status === 'ASSEMBLING') {
+  if (story.status === 'VIDEOS_READY' || story.status === 'QC') {
+    return { status: 'qc', story }
+  }
+
+  if (story.status === 'WAITING_QC') {
+    return { status: 'waiting-qc', story }
+  }
+
+  if (story.status === 'ASSEMBLING') {
     return { status: 'assembling', story }
   }
 
@@ -211,6 +224,7 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     if (
       current.status === 'keyframes'
       || current.status === 'videos'
+      || current.status === 'qc'
       || current.status === 'assembling'
     ) {
       if (elapsedTimer === null) {
@@ -227,6 +241,7 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     stopPolling()
 
     if (!import.meta.client) return
+    if (delayMs <= 0) return
 
     const current = state.value
 
@@ -404,6 +419,18 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     return runCommand((id) => api.assemble(id))
   }
 
+  async function retryQc(): Promise<StoryJob | null> {
+    return runCommand((id) => api.retryQc(id))
+  }
+
+  async function approveQc(): Promise<StoryJob | null> {
+    return runCommand((id) => api.approveQc(id))
+  }
+
+  async function recoverScene(sceneId: string): Promise<StoryJob | null> {
+    return runCommand((id) => api.recoverScene(id, sceneId))
+  }
+
   async function cancel(): Promise<Story | null> {
     if (!currentId) return null
 
@@ -529,6 +556,9 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     approve,
     retryScene,
     retryAssembly,
+    retryQc,
+    approveQc,
+    recoverScene,
     cancel,
     restart,
     clearError,

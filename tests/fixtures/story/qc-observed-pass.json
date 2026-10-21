@@ -1,0 +1,14 @@
+{
+  "characters": ["bart"],
+  "wardrobeMismatch": [],
+  "unknownCharacters": false,
+  "props": ["skateboard"],
+  "unknownProps": false,
+  "locationMatches": true,
+  "weatherMatches": true,
+  "timeOfDayMatches": true,
+  "continuityMatches": true,
+  "textOrWatermark": false,
+  "artifacts": false,
+  "confidence": 0.92
+}

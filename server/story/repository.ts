@@ -4,6 +4,7 @@ import type {
   StoryErrorCode,
   StoryPlan,
   StoryPreset,
+  StoryQC,
   StoryStatus,
 } from '~/models/story'
 
@@ -23,6 +24,8 @@ export interface StoryRecord {
   readonly plan: StoryPlan | null
   readonly finalVideoUrl: string | null
   readonly finalVideoExpiresAt: Date | null
+  readonly qc: StoryQC | null
+  readonly qcCheckedAt: Date | null
   readonly errorCode: StoryErrorCode | null
   readonly errorMessage: string | null
   readonly idempotencyKey: string | null
@@ -108,6 +111,8 @@ export interface StoryPatch {
   readonly plan?: StoryPlan | null
   readonly finalVideoUrl?: string | null
   readonly finalVideoExpiresAt?: Date | null
+  readonly qc?: StoryQC | null
+  readonly qcCheckedAt?: Date | null
 }
 
 export interface ScenePatch {
@@ -130,6 +135,21 @@ export interface ScenePatch {
   readonly videoAttempts?: number
 }
 
+export interface QcResultSceneUpdate {
+  readonly sceneId: string
+  readonly guard: SceneGuard
+  readonly patch: ScenePatch
+}
+
+export interface ApplyQcResultInput {
+  readonly storyId: string
+  readonly storyGuard: StoryGuard
+  readonly storyPatch: StoryPatch
+  readonly scenes: readonly QcResultSceneUpdate[]
+  /** Renueva el lease en la misma transición, por ejemplo al entrar en ASSEMBLING. */
+  readonly leaseUntil?: Date
+}
+
 export interface StoryRepository {
   createStory(input: CreateStoryRecord): Promise<StoryRecord>
   findOwnedById(id: string, sessionId: string): Promise<StoryRecord | null>
@@ -148,6 +168,7 @@ export interface StoryRepository {
     guard: SceneGuard,
     patch: ScenePatch,
   ): Promise<number>
+  applyQcResult(input: ApplyQcResultInput): Promise<boolean>
   cancel(id: string, sessionId: string, now: Date): Promise<boolean>
   countActive(sessionId: string): Promise<number>
   countActiveGlobal(): Promise<number>
@@ -174,15 +195,26 @@ export function rebuildPlan(input: PlanRebuildInput): StoryPlan | null {
   const beats: StoryBeat[] = input.scenes
     .slice()
     .sort((a, b) => a.order - b.order)
-    .map((scene) => ({
+    .map((scene, index, all) => ({
       order: scene.order,
+      sceneRole: index === 0
+        ? 'establishing'
+        : index === all.length - 1
+          ? 'resolution'
+          : 'development',
       visualPrompt: scene.visualPrompt,
       narration: scene.narration,
+      characters: [],
+      props: [],
+      camera: 'wide',
+      continuityFromPrevious: index === 0 ? null : 'Continúa la escena anterior.',
+      transition: 'cut',
     }))
 
   return {
     title: input.title ?? '',
     logline: input.logline ?? '',
+    storyBible: null,
     beats,
   }
 }

@@ -164,6 +164,15 @@ describe('useStoryApi requests', () => {
     await useStoryApi().assemble('story-1')
     const assemble = lastFetchCall()
 
+    await useStoryApi().retryQc('story-1')
+    const retryQc = lastFetchCall()
+
+    await useStoryApi().approveQc('story-1')
+    const approveQc = lastFetchCall()
+
+    await useStoryApi().recoverScene('story-1', 'scene-3')
+    const recover = lastFetchCall()
+
     await useStoryApi().cancel('story-1')
     const cancel = lastFetchCall()
 
@@ -177,6 +186,15 @@ describe('useStoryApi requests', () => {
     expect(retry.url).toBe('/api/story/story-1/beats/scene-2/retry')
     expect(retry.options).toEqual({ method: 'POST' })
     expect(assemble.url).toBe('/api/story/story-1/assemble')
+    expect(retryQc.url).toBe('/api/story/story-1/qc/retry')
+    expect(retryQc.options).toEqual({ method: 'POST' })
+    expect(approveQc.url).toBe('/api/story/story-1/qc/approve')
+    expect(approveQc.options).toMatchObject({
+      method: 'POST',
+      body: { confirm: true },
+    })
+    expect(recover.url).toBe('/api/story/story-1/beats/scene-3/recover')
+    expect(recover.options).toEqual({ method: 'POST' })
     expect(cancel.url).toBe('/api/story/story-1/cancel')
   })
 })

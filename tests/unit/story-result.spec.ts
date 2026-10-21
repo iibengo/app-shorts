@@ -119,6 +119,28 @@ describe('StoryResult', () => {
     )
   })
 
+  it('renders the manual review note only with an explicit override', async () => {
+    const withoutOverride = await mountResult()
+    expect(withoutOverride.find('[data-testid="story-result-manual-review"]').exists())
+      .toBe(false)
+
+    const withOverride = await mountResult(readyStory({
+      qc: {
+        status: 'UNAVAILABLE',
+        errorCode: 'qc-not-configured',
+        evaluator: 'none',
+        checkedAt: '2026-10-21T18:20:00.000Z',
+        confidence: null,
+        scenes: [],
+        issues: [],
+        override: { at: '2026-10-21T18:21:00.000Z', approved: true },
+      },
+    }))
+
+    expect(normalize(withOverride.get('[data-testid="story-result-manual-review"]').text()))
+      .toBe('Continuidad revisada manualmente.')
+  })
+
   it('offers only the restart action and no download, share or publish controls', async () => {
     const wrapper = await mountResult()
     const text = normalize(wrapper.text())

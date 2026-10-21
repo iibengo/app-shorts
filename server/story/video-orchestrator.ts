@@ -6,6 +6,16 @@ import type { FalQueueService } from '../fal/queue-service'
 import type { ComposerEndpointId } from '../fal/types'
 import { StoryError, toStoryError } from './errors'
 import type { SceneRecord, StoryRecord } from './repository'
+import {
+  storyBeatForScene,
+  storyPromptComposer,
+  storyVideoLegacyPrompt,
+} from './story-prompt-composer'
+
+/** Legacy 005 template, kept for contract compatibility. */
+export function storyVideoPrompt(visualPrompt: string): string {
+  return storyVideoLegacyPrompt(visualPrompt)
+}
 
 export interface VideoProviderSubmission {
   readonly requestId: string
@@ -31,10 +41,6 @@ const VIDEO_ENDPOINTS: Readonly<Record<StoryPreset, ComposerEndpointId>> = {
 
 const STORY_VIDEO_DURATION = 6
 
-export function storyVideoPrompt(visualPrompt: string): string {
-  return `${visualPrompt}. Vertical 9:16 short film scene, smooth natural motion, consistent subject, no text, no watermark, no logo.`
-}
-
 export class NativeVideoOrchestrator implements VideoOrchestrator {
   private readonly queue: FalQueueService
   private readonly minimax: VideoAdapter
@@ -53,12 +59,29 @@ export class NativeVideoOrchestrator implements VideoOrchestrator {
 
     try {
       const adapter = this.adapterFor(story.preset)
+      const beat = storyBeatForScene(
+        story.plan,
+        {
+          order: scene.order,
+          visualPrompt: scene.visualPrompt,
+          narration: scene.narration,
+        },
+        story.scenes.length,
+      )
+      const composed = storyPromptComposer.composeVideo({
+        bible: story.plan?.storyBible ?? null,
+        beat,
+        preset: story.preset,
+      })
       const submission = await this.queue.submit(
         VIDEO_ENDPOINTS[story.preset],
         adapter.buildInput({
-          prompt: storyVideoPrompt(scene.visualPrompt),
+          prompt: composed.prompt,
           keyframeUrl: scene.keyframeUrl,
           durationSeconds: STORY_VIDEO_DURATION,
+          ...(story.preset === 'quality'
+            ? { negativePrompt: composed.negativePrompt }
+            : {}),
         }),
       )
 

@@ -5,15 +5,20 @@ import type { StoryAssembler } from './assembly-service'
 import type { StoryCostGuard } from './cost'
 import { StoryError, toStoryError, storyErrorMessage } from './errors'
 import type { KeyframeOrchestrator } from './keyframe-orchestrator'
+import type { StoryQCService } from './qc-service'
+import { QCFramesGlobalError } from './qc-frames'
 import type { SceneRecord, StoryRecord, StoryRepository } from './repository'
 import type { VideoOrchestrator } from './video-orchestrator'
 
 export interface StoryReconcilerConfig {
   readonly leaseMs: number
   readonly assemblyLeaseMs: number
+  readonly qcLeaseMs: number
+  readonly qcTimeoutMs: number
   readonly tickBudgetMs: number
   readonly keyframeConcurrency: number
   readonly videoConcurrency: number
+  readonly qcConcurrency: number
   readonly claimLimit: number
   readonly cleanupIntervalMs: number
   readonly cleanupBatchSize: number
@@ -32,6 +37,7 @@ export interface StoryReconcilerOptions {
   readonly keyframes: KeyframeOrchestrator
   readonly videos: VideoOrchestrator
   readonly assembler: StoryAssembler
+  readonly qcService: StoryQCService | null
   readonly costGuard: StoryCostGuard
   readonly config: StoryReconcilerConfig
   readonly owner?: string
@@ -59,9 +65,12 @@ export const DEFAULT_STORY_RECONCILER_CONFIG: StoryReconcilerConfig = {
   // Longer than the 180 s FFmpeg budget so a crashed assembly cannot be
   // double-claimed while the first process is still working.
   assemblyLeaseMs: 240_000,
+  qcLeaseMs: 300_000,
+  qcTimeoutMs: 240_000,
   tickBudgetMs: 45_000,
   keyframeConcurrency: 3,
   videoConcurrency: 2,
+  qcConcurrency: 1,
   claimLimit: 5,
   cleanupIntervalMs: 600_000,
   cleanupBatchSize: 50,
@@ -73,12 +82,14 @@ export class StoryReconciler {
   private readonly keyframes: KeyframeOrchestrator
   private readonly videos: VideoOrchestrator
   private readonly assembler: StoryAssembler
+  private readonly qcService: StoryQCService | null
   private readonly costGuard: StoryCostGuard
   private readonly config: StoryReconcilerConfig
   private readonly owner: string
   private readonly now: () => number
   private readonly onEvent: (event: StoryReconcilerEvent) => void
   private assemblyInFlight = false
+  private qcInFlight = false
   private lastCleanupAt = 0
 
   constructor(options: StoryReconcilerOptions) {
@@ -86,6 +97,7 @@ export class StoryReconciler {
     this.keyframes = options.keyframes
     this.videos = options.videos
     this.assembler = options.assembler
+    this.qcService = options.qcService
     this.costGuard = options.costGuard
     this.config = options.config
     this.owner = options.owner ?? `story-reconciler-${randomBytes(6).toString('hex')}`
@@ -105,9 +117,23 @@ export class StoryReconciler {
 
     for (const candidate of claimable) {
       const claimNow = this.now()
+      const qcPhase =
+        candidate.status === 'QC'
+        || (
+          candidate.status === 'VIDEOS_READY'
+          && !this.shouldSkipQc(candidate)
+        )
       const assemblyPhase =
-        candidate.status === 'VIDEOS_READY' || candidate.status === 'ASSEMBLING'
-      const leaseMs = assemblyPhase ? this.config.assemblyLeaseMs : this.config.leaseMs
+        candidate.status === 'ASSEMBLING'
+        || (
+          candidate.status === 'VIDEOS_READY'
+          && this.shouldSkipQc(candidate)
+        )
+      const leaseMs = qcPhase
+        ? this.config.qcLeaseMs
+        : assemblyPhase
+          ? this.config.assemblyLeaseMs
+          : this.config.leaseMs
       const claimed = await this.repository.claim(
         candidate.id,
         this.owner,
@@ -153,13 +179,34 @@ export class StoryReconciler {
     }
 
     if (story.status === 'VIDEOS_READY') {
-      await this.processAssembly(story, false)
+      if (this.shouldSkipQc(story)) {
+        await this.processAssembly(story, false)
+        return
+      }
+
+      await this.processQc(story)
+      return
+    }
+
+    if (story.status === 'QC') {
+      await this.processQc(story)
       return
     }
 
     if (story.status === 'ASSEMBLING') {
       await this.processAssembly(story, true)
     }
+  }
+
+  /**
+   * A retried assembly with an already persisted PASS/override must not repeat
+   * the QC. Any `retry`, `recover` or `qc/retry` clears `qcJson`, so the
+   * exception cannot hide a stale report.
+   */
+  private shouldSkipQc(story: StoryRecord): boolean {
+    if (!story.qc) return false
+
+    return story.qc.status === 'PASSED' || story.qc.override?.approved === true
   }
 
   private async processKeyframes(story: StoryRecord): Promise<void> {
@@ -381,11 +428,22 @@ export class StoryReconciler {
       return
     }
 
-    if (story.scenes.every((scene) => scene.status === 'KEYFRAME_READY')) {
+    const allResolved = story.scenes.every(
+      (scene) => scene.status === 'KEYFRAME_READY' || scene.status === 'VIDEO_READY',
+    )
+
+    if (allResolved) {
+      const nextStatus = story.approvedAt !== null
+        ? 'GENERATING_VIDEOS'
+        : 'WAITING_APPROVAL'
+
       await this.repository.updateStory(
         story.id,
         { statuses: ['GENERATING_KEYFRAMES'], version: story.version },
-        { status: 'WAITING_APPROVAL', approvedAt: null },
+        {
+          status: nextStatus,
+          ...(nextStatus === 'WAITING_APPROVAL' ? { approvedAt: null } : {}),
+        },
       )
 
       return
@@ -632,6 +690,157 @@ export class StoryReconciler {
     }
   }
 
+  private async processQc(story: StoryRecord): Promise<void> {
+    if (this.qcInFlight) {
+      return
+    }
+
+    const fresh = await this.repository.findById(story.id)
+
+    if (!fresh || fresh.leaseOwner !== this.owner) {
+      return
+    }
+
+    if (!fresh.scenes.every((scene) => scene.status === 'VIDEO_READY')) {
+      await this.failStory(fresh, 'video-failed', ['VIDEOS_READY', 'QC'])
+
+      return
+    }
+
+    if (!this.qcService) {
+      await this.failStory(fresh, 'ffmpeg-not-configured', ['VIDEOS_READY', 'QC'])
+
+      return
+    }
+
+    const qcService = this.qcService
+
+    if (fresh.status === 'VIDEOS_READY') {
+      const started = await this.repository.updateStory(
+        fresh.id,
+        { statuses: ['VIDEOS_READY'], version: fresh.version },
+        { status: 'QC', errorCode: null, errorMessage: null },
+      )
+
+      if (started === 0) {
+        return
+      }
+    }
+
+    const claimed = await this.repository.findById(fresh.id)
+
+    if (!claimed || claimed.leaseOwner !== this.owner || claimed.status !== 'QC') {
+      return
+    }
+
+    this.qcInFlight = true
+
+    try {
+      const clips = claimed.scenes
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((scene) => ({
+          sceneId: scene.id,
+          order: scene.order,
+          url: scene.videoUrl ?? '',
+        }))
+
+      const result = await qcService.run({ story: claimed, clips })
+      const qc = result.qc
+      const checkedAt = new Date(qc.checkedAt)
+      const sceneUpdates = result.technicalFailures.map((failure) => ({
+        sceneId: failure.sceneId,
+        guard: { statuses: ['VIDEO_READY'] as const },
+        patch: {
+          status: 'VIDEO_FAILED' as const,
+          videoError: 'provider-invalid-output' as const,
+        },
+      }))
+
+      if (qc.status === 'PASSED' && result.technicalFailures.length === 0) {
+        const applied = await this.repository.applyQcResult({
+          storyId: claimed.id,
+          storyGuard: { statuses: ['QC'], version: claimed.version },
+          storyPatch: {
+            status: 'ASSEMBLING',
+            qc,
+            qcCheckedAt: checkedAt,
+            errorCode: null,
+            errorMessage: null,
+          },
+          scenes: [],
+          leaseUntil: new Date(this.now() + this.config.assemblyLeaseMs),
+        })
+
+        if (!applied) {
+          return
+        }
+
+        this.onEvent({ event: 'story.qc.passed', storyId: claimed.id })
+
+        const assembling = await this.repository.findById(claimed.id)
+
+        if (assembling && assembling.status === 'ASSEMBLING') {
+          await this.processAssembly(assembling, true)
+        }
+
+        return
+      }
+
+      const applied = await this.repository.applyQcResult({
+        storyId: claimed.id,
+        storyGuard: { statuses: ['QC'], version: claimed.version },
+        storyPatch: {
+          status: 'WAITING_QC',
+          qc,
+          qcCheckedAt: checkedAt,
+          errorCode: null,
+          errorMessage: null,
+        },
+        scenes: sceneUpdates,
+      })
+
+      if (!applied) {
+        return
+      }
+
+      this.onEvent({
+        event: 'story.qc.waiting',
+        storyId: claimed.id,
+        qcStatus: qc.status,
+        ...(qc.errorCode === null ? {} : { qcErrorCode: qc.errorCode }),
+      })
+    } catch (error) {
+      if (error instanceof QCFramesGlobalError) {
+        await this.failStory(
+          claimed,
+          error.code === 'ffmpeg-not-configured'
+            ? 'ffmpeg-not-configured'
+            : 'assembly-failed',
+          ['QC'],
+        )
+
+        return
+      }
+
+      if (toStoryError(error).code === 'ffmpeg-not-configured') {
+        await this.failStory(claimed, 'ffmpeg-not-configured', ['QC'])
+
+        return
+      }
+
+      // Leave the story in QC: releasing the lease lets another tick retry the
+      // idempotent QC with fresh temporary files.
+      this.onEvent({
+        event: 'story.qc.error',
+        storyId: claimed.id,
+        errorCode: toStoryError(error).code,
+      })
+    } finally {
+      this.qcInFlight = false
+    }
+  }
+
   private async processAssembly(
     story: StoryRecord,
     alreadyAssembling: boolean,
@@ -647,9 +856,11 @@ export class StoryReconciler {
     }
 
     if (!fresh.scenes.every((scene) => scene.status === 'VIDEO_READY')) {
-      if (!alreadyAssembling) {
-        await this.failStory(fresh, 'assembly-failed', ['VIDEOS_READY'])
-      }
+      await this.failStory(
+        fresh,
+        'assembly-failed',
+        alreadyAssembling ? ['ASSEMBLING'] : ['VIDEOS_READY'],
+      )
 
       return
     }

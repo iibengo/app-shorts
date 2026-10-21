@@ -35,6 +35,10 @@ import { createPrismaStoryRepository } from './prisma-story-repository'
 import type { StoryRepository } from './repository'
 import { createStoryService, hashStoryBody, canonicalStoryBody } from './story-service'
 import type { StoryService } from './story-service'
+import { createStoryQCService } from './qc-service'
+import type { StoryQCService } from './qc-service'
+import { QC_EVALUATOR_TIMEOUT_MS, createStoryQCEvaluator } from './qc-evaluator'
+import { createStoryFrameExtractor } from './qc-frames'
 
 interface RuntimeStoryConfig {
   readonly maxCostUsd?: number
@@ -66,6 +70,15 @@ interface RuntimeStoryConfig {
   readonly falStorageBaseUrl?: string
   readonly assemblyTimeoutMs?: number
   readonly assemblyConcurrency?: number
+  readonly costQcUsd?: number
+  readonly qcEnabled?: boolean
+  readonly qcTimeoutMs?: number
+  readonly qcLeaseMs?: number
+  readonly qcConcurrency?: number
+  readonly qcMinConfidence?: number
+  readonly qcRetryLimit?: number
+  readonly qcRetryWindowMs?: number
+  readonly qcModel?: string
 }
 
 interface AppRuntimeConfig {
@@ -105,6 +118,10 @@ export interface StoryRuntime {
   readonly keyframes: KeyframeOrchestrator | null
   readonly videos: VideoOrchestrator | null
   readonly assembler: StoryAssembler | null
+  readonly qcService: StoryQCService | null
+  readonly qcEnabled: boolean
+  readonly qcMinConfidence: number
+  readonly costQcUsd: number
   readonly hasFfmpeg: boolean
   readonly videoConcurrency: number
   readonly assemblyTimeoutMs: number
@@ -235,6 +252,9 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     lifecycleSeconds: 3_600,
   })
   const pollAfterMs = numberValue(story.pollAfterMs, 2_500)
+  const qcEnabled = booleanValue(story.qcEnabled, false)
+  const qcMinConfidence = decimalValue(story.qcMinConfidence, 0.7)
+  const costQcUsd = decimalValue(story.costQcUsd, 0.02)
   const storyTtlMs = numberValue(story.ttlMs, 86_400_000)
   const rateLimiter = createStoryRateLimiter({
     config: {
@@ -251,6 +271,8 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
       cancelWindowMs: 60_000,
       assembleLimit: 3,
       assembleWindowMs: 3_600_000,
+      qcRetryLimit: numberValue(story.qcRetryLimit, 3),
+      qcRetryWindowMs: numberValue(story.qcRetryWindowMs, 3_600_000),
       maxActiveStories: numberValue(story.maxActiveStories, 2),
       dailyBudgetUsd: decimalValue(story.dailyBudgetUsd, 50),
     },
@@ -262,6 +284,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     keyframeReferenceCostUsd: decimalValue(story.costKeyframeReferenceUsd, 0.08),
     videoFastCostUsd: decimalValue(story.costVideoFastUsd, 0.35),
     videoQualityCostUsd: decimalValue(story.costVideoQualityUsd, 0.7),
+    qcUnitCostUsd: costQcUsd,
     dailyBudgetUsd: decimalValue(story.dailyBudgetUsd, 50),
   })
   const director = hasDeepSeekKey
@@ -295,6 +318,34 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         { totalTimeoutMs: assemblyTimeoutMs },
       )
     : null
+  const qcService = mediaStorage
+    ? createStoryQCService({
+        frameExtractor: createStoryFrameExtractor({
+          downloader: createMediaDownloader(),
+          runner: createFfmpegRunner(),
+          mediaStorage,
+          ffmpegPath,
+          ffprobePath,
+        }),
+        evaluator: createStoryQCEvaluator(
+          hasDeepSeekKey
+            ? {
+                apiKey: deepseekKey,
+                baseUrl: stringValue(story.deepseekBaseUrl, DEFAULT_DEEPSEEK_BASE_URL),
+                model: stringValue(story.qcModel, 'deepseek-flash'),
+                timeoutMs: QC_EVALUATOR_TIMEOUT_MS,
+              }
+            : null,
+        ),
+        costGuard,
+        onEvent: logStoryEvent,
+        config: {
+          enabled: qcEnabled,
+          minConfidence: qcMinConfidence,
+          timeoutMs: numberValue(story.qcTimeoutMs, 240_000),
+        },
+      })
+    : null
   const service = repository
     ? createStoryService({
         repository,
@@ -313,11 +364,20 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         keyframes,
         videos,
         assembler,
+        qcService,
         costGuard,
         onEvent: logStoryEvent,
         config: {
           leaseMs: numberValue(story.leaseMs, DEFAULT_STORY_RECONCILER_CONFIG.leaseMs),
           assemblyLeaseMs: DEFAULT_STORY_RECONCILER_CONFIG.assemblyLeaseMs,
+          qcLeaseMs: numberValue(
+            story.qcLeaseMs,
+            DEFAULT_STORY_RECONCILER_CONFIG.qcLeaseMs,
+          ),
+          qcTimeoutMs: numberValue(
+            story.qcTimeoutMs,
+            DEFAULT_STORY_RECONCILER_CONFIG.qcTimeoutMs,
+          ),
           tickBudgetMs: 45_000,
           keyframeConcurrency: numberValue(
             story.keyframeConcurrency,
@@ -326,6 +386,10 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
           videoConcurrency: numberValue(
             story.videoConcurrency,
             DEFAULT_STORY_RECONCILER_CONFIG.videoConcurrency,
+          ),
+          qcConcurrency: numberValue(
+            story.qcConcurrency,
+            DEFAULT_STORY_RECONCILER_CONFIG.qcConcurrency,
           ),
           claimLimit: DEFAULT_STORY_RECONCILER_CONFIG.claimLimit,
           cleanupIntervalMs: DEFAULT_STORY_RECONCILER_CONFIG.cleanupIntervalMs,
@@ -356,6 +420,10 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     keyframes,
     videos,
     assembler,
+    qcService,
+    qcEnabled,
+    qcMinConfidence,
+    costQcUsd,
     hasFfmpeg,
     videoConcurrency: numberValue(
       story.videoConcurrency,

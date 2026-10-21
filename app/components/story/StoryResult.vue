@@ -24,6 +24,7 @@ const poster = computed(() => storyPosterUrl(props.story.scenes))
 const preset = computed(() => getStoryPreset(props.story.preset))
 const duration = computed(() => formatStoryDuration(props.story.totalDurationSeconds))
 const reference = computed(() => storyReferenceLabel(props.story.referenceUrl))
+const manualReview = computed(() => props.story.qc?.override?.approved === true)
 
 onMounted(() => {
   heading.value?.focus()
@@ -98,6 +99,14 @@ onMounted(() => {
 
     <p data-testid="story-result-note" class="mt-4 text-xs leading-relaxed text-brand-muted">
       {{ STORY_COPY.resultNote }}
+    </p>
+
+    <p
+      v-if="manualReview"
+      data-testid="story-result-manual-review"
+      class="mt-2 text-xs leading-relaxed text-brand-muted"
+    >
+      {{ STORY_COPY.resultManualReview }}
     </p>
 
     <AppButton

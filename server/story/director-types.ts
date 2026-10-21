@@ -1,14 +1,27 @@
+import type {
+  StoryBible,
+  StoryCameraShot,
+  StorySceneRole,
+  StoryTransition,
+} from '~/models/story'
 import type { StoryBrief } from './premise-brief'
 
 export interface DirectorBeat {
   readonly order: number
+  readonly sceneRole: StorySceneRole
   readonly visualPrompt: string
   readonly narration: string
+  readonly characters: readonly string[]
+  readonly props: readonly string[]
+  readonly camera: StoryCameraShot
+  readonly continuityFromPrevious: string | null
+  readonly transition: StoryTransition
 }
 
 export interface DirectorPlan {
   readonly title: string
   readonly logline: string
+  readonly storyBible: StoryBible | null
   readonly beats: readonly DirectorBeat[]
 }
 

@@ -43,6 +43,7 @@ describe('story cost estimates', () => {
       keyframeReferenceCostUsd: 0.08,
       videoFastCostUsd: 0.35,
       videoQualityCostUsd: 0.7,
+      qcUnitCostUsd: 0.02,
       dailyBudgetUsd: 50,
     })
     expect(guard().costs).toEqual(DEFAULT_STORY_COST_CONFIG)
@@ -107,6 +108,33 @@ describe('story cost estimates', () => {
     const story = storyWith({ sceneCount: 5, keyframeAttempts: 1, videoAttempts: 0 })
 
     expect(guard().estimateAfterVideoAttempt(story)).toBe(0.61)
+  })
+
+  it('projects the vision cost per scene for the QC', () => {
+    const story = storyWith({ sceneCount: 5, keyframeAttempts: 1, videoAttempts: 0 })
+
+    expect(guard().estimateAfterQc(story)).toBe(0.36)
+  })
+
+  it('accumulates vision calls across QC retries and forgets cancelled stories', () => {
+    const story = storyWith({ sceneCount: 5, keyframeAttempts: 1, videoAttempts: 0 })
+    const costGuard = guard()
+
+    costGuard.recordQcEvaluations(story.id, 5)
+
+    const first = costGuard.estimate(story)
+
+    expect(first).toBe(0.36)
+    expect(costGuard.estimateAfterQc(story)).toBe(0.46)
+
+    costGuard.recordQcEvaluations(story.id, 5)
+
+    expect(costGuard.estimate(story)).toBe(0.46)
+    expect(costGuard.estimate(story)).toBeLessThan(8)
+
+    costGuard.forgetStory(story.id)
+
+    expect(costGuard.estimate(story)).toBe(0.26)
   })
 
   it('projects the approval cost from the pending videos only', () => {

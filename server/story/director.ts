@@ -17,14 +17,14 @@ import { validateDirectorPlan } from './plan-validator'
 export const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
 export const DEEPSEEK_MODEL = 'deepseek-flash'
 export const DIRECTOR_TEMPERATURE = 0.4
-export const DIRECTOR_MAX_TOKENS = 1_400
-export const DIRECTOR_MAX_TOKENS_LIMIT = 2_000
-export const DIRECTOR_REPAIR_TOKEN_INCREMENT = 500
+export const DIRECTOR_MAX_TOKENS = 3_000
+export const DIRECTOR_MAX_TOKENS_LIMIT = 4_000
+export const DIRECTOR_REPAIR_TOKEN_INCREMENT = 800
 
 const DIRECTOR_TOKENS_BY_SCENE_COUNT: Readonly<Record<number, number>> = {
-  4: 1_400,
-  5: 1_400,
-  6: 1_900,
+  4: 2_600,
+  5: 3_000,
+  6: 3_400,
 }
 
 /**
@@ -179,9 +179,7 @@ export class NativeStoryDirector implements StoryDirector {
     this.emitFailure(1, first.finishReason)
 
     const truncated = first.finishReason === 'length'
-    const repairMaxTokens = truncated
-      ? directorRepairMaxTokens(baseMaxTokens)
-      : baseMaxTokens
+    const repairMaxTokens = directorRepairMaxTokens(baseMaxTokens)
     const repairMessages: DeepSeekMessage[] = [
       ...messages,
       { role: 'assistant', content: first.content },

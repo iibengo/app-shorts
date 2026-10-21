@@ -14,6 +14,8 @@ export interface StoryRateLimitConfig {
   readonly cancelWindowMs: number
   readonly assembleLimit: number
   readonly assembleWindowMs: number
+  readonly qcRetryLimit: number
+  readonly qcRetryWindowMs: number
   readonly maxActiveStories: number
   readonly dailyBudgetUsd: number
 }
@@ -40,6 +42,8 @@ export const DEFAULT_STORY_RATE_LIMIT_CONFIG: StoryRateLimitConfig = {
   cancelWindowMs: 60_000,
   assembleLimit: 3,
   assembleWindowMs: 3_600_000,
+  qcRetryLimit: 3,
+  qcRetryWindowMs: 3_600_000,
   maxActiveStories: 2,
   dailyBudgetUsd: 50,
 }
@@ -64,6 +68,7 @@ export class StoryRateLimiter {
   private readonly pollWindows = new Map<string, number[]>()
   private readonly cancelWindows = new Map<string, number[]>()
   private readonly assembleWindows = new Map<string, number[]>()
+  private readonly qcRetryWindows = new Map<string, number[]>()
   private readonly pendingCreations = new Map<string, number>()
   private budgetDay = ''
   private budgetSpentUsd = 0
@@ -125,6 +130,15 @@ export class StoryRateLimiter {
       `assemble:${storyId}`,
       this.config.assembleLimit,
       this.config.assembleWindowMs,
+    )
+  }
+
+  consumeQcRetry(storyId: string): void {
+    this.consumeFixedWindow(
+      this.qcRetryWindows,
+      `qc-retry:${storyId}`,
+      this.config.qcRetryLimit,
+      this.config.qcRetryWindowMs,
     )
   }
 

@@ -895,12 +895,204 @@ describe('StoryService.retryVideo', () => {
   })
 })
 
+function passedQc() {
+  return {
+    status: 'PASSED' as const,
+    errorCode: null,
+    evaluator: 'vision' as const,
+    checkedAt: new Date(TEST_NOW).toISOString(),
+    confidence: 0.9,
+    scenes: [],
+    issues: [],
+    override: null,
+  }
+}
+
+describe('StoryService QC commands', () => {
+  function waitingStory(overrides: Partial<StoryRecord> = {}) {
+    return makeStoryRecord({
+      status: 'WAITING_QC',
+      qc: passedQc(),
+      approvedAt: new Date(TEST_NOW),
+      scenes: makeScenes(5, {
+        status: 'VIDEO_READY',
+        keyframeAttempts: 1,
+        videoAttempts: 1,
+        videoUrl: 'https://v3.fal.media/files/test/clip.mp4',
+      }),
+      ...overrides,
+    })
+  }
+
+  it('retries the QC and clears the persisted report', async () => {
+    const story = waitingStory()
+    const { service, repository } = setup({ seed: [story] })
+
+    const result = await service.retryQc(story.id, SESSION_ID)
+
+    expect(result.status).toBe('VIDEOS_READY')
+    expect(repository.find(story.id)).toMatchObject({
+      qc: null,
+      qcCheckedAt: null,
+    })
+  })
+
+  it('keeps retryQc idempotent from VIDEOS_READY and QC', async () => {
+    for (const status of ['VIDEOS_READY', 'QC'] as const) {
+      const story = waitingStory({ status, qc: null })
+      const { service } = setup({ seed: [story] })
+
+      expect((await service.retryQc(story.id, SESSION_ID)).status).toBe(status)
+    }
+  })
+
+  it('approves the QC with an explicit override and keeps the status', async () => {
+    const story = waitingStory()
+    const { service, repository } = setup({ seed: [story] })
+
+    const result = await service.approveQc(story.id, SESSION_ID)
+
+    expect(result.status).toBe('ASSEMBLING')
+    expect(repository.find(story.id)?.qc).toMatchObject({
+      status: 'PASSED',
+      override: { approved: true },
+    })
+  })
+
+  it('keeps UNAVAILABLE when the manual override unblocks assembly', async () => {
+    const story = waitingStory({
+      qc: {
+        ...passedQc(),
+        status: 'UNAVAILABLE',
+        errorCode: 'qc-disabled',
+        evaluator: 'none',
+        confidence: null,
+      },
+    })
+    const { service, repository } = setup({ seed: [story] })
+
+    const result = await service.approveQc(story.id, SESSION_ID)
+
+    expect(result.status).toBe('ASSEMBLING')
+    expect(repository.find(story.id)?.qc).toMatchObject({
+      status: 'UNAVAILABLE',
+      evaluator: 'none',
+      override: { approved: true },
+    })
+    expect(toStoryDto(result, 2_500, TEST_NOW).qc).toMatchObject({
+      status: 'UNAVAILABLE',
+      override: { approved: true },
+    })
+  })
+
+  it('is idempotent when the override was already applied', async () => {
+    const story = waitingStory({
+      status: 'ASSEMBLING',
+      qc: {
+        ...passedQc(),
+        status: 'UNAVAILABLE',
+        evaluator: 'none',
+        override: { at: new Date(TEST_NOW).toISOString(), approved: true },
+      },
+    })
+    const { service, repository } = setup({ seed: [story] })
+    repository.clearCalls()
+
+    const result = await service.approveQc(story.id, SESSION_ID)
+
+    expect(result.status).toBe('ASSEMBLING')
+    expect(repository.calls).not.toContain('updateStory')
+  })
+
+  it('rejects the override with a technically broken clip', async () => {
+    const story = waitingStory()
+    story.scenes[1] = { ...story.scenes[1]!, status: 'VIDEO_FAILED' }
+
+    const error = await captureError(() => setup({ seed: [story] }).service.approveQc(
+      story.id,
+      SESSION_ID,
+    ))
+
+    expect(error.code).toBe('story-not-ready')
+  })
+
+  it('recovers a scene keeping the approval and the previous keyframe', async () => {
+    const story = waitingStory()
+    const target = story.scenes[2]!
+    const { service, repository } = setup({ seed: [story] })
+
+    const result = await service.recoverScene(story.id, SESSION_ID, target.id)
+
+    expect(result.status).toBe('GENERATING_KEYFRAMES')
+    expect(result.approvedAt?.getTime()).toBe(TEST_NOW)
+    expect(result.qc).toBeNull()
+    expect(result.scenes[2]).toMatchObject({
+      status: 'KEYFRAME_QUEUED',
+      keyframeUrl: target.keyframeUrl,
+      videoUrl: null,
+    })
+  })
+
+  it('rejects recover with exhausted attempts, wrong state or wrong scene', async () => {
+    const exhausted = waitingStory()
+    exhausted.scenes[2] = { ...exhausted.scenes[2]!, keyframeAttempts: 2 }
+    const exhaustedError = await captureError(() => setup({ seed: [exhausted] })
+      .service.recoverScene(exhausted.id, SESSION_ID, exhausted.scenes[2]!.id))
+
+    expect(exhaustedError.code).toBe('keyframe-limit-reached')
+
+    const notReady = waitingStory()
+    notReady.scenes[2] = { ...notReady.scenes[2]!, status: 'VIDEO_FAILED' }
+    const notReadyError = await captureError(() => setup({ seed: [notReady] })
+      .service.recoverScene(notReady.id, SESSION_ID, notReady.scenes[2]!.id))
+
+    expect(notReadyError.code).toBe('scene-not-ready')
+
+    const generating = waitingStory({ status: 'GENERATING_VIDEOS' })
+    const generatingError = await captureError(() => setup({ seed: [generating] })
+      .service.recoverScene(generating.id, SESSION_ID, generating.scenes[2]!.id))
+
+    expect(generatingError.code).toBe('story-not-ready')
+  })
+
+  it('exposes qc and zero polling in WAITING_QC', () => {
+    const dto = toStoryDto(waitingStory(), 2_500, TEST_NOW)
+
+    expect(dto.qc?.status).toBe('PASSED')
+    expect(dto.pollAfterMs).toBe(0)
+  })
+
+  it('hides qc in READY/ASSEMBLING without an override and shows it with one', () => {
+    const ready = makeStoryRecord({ status: 'READY', qc: passedQc() })
+    const assembling = makeStoryRecord({ status: 'ASSEMBLING', qc: passedQc() })
+
+    expect(toStoryDto(ready, 2_500, TEST_NOW).qc).toBeNull()
+    expect(toStoryDto(assembling, 2_500, TEST_NOW).qc).toBeNull()
+
+    const override = { at: new Date(TEST_NOW).toISOString(), approved: true as const }
+    const readyWithOverride = makeStoryRecord({
+      status: 'READY',
+      qc: { ...passedQc(), status: 'UNAVAILABLE', evaluator: 'none', override },
+    })
+    const assemblingWithOverride = makeStoryRecord({
+      status: 'ASSEMBLING',
+      qc: { ...passedQc(), status: 'UNAVAILABLE', evaluator: 'none', override },
+    })
+
+    expect(toStoryDto(readyWithOverride, 2_500, TEST_NOW).qc?.override)
+      .toEqual(override)
+    expect(toStoryDto(assemblingWithOverride, 2_500, TEST_NOW).qc?.override)
+      .toEqual(override)
+  })
+})
+
 describe('StoryService.requestAssembly', () => {
   function videosReady(id = 'story-ready', sessionId = SESSION_ID) {
     return makeStoryRecord({
       id,
       sessionId,
       status: 'VIDEOS_READY',
+      qc: passedQc(),
       scenes: makeScenes(5, {
         status: 'VIDEO_READY',
         keyframeAttempts: 1,
@@ -909,15 +1101,17 @@ describe('StoryService.requestAssembly', () => {
     })
   }
 
-  it('keeps a VIDEOS_READY story ready for the reconciler', async () => {
+  it('keeps a VIDEOS_READY story ready for the reconciler without effects', async () => {
     const story = videosReady()
-    const { service, events } = setup({ seed: [story] })
+    const { service, events, repository } = setup({ seed: [story] })
+    repository.clearCalls()
 
     const result = await service.requestAssembly(story.id, SESSION_ID)
 
     expect(result.status).toBe('VIDEOS_READY')
     expect(result.errorCode).toBeNull()
-    expect(events).toContain('story.assembly.request')
+    expect(events).not.toContain('story.assembly.request')
+    expect(repository.calls).not.toContain('updateStory')
   })
 
   it.each<StoryStatus>(['ASSEMBLING', 'READY'])('is idempotent from %s', async (status) => {
@@ -929,7 +1123,7 @@ describe('StoryService.requestAssembly', () => {
     expect(repository.calls).not.toContain('updateStory')
   })
 
-  it('recovers a FAILED assembly story when every clip is ready', async () => {
+  it('recovers a FAILED assembly story when every clip is ready and QC passed', async () => {
     const story = { ...videosReady(), status: 'FAILED' as const, errorCode: 'assembly-timeout' as const, errorMessage: 'El montaje tardó demasiado. Puedes reintentarlo.' }
     const { service } = setup({ seed: [story] })
 
@@ -939,11 +1133,32 @@ describe('StoryService.requestAssembly', () => {
     expect(result.errorCode).toBeNull()
   })
 
+  it('rejects a FAILED assembly without a QC report', async () => {
+    const story = {
+      ...videosReady(),
+      status: 'FAILED' as const,
+      errorCode: 'assembly-failed' as const,
+      qc: null,
+    }
+
+    const error = await captureError(() => setup({ seed: [story] }).service.requestAssembly(
+      story.id,
+      SESSION_ID,
+    ))
+
+    expect(error.code).toBe('story-not-ready')
+  })
+
   it('rejects assembly when a scene has no video', async () => {
     const base = videosReady()
     const scenes = base.scenes.slice()
     scenes[1] = { ...scenes[1]!, status: 'VIDEO_FAILED' }
-    const story = { ...base, scenes }
+    const story = {
+      ...base,
+      status: 'FAILED' as const,
+      errorCode: 'assembly-failed' as const,
+      scenes,
+    }
 
     const error = await captureError(() => setup({ seed: [story] }).service.requestAssembly(
       story.id,
@@ -962,20 +1177,15 @@ describe('StoryService.requestAssembly', () => {
     ))).code).toBe('story-not-ready')
   })
 
-  it('returns assembly-busy when more than two stories are waiting', async () => {
-    const story = videosReady()
-    const { service } = setup({
-      seed: [
-        story,
-        videosReady('story-ready-2', 'other-session-1'),
-        videosReady('story-ready-3', 'other-session-2'),
-      ],
-    })
+  it('rejects assembly from WAITING_QC', async () => {
+    const story = { ...videosReady(), status: 'WAITING_QC' as const }
 
-    const error = await captureError(() => service.requestAssembly(story.id, SESSION_ID))
+    const error = await captureError(() => setup({ seed: [story] }).service.requestAssembly(
+      story.id,
+      SESSION_ID,
+    ))
 
-    expect(error.code).toBe('assembly-busy')
-    expect(error.retryAfterSeconds).toBe(30)
+    expect(error.code).toBe('story-not-ready')
   })
 })
 

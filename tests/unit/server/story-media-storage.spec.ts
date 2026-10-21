@@ -74,7 +74,7 @@ function storage(client: FalHttpClient, maxBytes?: number): NativeMediaStorage {
 
 function input(filePath: string, overrides: Partial<{
   fileName: string
-  contentType: 'video/mp4'
+  contentType: 'video/mp4' | 'image/jpeg'
   lifecycleSeconds: number
 }> = {}) {
   return {
@@ -102,8 +102,7 @@ afterEach(async () => {
 })
 
 describe('NativeMediaStorage.uploadFile', () => {
-  it('initiates the upload with video/mp4 and the exact lifecycle header', async () => {
-    const { client, request } = fakeClient()
+  it('initiates the upload with video/mp4 and the exact lifecycle header', async () => {    const { client, request } = fakeClient()
     const filePath = await tempFile()
 
     await storage(client).uploadFile(input(filePath))
@@ -146,6 +145,22 @@ describe('NativeMediaStorage.uploadFile', () => {
       fileUrl: 'https://v3.fal.media/files/test/final.mp4',
       expiresAt: new Date(NOW + 86_400_000).toISOString(),
     })
+  })
+
+  it('accepts a QC strip as image/jpeg', async () => {
+    const { client, request, uploadBinary } = fakeClient()
+    const filePath = await tempFile()
+
+    await storage(client).uploadFile(input(filePath, {
+      fileName: 'story-qc-scene-1-abcdef.jpg',
+      contentType: 'image/jpeg',
+    }))
+
+    const initiate = request.mock.calls[0]![0] as FalHttpRequest
+    const upload = uploadBinary.mock.calls[0]![0] as FalBinaryUploadRequest
+
+    expect(initiate.body).toMatchObject({ content_type: 'image/jpeg' })
+    expect(upload.contentType).toBe('image/jpeg')
   })
 
   it('uses the provided lifecycle for the returned expiry', async () => {

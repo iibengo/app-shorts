@@ -14,11 +14,21 @@ import plan4 from '../../fixtures/deepseek/deepseek-plan-4.json'
 import plan5 from '../../fixtures/deepseek/deepseek-plan-5.json'
 import plan6 from '../../fixtures/deepseek/deepseek-plan-6.json'
 
+const BIBLE = plan5.storyBible
+
 function beat(order: number, overrides: Record<string, unknown> = {}) {
   return {
     order,
+    sceneRole: order === 1 ? 'establishing' : 'development',
     visualPrompt: `Una escena vertical número ${order} con descripción visual suficiente.`,
     narration: `Narración breve de la escena número ${order}.`,
+    characters: [BIBLE.leadCharacterId],
+    props: [BIBLE.signaturePropId],
+    camera: 'wide',
+    continuityFromPrevious: order === 1
+      ? null
+      : `La escena ${order} continúa desde la escena anterior.`,
+    transition: 'cut',
     ...overrides,
   }
 }
@@ -27,6 +37,7 @@ function planWith(beats: unknown[], overrides: Record<string, unknown> = {}) {
   return {
     title: 'Un título',
     logline: 'Un logline de prueba.',
+    storyBible: BIBLE,
     beats,
     ...overrides,
   }

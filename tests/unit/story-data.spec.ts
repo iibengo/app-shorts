@@ -98,7 +98,7 @@ describe('story data constants', () => {
       { id: 'videos', label: 'Vídeos' },
       { id: 'result', label: 'Resultado' },
     ])
-    expect(STORY_TERMINAL_STATUSES).toEqual(['READY', 'FAILED', 'CANCELLED'])
+    expect(STORY_TERMINAL_STATUSES).toEqual(['READY', 'FAILED', 'CANCELLED', 'WAITING_QC'])
   })
 })
 

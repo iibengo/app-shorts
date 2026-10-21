@@ -153,6 +153,17 @@ describe('story rate limiter fixed windows', () => {
     expect(error.retryAfterSeconds).toBe(3_600)
   })
 
+  it('limits QC retries to 3 per hour per story', () => {
+    const { limiter } = setup()
+
+    for (let index = 0; index < 3; index += 1) limiter.consumeQcRetry('story-1')
+
+    const error = catchStoryError(() => limiter.consumeQcRetry('story-1'))
+
+    expect(error.code).toBe('rate-limited')
+    expect(error.retryAfterSeconds).toBe(3_600)
+  })
+
   it('bounds the in-memory maps and keeps accepting new keys', () => {
     const { limiter } = setup()
 

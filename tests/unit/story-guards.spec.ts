@@ -32,6 +32,9 @@ const APP_STORY_FILES = [
   'app/components/story/StoryPlanProgress.vue',
   'app/components/story/StoryReview.vue',
   'app/components/story/StorySceneCard.vue',
+  'app/components/story/StoryBibleSummary.vue',
+  'app/components/story/StoryQCReview.vue',
+  'app/components/story/StoryQCProgress.vue',
   'app/components/story/StoryVideoProgress.vue',
   'app/components/story/StoryAssemblyProgress.vue',
   'app/components/story/StoryResult.vue',
@@ -290,8 +293,40 @@ describe('server story guards', () => {
   })
 })
 
-describe('PWA and dependency guards', () => {
-  it('keeps NetworkOnly for Story APIs and Fal hosts', () => {
+describe('story continuity guards (006)', () => {
+  it('declares the QC states and nullable columns without a prompt column', () => {
+    const schema = read('prisma/schema.prisma')
+
+    expect(schema).toContain('QC')
+    expect(schema).toContain('WAITING_QC')
+    expect(schema).toContain('qcJson')
+    expect(schema).toContain('qcCheckedAt')
+    expect(schema).not.toMatch(/\bprompt\b/)
+    expect(schema).not.toMatch(/\bnegativePrompt\b/)
+  })
+
+  it('never persists composed prompts or negatives', () => {
+    const schema = read('prisma/schema.prisma')
+    const repository = read('server/story/repository.ts')
+    const prismaRepository = read('server/story/prisma-story-repository.ts')
+
+    for (const source of [schema, repository, prismaRepository]) {
+      expect(source).not.toMatch(/\bnegative_?prompt\b/i)
+      expect(source).not.toMatch(/\bpromptJson\b/)
+    }
+  })
+
+  it('keeps the QC runtime free of client and Composer imports', () => {
+    for (const file of SERVER_STORY_FILES.filter((item) => item.includes('/qc-'))) {
+      const source = read(file)
+
+      expect(source, file).not.toMatch(/~\/components|~\/composables|~\/pages/)
+      expect(source, file).not.toMatch(/server\/composer/)
+    }
+  })
+})
+
+describe('PWA and dependency guards', () => {  it('keeps NetworkOnly for Story APIs and Fal hosts', () => {
     const config = read('nuxt.config.ts')
 
     expect(config).toContain('navigateFallbackDenylist')

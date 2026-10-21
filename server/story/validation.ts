@@ -339,8 +339,27 @@ export function validateUploadRequest(payload: unknown): StoryReferenceUploadReq
   }
 }
 
-export function validateIdempotencyKey(value: string | undefined): string | null {
-  if (value === undefined || value.length === 0) {
+export const STORY_QC_APPROVE_MAX_BODY_BYTES = 4_096
+
+const QC_APPROVE_FIELDS = ['confirm'] as const
+
+export function validateQcApproveRequest(
+  payload: unknown,
+): { readonly confirm: true } {
+  if (!isJsonObject(payload)) {
+    throw new StoryError('invalid-request')
+  }
+
+  assertKnownFields(payload, QC_APPROVE_FIELDS)
+
+  if (payload.confirm !== true) {
+    throw new StoryError('invalid-request')
+  }
+
+  return { confirm: true }
+}
+
+export function validateIdempotencyKey(value: string | undefined): string | null {  if (value === undefined || value.length === 0) {
     return null
   }
 

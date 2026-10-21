@@ -8,6 +8,7 @@
  * `npx prisma migrate deploy` against the test database first.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import type { StoryQC } from '~/models/story'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../../server/generated/prisma/client'
 import { PrismaStoryRepository } from '../../../server/story/prisma-story-repository'
@@ -170,5 +171,49 @@ describe.skipIf(!enabled)('PostgreSQL Story repository smoke (RUN_DB_SMOKE=1)', 
     expect(await requireRepository().deleteExpired(cutoff, 50)).toBe(1)
     expect(await requireRepository().findById(created.id)).toBeNull()
     expect(await client!.scene.count({ where: { storyId: created.id } })).toBe(0)
+  })
+
+  it('persists and reads qcJson with its checkedAt', async () => {
+    const created = await requireRepository().createStory(input())
+    const checkedAt = new Date()
+    const qc: StoryQC = {
+      status: 'UNAVAILABLE',
+      errorCode: 'qc-disabled',
+      evaluator: 'none',
+      checkedAt: checkedAt.toISOString(),
+      confidence: null,
+      scenes: created.scenes.map((scene) => ({
+        sceneId: scene.id,
+        order: scene.order,
+        framesUrl: 'https://v3.fal.media/files/test/story-qc-smoke.jpg',
+        technical: 'pass',
+        observed: null,
+        confidence: null,
+        issues: [],
+      })),
+      issues: [],
+      override: null,
+    }
+
+    expect(await requireRepository().updateStory(
+      created.id,
+      { statuses: ['GENERATING_KEYFRAMES'], version: created.version },
+      { status: 'WAITING_QC', qc, qcCheckedAt: checkedAt },
+    )).toBe(1)
+
+    const read = await requireRepository().findById(created.id)
+
+    expect(read).toMatchObject({ status: 'WAITING_QC' })
+    expect(read?.qc).toMatchObject({
+      status: 'UNAVAILABLE',
+      errorCode: 'qc-disabled',
+      evaluator: 'none',
+      confidence: null,
+      override: null,
+    })
+    expect(read?.qc?.scenes).toHaveLength(5)
+    expect(read?.qc?.scenes[0]?.framesUrl)
+      .toBe('https://v3.fal.media/files/test/story-qc-smoke.jpg')
+    expect(read?.qcCheckedAt?.toISOString()).toBe(checkedAt.toISOString())
   })
 })
