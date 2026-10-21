@@ -135,9 +135,9 @@ Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reu
 
 - Spec 004 implementada.
 - Fase 0 de Spec 005 completada: `server/fal/` y `server/shared/` extraídos con shims de compatibilidad en `server/composer/`.
-- Spec 005 redactada en `specs/005-story-composer/spec.md` (pendiente de Checkpoint 1).
-- Prisma 7 + PostgreSQL preparados: `prisma/schema.prisma` con `Story`/`Scene`, Docker local y scripts de migración. Sin migración aplicada todavía.
-- Suite automatizada: **613 tests en verde**.
+- Spec 005 implementada: Story Composer con `/story`, `/story/[id]`, reconciliador con leases, FFmpeg y persistencia PostgreSQL.
+- Prisma 7 + PostgreSQL preparados: `prisma/schema.prisma` con `Story`/`Scene`, Docker local y migración inicial aplicada.
+- Suite automatizada: **1505 tests en verde** (7 skips opt-in); los 613 tests de 004 siguen intactos.
 - Build Node/Nitro correcto.
 - Smoke real de Fal opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
 - Pendiente de QA manual de accesibilidad/navegador y validación de CORS/lifecycle reales en el entorno de despliegue.

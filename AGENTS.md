@@ -64,9 +64,9 @@ specs/                    specs 001–004
   - `server/fal/`: HTTP client, queue, storage, tipos y adaptadores.
   - `server/shared/`: errores, rate limit, job token, request context y validación.
   - `server/composer/` conserva el dominio y mantiene shims de compatibilidad para no romper imports/tests de 004.
-- **Spec 005 — Story Composer:** redactada en `specs/005-story-composer/spec.md`, pendiente de Checkpoint 1.
-- **Prisma/PostgreSQL:** Prisma 7 + `@prisma/adapter-pg` instalados; `prisma/schema.prisma` con `Story`/`Scene`; Docker local; sin migración aplicada todavía. `db:generate` es obligatorio antes de build/test cuando Story importe Prisma.
-- **Tests:** 613/613 en verde, 44 archivos.
+- **Spec 005 — Story Composer:** implementada en `specs/005-story-composer/spec.md`; `/story`, `/story/[id]`, `server/story/`, reconciliador con leases y FFmpeg.
+- **Prisma/PostgreSQL:** Prisma 7 + `@prisma/adapter-pg`; migración `20261021001927_init` aplicada; Docker local; `db:generate` es obligatorio antes de build/test cuando Story importe Prisma.
+- **Tests:** 1505 passed / 7 skipped opt-in, 96 archivos; los 613 tests de 004 siguen intactos.
 - **Build:** `npm run build` correcto.
 - **Smoke real Fal:** opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
 - **Spec 003:** histórica; sustituida por 004 para el Composer. No reutilizar su mock.

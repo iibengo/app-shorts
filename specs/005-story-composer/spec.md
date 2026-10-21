@@ -4,7 +4,9 @@
 
 **Created**: 2026-10-21
 
-**Status**: Draft (pendiente Checkpoint 1)
+**Status**: Implemented (automated suite and build green; real-provider smoke is opt-in)
+
+> **Estado de implementación (2026-10-21):** implementada en `app/`, `server/story/`, `server/api/story/`, `prisma/` y `server/plugins/story-reconciler.ts`. La migración inicial está aplicada. La suite automatizada tiene 1505 tests en verde y 7 skips opt-in; los 613 tests de 004 siguen intactos. El smoke real de DeepSeek/Fal y el smoke E2E son opt-in y no se ejecutan en CI. Pendientes: QA manual de navegador, validación real de DeepSeek Vision, precios, CORS/lifecycle de Fal, Supabase pooler y multi-instancia.
 
 **Input**: User description: "Añadir un Story Composer que convierta una premisa en un micro-relato vertical de 4–6 escenas de 6 segundos. DeepSeek escribe el guion y la narración; FLUX o FLUX Kontext generan un keyframe 9:16 por escena; el usuario revisa y regenera imágenes; al aprobar, MiniMax o Kling generan un vídeo de 6 segundos por escena; FFmpeg une las escenas con cortes secos; el MP4 final se sube al CDN de Fal. La historia persiste en PostgreSQL/Prisma ligada a una cookie `story_sid`, se recupera al recargar y tiene un presupuesto máximo de 8 dólares. El Composer de 004 y sus 613 tests no se tocan."
 
