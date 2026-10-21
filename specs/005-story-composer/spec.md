@@ -7,6 +7,8 @@
 **Status**: Implemented (automated suite and build green; real-provider smoke is opt-in)
 
 > **Estado de implementación (2026-10-21):** implementada en `app/`, `server/story/`, `server/api/story/`, `prisma/` y `server/plugins/story-reconciler.ts`. La migración inicial está aplicada. La suite automatizada tiene 1505 tests en verde y 7 skips opt-in; los 613 tests de 004 siguen intactos. El smoke real de DeepSeek/Fal y el smoke E2E son opt-in y no se ejecutan en CI. Pendientes: QA manual de navegador, validación real de DeepSeek Vision, precios, CORS/lifecycle de Fal, Supabase pooler y multi-instancia.
+>
+> **Enmienda A (2026-10-21):** existe una enmienda aditiva vigente, «Enmienda A — Pre-análisis determinista de premisa», que añade un brief de producción determinista antes del director DeepSeek con **cero llamadas extra**, sin cambios de API, persistencia, UI ni coste. Es la única modificación vigente de esta spec; el resto de cláusulas históricas se leen a través de su tabla de enmienda. Ver la sección inmediatamente anterior a «Constitution Check».
 
 **Input**: User description: "Añadir un Story Composer que convierta una premisa en un micro-relato vertical de 4–6 escenas de 6 segundos. DeepSeek escribe el guion y la narración; FLUX o FLUX Kontext generan un keyframe 9:16 por escena; el usuario revisa y regenera imágenes; al aprobar, MiniMax o Kling generan un vídeo de 6 segundos por escena; FFmpeg une las escenas con cortes secos; el MP4 final se sube al CDN de Fal. La historia persiste en PostgreSQL/Prisma ligada a una cookie `story_sid`, se recupera al recargar y tiene un presupuesto máximo de 8 dólares. El Composer de 004 y sus 613 tests no se tocan."
 
@@ -2230,6 +2232,311 @@ Preguntas abiertas. Las verificaciones de infraestructura (DeepSeek Vision + JSO
 - **SC-013 (Responsive y PWA)**: cero scroll horizontal de 320 a 1920 px y zoom 200 %/400 %; el service worker no cachea `/api/story/**` ni Fal; offline se explica sin simular éxito.
 - **SC-014 (No regresión)**: los 613 tests de 004 pasan sin cambios; `/composer`, `/feed` y `/` mantienen su comportamiento y copy; solo se añaden tests nuevos.
 - **SC-015 (Calidad)**: `npm run db:generate`, `npm run test:run` y `npm run build` terminan correctamente; cada archivo runtime nuevo tiene cobertura; los smokes reales son opt-in y documentados.
+
+## Enmienda A — Pre-análisis determinista de premisa (2026-10-21)
+
+**Estado**: propuesta de enmienda sobre 005 ya implementada. Requiere aprobación humana en el Checkpoint 1 de la enmienda antes de escribir código.
+
+**Naturaleza**: **aditiva**. No reescribe FR históricos, no cambia contratos de API, no cambia el esquema de Prisma, no añade UI y no añade coste. Las cláusulas afectadas se leen a través de la tabla de enmienda de A.2, que prevalece sobre el texto histórico solo en los puntos listados.
+
+**Decisión de producto ya aprobada (no se reabre)**: enfoque **A — brief de producción determinista con cero llamadas extra a DeepSeek**. Los enfoques B (reescritura por LLM) y C (híbrido) quedan **fuera de alcance** y solo se documentan como evolución futura en A.8.
+
+### A.1 Motivo y diagnóstico
+
+Síntoma reportado: creaciones con `director-invalid-output` (502) cuando la premisa del usuario es muy simple o muy corta. Se contrastaron tres candidatos contra el código real:
+
+| # | Hipótesis | Evidencia en código | Conclusión |
+|---|-----------|---------------------|------------|
+| 1 | La premisa entra demasiado escueta y el director no tiene material para producir 4–6 beats que cumplan el esquema | `STORY_MIN_PREMISE_LENGTH = 10` y `STORY_MAX_PREMISE_LENGTH = 600` (`server/story/validation.ts:27-28`); una premisa < 10 se rechaza **antes** de DeepSeek con 400 `premise-required`. El plan exige `visualPrompt` 20–600 y `narration` 10–280 (`server/story/plan-validator.ts:4-7`), de modo que una premisa de 10–59 caracteres puede producir beats por debajo del mínimo y agotar la reparación. | **Causa principal**. Se mitiga con el brief de esta enmienda. **El mínimo de 10 caracteres no se toca** (FR-011 intacto). |
+| 2 | El esquema de salida no se cumple aunque la premisa sea suficiente | Validación estricta en `server/story/plan-validator.ts` (claves exactas, exactamente N beats, longitudes, HTML/Markdown). | **Causa parcial**. El brief sube la densidad de contexto, pero **no se relaja la validación**: el esquema sigue siendo el mismo. |
+| 3 | Truncamiento de la respuesta por presupuesto de tokens | `DIRECTOR_MAX_TOKENS = 1_400` fijo (`server/story/director.ts:18`) para 4–6 beats; `readMessageContent` (`server/story/director.ts:45-59`) descarta `finish_reason`, así que truncamiento y JSON malformado son indistinguibles; la reparación es única y luego se lanza `director-invalid-output` (`server/story/director.ts:96-116`). | **Causa independiente**. Se mitiga en A.3 con `max_tokens` por número de escenas y reparación informada. |
+
+No es la causa: el modelo (`deepseek-flash`), `response_format: { type: "json_object" }` ni la temperatura. La enmienda **no cambia** ninguno de los tres.
+
+### A.2 Tabla de enmienda
+
+| Cláusula | Texto anterior (resumen) | Enmienda | Efecto |
+|----------|--------------------------|----------|--------|
+| **FR-019** | El director MUST llamar a DeepSeek; el modelo es fijo y no elegible por el cliente. | La instancia de `StoryDirector` inyectada en `StoryService` y en `runtime.ts` es un **decorador** (`briefing-director.ts`) que envuelve al director nativo y le pasa un `context` estructurado. El director nativo sigue siendo el único que habla con `https://api.deepseek.com/chat/completions`. | Sin cambio de contrato externo. Sigue habiendo **una sola** petición HTTP en el camino feliz. |
+| **FR-020** | La petición MUST usar `response_format: { type: "json_object" }`, `stream: false`, `temperature` fija y `max_tokens` acotado. | `max_tokens` deja de ser un valor único: MUST derivarse del número de escenas (4→1400, 5→1400, 6→1900, tope 2000) y el director MUST leer `choices[0].finish_reason`. `response_format`, `stream` y `temperature` no cambian. | Reduce el truncamiento en 6 escenas sin cambiar el formato de la petición. |
+| **FR-023** | Un único reintento de reparación con el error y el esquema; si falla, 502 `director-invalid-output`. | La reparación sigue siendo **única**. Cuando `finish_reason === 'length'`, esa única reparación MUST incluir una nota de truncamiento y un presupuesto mayor (`min(2000, base + 500)`). Nunca un segundo reintento. | Reparación informada; se mantiene el límite de 2 peticiones. |
+| **FR-025** | Con referencia, el mensaje de usuario incluye la imagen como `image_url` además de la premisa. | El bloque de brief MUST vivir en la **parte de texto** del mensaje; el bloque `image_url` sigue siendo un bloque separado y posterior. La validación de `referenceUrl` no cambia. | Sin cambio de contrato de referencia. |
+| **FR-103** | MUST NOT loggearse la premisa, el plan, `visualPrompt`, `narration`, URLs, `requestId`, `Idempotency-Key`, cadena de conexión ni IP en claro. | La allowlist de campos de log MUST ampliarse **solo** con `briefApplied` (boolean) y `finishReason` (`stop` \| `length` \| `content_filter` \| `unknown`), repartidos en **dos sinks opcionales separados**: `finishReason` en el sink del director nativo (`StoryDirectorOptions.onEvent`) y `briefApplied` en el del decorador (`BriefingDirectorOptions.onEvent`). El brief renderizado se añade a la lista de campos prohibidos. | Instrumentación mínima sin filtrar contenido, y cada dato se emite en la capa que realmente lo conoce. |
+| **FR-133** | Cada archivo runtime nuevo MUST tener cobertura automatizada directa o por integración. | Aplica a los dos archivos nuevos: `server/story/premise-brief.ts` y `server/story/briefing-director.ts`. La cobertura se añade en **archivos de test nuevos**; los tests existentes no se modifican. | Cobertura sin regresión. |
+| **FR-134** | MUST existir tests de rutas, componentes, aceptación SSR, reconciliador y regresión de 004. | Se añade un test de ruta de `POST /api/story` con premisa corta y director real decorado contra stub local. Los tests existentes de esta lista MUST NOT modificarse. | Una ruta cubierta, cero tests reescritos. |
+| **FR-135** | Fixtures de DeepSeek y Fal, y smokes opt-in. | No se añaden fixtures ni se modifican las existentes. La tabla dorada del brief vive en el test unitario nuevo; los casos de `finish_reason` usan un `fetchImpl` inyectado, sin tocar `tests/helpers/deepseek-stub.ts`. | Inventario de fixtures intacto. |
+| **FR-011** | La premisa MUST tener entre 10 y 600 caracteres y rechazarse con 400 `premise-required` por debajo de 10. | **Sin cambio.** Se explicita para evitar reinterpretaciones: el brief nunca se ejecuta antes de esa validación, así que una premisa < 10 sigue devolviendo 400 y no consume cuota. | Aclaración, no enmienda. |
+| **FR-085** | MUST NOT añadirse ningún campo nuevo al schema para v1. | **Sin cambio.** Se explicita que el brief **no se persiste** en `Story`, `Scene` ni `planJson`, y que la enmienda **no incluye migración de Prisma**. | Aclaración, no enmienda. |
+| **Out of Scope** | Quedan fuera elección libre de modelo/endpoint/prompt negativo y las nuevas dependencias. | Se aclara que el brief es **interno, determinista y no configurable**: no es un prompt de usuario, no es una nueva dependencia, no añade campos de formulario ni afecta al camino de 1–3 clics. | Aclaración de alcance. |
+| **Constitution Check, bullet II** | «No cambia contratos de 004; no hay tabla de supersesión porque no hay enmienda.» | Describe el estado de la Phase 1 original. Con la Enmienda A sí existe tabla de enmienda (A.2), y sigue sin haber enmienda a 004. | Aclaración: el bullet histórico se lee como estado previo; prevalece esta tabla. |
+| **004 (todas las cláusulas)** | — | **No hay enmienda a 004.** No se tocan `/composer`, `app/models/composer.ts`, `app/components/composer/**`, `app/composables/useComposer*`, `server/composer/**` ni `server/api/composer/**`; los 613 tests de 004 MUST seguir sin cambios y en verde. | Sin impacto en 004. |
+
+### A.3 Requisitos nuevos
+
+Los FR nuevos son **FR-136 a FR-150**. No se reutiliza ningún número existente (el último histórico es FR-135).
+
+#### Brief determinista y módulo puro
+
+- **FR-136**: MUST existir `server/story/premise-brief.ts` como módulo **puro**: sin I/O, sin `fetch`, sin `process.env`, sin `useRuntimeConfig`, sin reloj, sin aleatoriedad y sin estado mutable entre llamadas. MUST exportar `analyzePremise(premise: string): PremiseBriefAnalysis` y `renderBriefBlock(brief: StoryBrief): string`, con los tipos de A.4. MUST usar `normalizeText` de `server/shared/prompt.ts` y MUST NOT duplicar la normalización NFC/`trim`. MUST NOT contener el token `any` (guarda `tests/unit/story-guards.spec.ts:199`).
+- **FR-137**: `applied` MUST calcularse con la heurística exacta `normalizedLength < 60 || wordCount < 9 || clauseCount < 2`, donde `normalized = normalizeText(premise)`, `normalizedLength = normalized.length`, `wordCount` es el número de segmentos no vacíos de `normalized.split(/\s+/u)` y `clauseCount` es el número de segmentos no vacíos que resultan de sustituir `[,;:.]+` y las palabras completas `y`, `pero`, `luego`, `cuando` (case-insensitive) por un separador, con un mínimo de 1. `reasons` MUST listar en orden fijo `short-text`, `few-words`, `single-clause` las señales satisfechas. La función MUST ser determinista: la misma entrada MUST producir siempre la misma salida, sin depender del locale, la zona horaria ni el reloj.
+- **FR-138**: El brief MUST contener como máximo **5 directivas**, cada una de **1 a 120** caracteres, y el bloque renderizado MUST medir **≤ 500** caracteres. Las directivas MUST pedir concretar **lugar, época u hora, atmósfera, vestuario, luz y encuadre** y MUST prohibir explícitamente **cambiar el tema, los personajes o el desenlace**. Son directivas de producción, no hechos narrativos nuevos.
+- **FR-139**: Las directivas MUST ser constantes del servidor: MUST NOT interpolar texto de la premisa ni datos del usuario (la premisa solo aporta métricas). MUST NOT contener `<`, `>`, backticks, encabezados `#`, viñetas Markdown, cercas de código, caracteres de control, URLs, nombres de proveedor ni claves.
+
+#### Decorador y mensaje al director
+
+- **FR-140**: MUST existir `server/story/briefing-director.ts` con `createBriefingDirector(inner: StoryDirector, options?: BriefingDirectorOptions): StoryDirector`. El decorador MUST calcular el brief, MUST delegar en `inner.createPlan` con el `context` estructurado, MUST devolver el plan sin modificarlo y MUST propagar cualquier `StoryError` sin transformarlo. MUST NOT hacer HTTP directo, MUST NOT cachear planes y MUST NOT mantener estado por historia.
+- **FR-141**: Por cada `createPlan`, el decorador MUST provocar **exactamente las mismas peticiones HTTP** que el director nativo sin brief: 1 en el camino feliz y 2 solo cuando el plan requiera la reparación única de FR-023. MUST NOT añadir una llamada de "mejora", un segundo prompt ni un reintento propio.
+- **FR-142**: `StoryDirector.createPlan` MUST aceptar un campo `readonly context?: DirectorContext` (tipo server-only). `StoryServiceImpl` y `server/api/**` MUST NOT construirlo, enviarlo ni recibirlo desde el cliente. Cuando `applied = false`, el decorador MUST omitir `context` (dejarlo `undefined`) para que el mensaje sea byte-idéntico al actual.
+- **FR-143**: `storyDirectorUserMessage(premise, referenceUrl, context?)` MUST aceptar un tercer parámetro opcional. Sin tercer argumento, la cadena resultante MUST ser **byte-idéntica** a la actual. Con bloque, la premisa MUST aparecer **verbatim, exactamente una vez**, el bloque MUST ir **después** de `Premisa: {premise}` y **antes** del esquema JSON, separado por una línea en blanco, y el esquema MUST seguir siendo el último contenido. Con referencia, el bloque MUST ir en la parte de texto y el bloque `image_url` MUST seguir siendo el último.
+- **FR-144**: `max_tokens` MUST derivarse del número de escenas: **4→1400, 5→1400, 6→1900**, con tope **2000**. `DIRECTOR_MAX_TOKENS` MUST seguir exportándose con el valor de 5 escenas (**1400**) para no romper `tests/unit/server/story-director.spec.ts:86`. El tope MUST aplicarse también a la reparación.
+- **FR-145**: El director MUST leer `choices[0].finish_reason` y clasificarlo como `stop`, `length`, `content_filter` o `unknown` (ausente o no reconocido). Con `stop` el comportamiento MUST ser el actual. Un plan válido MUST aceptarse aunque `finish_reason` sea `length`. Si el plan es inválido y `finish_reason === 'length'`, la reparación única MUST incluir una nota explícita de truncamiento y `max_tokens = min(2000, base + 500)`; si esa reparación vuelve a fallar, MUST lanzarse `director-invalid-output` sin un tercer intento.
+
+#### Invariantes de dominio, coste, UI y observabilidad
+
+- **FR-146**: MUST NOT añadirse códigos de error nuevos. La enmienda MUST reutilizar `director-invalid-output` (502), `director-timeout` (504), `director-unavailable` (503) y `content-blocked` (422). El brief MUST NOT producir 400, 413 ni un 5xx nuevo, y MUST NOT aparecer en el mensaje de error ni en su serialización.
+- **FR-147**: La premisa original MUST viajar **verbatim** al director: la cadena que recibe `createPlan` es la misma que la normalizada por FR-011, sin recortes, resúmenes, prefijos ni sustitución. `canonicalStoryBody` (premisa, `sceneCount`, `preset`, `referenceUrl`, `referenceExpiresAt`) y `hashStoryBody` MUST NOT cambiar, de modo que la idempotencia por `Idempotency-Key` y la deduplicación de 60 s siguen intactas. El brief MUST NOT persistirse: `Story` y `Scene` no ganan columnas, `Story.planJson` sigue conteniendo solo `title`, `logline` y `beats`, y la enmienda MUST NOT incluir migración de Prisma.
+- **FR-148**: El coste MUST ser **0 USD adicionales**: cero llamadas extra a DeepSeek. `server/story/cost.ts`, `directorCostUsd` (0,01), el cap de 8 USD, el presupuesto diario y el rate limit MUST NOT cambiar. `max_tokens` es un tope de salida, no una llamada nueva, y la reparación ya estaba presupuestada en `directorCostUsd`.
+- **FR-149**: MUST NOT añadirse código nuevo en `app/`. No hay cambios de UI, copy, `data-testid`, campos de formulario, mensajes ni estados; el brief MUST NOT mostrarse al usuario. El camino por defecto de 1–3 clics MUST NOT cambiar.
+- **FR-150**: La allowlist de observabilidad MUST ampliarse **solo** con `briefApplied` (boolean) y `finishReason`, y ese par MUST repartirse entre **dos sinks opcionales e independientes**: el director nativo (`StoryDirectorOptions.onEvent`) emite `finishReason` junto a `attempt` (1 y, si hay reparación, 2) una vez por intento; el decorador (`BriefingDirectorOptions.onEvent`) emite `briefApplied`. `attempt`, `errorCode`, `stage`, `modelId`, `sceneCount` y `latencyMs` ya eran campos permitidos. Los eventos siguen siendo los existentes (`story.plan.ok`, `story.plan.failed`). MUST seguir prohibido loggear la premisa, el plan, `visualPrompt`, `narration`, el brief renderizado, URLs de proveedor, `requestId`, `Idempotency-Key`, claves, cadena de conexión e IP en claro. Sin `onEvent` no se emite nada y la petición HTTP MUST ser idéntica; si se inyecta un sink, MUST recibir únicamente campos de la allowlist de su propio tipo.
+
+### A.4 Contrato de datos server-only
+
+Todos los tipos de esta enmienda son **server-only**. Ninguno se exporta desde `app/models/`, ninguno usa `any`, ninguno expone `unknown` público y todos los campos son `readonly`.
+
+```ts
+// server/story/premise-brief.ts — SOLO servidor. No se exporta desde app/models/.
+export type StoryBriefSignal = 'short-text' | 'few-words' | 'single-clause'
+
+export type StoryBrief =
+  | { readonly applied: false; readonly reasons: readonly [] }
+  | {
+      readonly applied: true
+      readonly reasons: readonly StoryBriefSignal[]
+      readonly directives: readonly string[]
+      readonly rendered: string
+    }
+
+export interface PremiseBriefAnalysis {
+  readonly normalizedLength: number
+  readonly wordCount: number
+  readonly clauseCount: number
+  readonly brief: StoryBrief
+}
+
+export function analyzePremise(premise: string): PremiseBriefAnalysis
+export function renderBriefBlock(brief: StoryBrief): string // '' cuando applied = false
+```
+
+```ts
+// server/story/director-types.ts — tipo server-only ampliado.
+export interface DirectorContext {
+  readonly brief: StoryBrief
+}
+
+export type DirectorFinishReason = 'stop' | 'length' | 'content_filter' | 'unknown'
+
+export interface StoryDirector {
+  createPlan(input: {
+    readonly premise: string
+    readonly sceneCount: number
+    readonly referenceUrl: string | null
+    readonly context?: DirectorContext
+  }): Promise<DirectorPlan>
+}
+```
+
+```ts
+// server/story/director.ts — ampliación aditiva del director nativo. Tipos server-only.
+export interface StoryDirectorLogEvent {
+  readonly event: 'story.plan.ok' | 'story.plan.failed'
+  readonly attempt: 1 | 2
+  readonly finishReason: DirectorFinishReason
+  readonly errorCode?: string
+}
+
+export interface StoryDirectorOptions {
+  readonly apiKey: string
+  readonly baseUrl?: string
+  readonly timeoutMs?: number
+  readonly fetchImpl?: typeof fetch
+  readonly onEvent?: (event: StoryDirectorLogEvent) => void
+}
+```
+
+```ts
+// server/story/briefing-director.ts — SOLO servidor.
+export interface BriefingDirectorLogEvent {
+  readonly event: 'story.plan.ok' | 'story.plan.failed'
+  readonly briefApplied: boolean
+  readonly errorCode?: string
+}
+
+export interface BriefingDirectorOptions {
+  readonly onEvent?: (event: BriefingDirectorLogEvent) => void
+}
+
+export function createBriefingDirector(
+  inner: StoryDirector,
+  options?: BriefingDirectorOptions,
+): StoryDirector
+```
+
+`finishReason` vive **solo** en el sink del director nativo porque `createPlan` devuelve únicamente `DirectorPlan`: el decorador no puede observar el `finish_reason` de la respuesta HTTP.
+
+Reglas del contrato:
+
+- La unión discriminada es sobre `applied`, que es un literal booleano; el estrechamiento MUST funcionar sin aserciones de tipo.
+- `StoryBrief` no contiene texto del usuario: `directives` y `rendered` se derivan solo de constantes del servidor y de las métricas de la premisa.
+- El brief **no** forma parte de `Story`, `Scene`, `SceneRecord`, `DirectorPlan` ni `app/models/story.ts`. `DirectorPlan` MUST NOT ganar campos.
+- Los dos sinks son **independientes y opcionales**: el nativo emite `finishReason` y `attempt` (uno por intento), el decorador emite `briefApplied`. Ninguno de los dos tipos de evento incluye campos del otro, y sin sink inyectado no se emite nada.
+- Los archivos nuevos MUST NOT contener el token `any` ni importar `node:crypto`, `@prisma/client` ni módulos de `app/`.
+
+### A.5 Contrato de API
+
+**Sin cambios.** La expansión es **interna**: el cliente sigue enviando `premise` y el servidor persiste y devuelve **la premisa del usuario**, nunca el texto enriquecido.
+
+| Elemento | Estado |
+|----------|--------|
+| Rutas (`POST /api/story`, `GET /api/story/{id}`, uploads, keyframe, approve, retry, assemble, cancel) | Sin cambios. No hay rutas nuevas ni eliminadas. |
+| Request de `POST /api/story` (`premise`, `sceneCount`, `preset`, `referenceUrl`, `referenceExpiresAt`) | Sin cambios. No se aceptan campos nuevos; el brief no es un parámetro. |
+| Response, DTO y `premise` devuelta | Sin cambios: se devuelve la premisa original normalizada. |
+| Códigos de estado y códigos de error | Sin cambios. Se reutilizan `director-invalid-output`, `director-timeout`, `director-unavailable`, `content-blocked`. |
+| Cabeceras, cookies, `Idempotency-Key` | Sin cambios. `canonicalStoryBody` y `hashStoryBody` no cambian. |
+| Límites de body (16 KiB / 8 KiB / 4 KiB) | Sin cambios: el brief no viaja por HTTP. |
+
+Justificación: cualquier cliente (incluido un cliente futuro o un reintento manual) obtiene el mismo contrato y el mismo resultado observable; no hay estado nuevo que reconciliar y ninguna ruta necesita saber que el brief existe.
+
+### A.6 Máquina de estados
+
+**Sin cambios.** El brief no introduce estados, jobs, leases, reintentos ni transiciones:
+
+| Aspecto | Efecto |
+|---------|--------|
+| Estados globales y por escena | Idénticos. El brief vive dentro de `createPlan`, antes de crear la fila. |
+| `PLANNING` | Sigue reservado y no persistido (FR-028). |
+| Recuperación y cancelación | Sin cambios: no hay nada que cancelar ni reanudar en el brief. |
+| Fallos | Se mapean a los códigos existentes del director; el brief no puede fallar por sí mismo (es puro y total). |
+| Reconciliador y leases | No se tocan. |
+
+### A.7 Seguridad
+
+| Riesgo | Mitigación de la enmienda |
+|--------|---------------------------|
+| **Prompt injection** | El brief lo escribe el servidor con constantes; MUST NOT interpolar texto del usuario. Se coloca **después** de la premisa y delimitado por marcadores fijos, de modo que la premisa sigue siendo el único contenido no confiable y el bloque no puede confundirse con instrucciones del usuario. Sin herramientas, sin URLs y sin cambios de `response_format`. |
+| **Alteración de la idea** | La premisa MUST aparecer verbatim y el brief MUST prohibir cambiar tema, personajes y desenlace. El plan sigue validándose con el mismo esquema. |
+| **Fuga de contenido a logs** | Solo se añaden `briefApplied` y `finishReason`; el brief renderizado entra en la lista prohibida (FR-103 + FR-150). |
+| **Secretos** | No hay claves, variables de entorno ni configuración nuevas; el módulo puro no lee `process.env` ni `useRuntimeConfig`. |
+| **Superficie de ataque nueva** | Ninguna: sin endpoint, sin campo de request, sin parámetro de cliente y sin código en `app/`. |
+| **Coste y abuso** | Sin llamadas extra; el rate limit, la idempotencia y el cap de 8 USD siguen siendo la única defensa y no se relajan. |
+| **Contenido bloqueado** | El brief es neutro y de producción; `content-blocked` se mantiene con el mismo mapeo y no se añade bypass. |
+
+### A.8 Coste y latencia
+
+| Enfoque | Llamadas DeepSeek extra | Coste extra por creación | Latencia extra | Riesgos | Decisión |
+|---------|-------------------------|--------------------------|----------------|---------|----------|
+| **A — Brief determinista** | 0 | **0 USD** | ~0 ms (cálculo puro en memoria, sin red) | Bajo: heurística conservadora, texto acotado, determinista | **Aprobado** |
+| B — Reescritura por LLM | 1 (+1 reparación posible) | ~0,01–0,03 USD | +3–15 s (timeout 45 s) | Alto: nueva llamada pagada, nueva latencia, nueva causa de fallo, puede alterar la idea | Fuera de alcance (evolución futura) |
+| C — Híbrido (heurística y, si sigue corto, LLM) | 0–1 | 0–0,03 USD | 0–15 s | Medio-alto: dos caminos que probar, no determinista, misma latencia y coste que B en el peor caso | Fuera de alcance (evolución futura) |
+
+Notas:
+
+- `max_tokens` pasa a depender de las escenas, pero es un **tope de salida**, no una petición: no añade coste por sí mismo y la reparación ya estaba contemplada en `directorCostUsd`.
+- La latencia del brief es despreciable frente a los 3–15 s típicos de DeepSeek (tabla de «Costes y latencia»); no se muestra al usuario ni se convierte en ETA.
+- El coste estimado por historia (FR-092) y el cap de 8 USD no cambian.
+
+### A.9 Escenarios de aceptación
+
+1. **Premisa de 15 caracteres**
+   **Given** una premisa válida de 15 caracteres (≥ 10, < 60) y defaults,
+   **When** se envía `POST /api/story`,
+   **Then** el brief tiene `applied = true` con señales `short-text`, `few-words` y `single-clause`; la petición a DeepSeek es **una sola**; el contenido de usuario contiene la premisa **verbatim** y el bloque de brief después de ella con ≤ 500 caracteres y ≤ 5 directivas; la historia se persiste con la premisa original de 15 caracteres.
+
+2. **Premisa de 60+ caracteres con 2 cláusulas**
+   **Given** una premisa de longitud ≥ 60, ≥ 9 palabras y ≥ 2 cláusulas,
+   **When** se llama a `createPlan`,
+   **Then** `applied = false`; el decorador NO pasa `context`; el mensaje de usuario es **byte-idéntico** al que produce hoy `storyDirectorUserMessage(premise, referenceUrl)` sin tercer argumento; `max_tokens` corresponde solo al número de escenas.
+
+3. **Premisa de 600 caracteres**
+   **Given** una premisa de exactamente 600 caracteres (el máximo de FR-011),
+   **When** se envía `POST /api/story`,
+   **Then** no hay 400 ni 413; la premisa entra completa, sin truncar ni reescribir, el mensaje total no excede el límite de tokens de entrada del modelo y el plan se valida con el mismo esquema. Si la heurística marca `applied = true`, el bloque sigue siendo ≤ 500 caracteres.
+
+4. **Mismo hash de idempotencia**
+   **Given** dos peticiones idénticas (`premise`, `sceneCount`, `preset`, `referenceUrl`, `referenceExpiresAt`) con o sin `Idempotency-Key`,
+   **When** se calcula `hashStoryBody(canonicalStoryBody(request))`,
+   **Then** el hash es el mismo que antes de la enmienda y la repetición devuelve 200 sin una segunda llamada a DeepSeek; el brief no interviene en el hash.
+
+5. **`finish_reason: length`**
+   **Given** un stub que responde `finish_reason: 'length'` con un JSON incompleto,
+   **When** el director procesa la respuesta,
+   **Then** lanza **una** reparación con nota de truncamiento y `max_tokens = min(2000, base + 500)`; si esa reparación también falla, devuelve 502 `director-invalid-output` y no hay una tercera petición. Un plan válido con `finish_reason: 'length'` se acepta sin reparación.
+
+6. **Ausencia de fugas en logs**
+   **Given** cualquier creación, con brief o sin él,
+   **When** se inspeccionan los eventos emitidos y la serialización de errores,
+   **Then** no aparecen la premisa, el brief renderizado, el plan, `visualPrompt`, `narration`, URLs de proveedor, `requestId`, `Idempotency-Key` ni claves; solo pueden aparecer `briefApplied`, `finishReason`, `errorCode`, `stage`, `modelId`, `sceneCount` y latencias.
+
+### A.10 Plan de tests
+
+**Regla explícita: los tests existentes MUST NOT modificarse; solo se añaden archivos de test nuevos.** En particular quedan intactos y verdes: `tests/unit/server/story-director.spec.ts` (incluidas las longitudes 1 y 2 de `stub.requests`, la longitud 2 de `messages` y `body.max_tokens === DIRECTOR_MAX_TOKENS`), `tests/unit/server/story-director-prompt.spec.ts` (incluida la igualdad salvo número de beats), `tests/unit/server/story-service.spec.ts`, `tests/unit/server/story-plan-validator.spec.ts` y `tests/helpers/deepseek-stub.ts`.
+
+| Test nuevo | Cobertura mínima |
+|------------|------------------|
+| `tests/unit/server/story-premise-brief.spec.ts` | Tabla dorada de **20 casos** con longitudes **9, 10, 29, 30, 59, 60 y 600** y **1 y 3 cláusulas**: 7 longitudes × 2 variantes de cláusulas = 14, más 6 casos de borde (frontera 8 vs 9 palabras, separadores `,` `;` `:` `.`, conectores `y`/`pero`/`cuando`, NFC compuesto vs descompuesto, saltos y tabulaciones colapsados por `normalizeText`, premisa de 600 con 3 cláusulas). Verifica `applied`, `reasons` en orden fijo, determinismo (dos llamadas iguales), límite de 5 directivas, ≤ 500 caracteres, ausencia de `<`, `>`, backticks, `#`, controles, URLs y texto de la premisa. |
+| `tests/unit/server/story-briefing-director.spec.ts` | Decorador con `StoryDirector` fake: exactamente **1** llamada; `context` presente cuando `applied = true` y **ausente** cuando `applied = false`; premisa verbatim; plan devuelto sin mutar; `StoryError` propagado sin segunda llamada; el sink del decorador recibe solo `briefApplied` (y `errorCode` en fallo), **nunca** `finishReason` ni `attempt`; sin sink no hay emisión. |
+| `tests/unit/server/story-director-context.spec.ts` | Director nativo con `context` contra el stub HTTP local: 1 petición; bloque después de la premisa y antes del esquema; premisa verbatim una sola vez; bloque + `image_url` conviven con el texto primero; sin `context`, el cuerpo es idéntico al actual. |
+| `tests/unit/server/story-director-brief-prompt.spec.ts` | `storyDirectorUserMessage` con y sin tercer argumento: byte-identidad sin argumento, delimitadores, orden, ≤ 500 caracteres, sin `any`/`<`/backticks en el bloque, independencia del contenido de la premisa. |
+| `tests/unit/server/story-director-tokens.spec.ts` | `max_tokens` por escenas (4→1400, 5→1400, 6→1900, tope 2000); `DIRECTOR_MAX_TOKENS === 1400`; `finish_reason` leído y clasificado; 1 evento por intento con `attempt: 1`/`attempt: 2` y `finishReason` en el sink del director nativo (y ninguno sin sink); `length` + plan inválido → 1 reparación con nota y `min(2000, base + 500)`; plan válido truncado aceptado; nunca un tercer intento; 502 final. Usa `fetchImpl` inyectado, no modifica el stub compartido. |
+| `tests/acceptance/story-api-create-brief.spec.ts` | `POST /api/story` con premisa de 15 caracteres, director real decorado y stub HTTP local: 201, una sola petición, premisa original persistida y devuelta, bloque presente en la petición, replay idempotente con 200 y sin segunda llamada, sin claves ni URLs en la respuesta. |
+
+Criterios del plan:
+
+- Los nuevos tests MUST usar stubs y fakes locales; MUST NOT salir a internet ni llamar a DeepSeek real.
+- La fila de longitud **9** es cobertura unitaria del módulo puro: en producción `validatePremise` la rechaza antes con 400 `premise-required` (FR-011), así que la ruta nunca llama a `analyzePremise` con menos de 10 caracteres.
+- Los nuevos archivos MUST respetar las guardas existentes (`story-guards.spec.ts`): sin `any`, sin `Math.random`, sin `Date.now` fuera de lo permitido, sin `node:crypto`, sin imports de `server/composer/**` ni de `app/`.
+- El gate es `npm run db:generate && npm run test:run && npm run build`, con el recuento exacto reportado; la baseline a batir es **1505 passed / 7 skipped opt-in / 96 archivos** más los archivos nuevos.
+
+### A.11 Fuera de alcance de la enmienda
+
+- Enfoques **B** (reescritura por LLM) y **C** (híbrido): solo evolución futura, con spec propia.
+- Cambios de UI, copy, `data-testid`, formulario, estados visibles o camino de 1–3 clics.
+- Migración de Prisma, columnas nuevas o persistencia del brief.
+- Endpoints, campos de request, cabeceras, cookies o códigos de error nuevos.
+- Dependencias nuevas (incluidos SDKs, librerías de NLP o de plantillas).
+- Cambio del mínimo de premisa (10) o del máximo (600), del esquema del plan, de `response_format`, `stream`, `temperature`, del modelo o del timeout.
+- Caché de briefs, telemetría, eventos nuevos de log más allá de la allowlist ampliada, i18n o edición de prompts por el usuario.
+- Cualquier cambio en 004, feed, landing, `tailwind.config.ts` o `vitest.config.ts`.
+
+### A.12 Fases de implementación de la enmienda
+
+#### Fase A1 — Módulo puro y tabla dorada
+
+- `server/story/premise-brief.ts` con FR-136 a FR-139 y el contrato de A.4.
+- `tests/unit/server/story-premise-brief.spec.ts` con la tabla de 20 casos.
+- **Exit criteria**: módulo determinista, sin I/O, ≤ 500 caracteres y ≤ 5 directivas; suite completa en verde sin tocar ningún test existente.
+
+#### Fase A2 — Contexto, prompt y decorador
+
+- `DirectorContext` y `context?` en `director-types.ts` (FR-142).
+- Tercer parámetro opcional en `storyDirectorUserMessage` con byte-identidad sin argumento (FR-143).
+- `briefing-director.ts` (FR-140, FR-141) y cableado en `runtime.ts` con `createBriefingDirector(createStoryDirector(...))`.
+- Tests: decorador, contexto del director nativo y prompt.
+- **Exit criteria**: una sola petición HTTP en el camino feliz; `story-director.spec.ts` y `story-director-prompt.spec.ts` intactos y verdes.
+
+#### Fase A3 — `max_tokens` por escena y `finish_reason`
+
+- FR-144 y FR-145 en `director.ts`, incluida la reparación informada y el tope de 2000.
+- Ampliación de la allowlist de observabilidad (FR-150) y verificación de que no se filtra contenido.
+- Tests: tokens, truncamiento, reparación única y ausencia de fugas.
+- **Exit criteria**: 4→1400, 5→1400, 6→1900, tope 2000; `DIRECTOR_MAX_TOKENS` sigue en 1400; ningún tercer intento.
+
+#### Fase A4 — Verificación
+
+- `tests/acceptance/story-api-create-brief.spec.ts` (ruta con premisa corta y replay idempotente).
+- Comprobaciones: sin migración pendiente, sin archivos nuevos en `app/`, `story.planJson` sin cambios, `cost.ts` sin cambios, `hashStoryBody` estable.
+- Gate: `npm run db:generate && npm run test:run && npm run build`, con el recuento exacto (baseline 1505/7/96 + tests nuevos) y los 613 tests de 004 intactos.
+
+**Cumplimiento constitucional de la enmienda**: I (ningún clic ni campo nuevo), II (enmienda explícita y trazable, sin reescribir historia), III (todo en `server/`, sin claves ni secretos nuevos, sin exponer contenido), IV (módulo puro y decorador que reutilizan `normalizeText` y la interfaz `StoryDirector`, sin abstracciones paralelas) y V (cada archivo runtime nuevo con cobertura nueva, sin modificar tests existentes).
 
 ## Constitution Check
 

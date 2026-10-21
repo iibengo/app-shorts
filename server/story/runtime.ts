@@ -17,6 +17,7 @@ import { createMediaDownloader } from './media-downloader'
 import { createFfmpegRunner } from './ffmpeg-runner'
 import type { StoryCostGuard } from './cost'
 import { createStoryCostGuard } from './cost'
+import { createBriefingDirector } from './briefing-director'
 import { createStoryDirector } from './director'
 import type { StoryDirector } from './director-types'
 import { createKeyframeOrchestrator } from './keyframe-orchestrator'
@@ -264,11 +265,13 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     dailyBudgetUsd: decimalValue(story.dailyBudgetUsd, 50),
   })
   const director = hasDeepSeekKey
-    ? createStoryDirector({
-        apiKey: deepseekKey,
-        baseUrl: stringValue(story.deepseekBaseUrl, DEFAULT_DEEPSEEK_BASE_URL),
-        timeoutMs: numberValue(story.directorTimeoutMs, 45_000),
-      })
+    ? createBriefingDirector(
+        createStoryDirector({
+          apiKey: deepseekKey,
+          baseUrl: stringValue(story.deepseekBaseUrl, DEFAULT_DEEPSEEK_BASE_URL),
+          timeoutMs: numberValue(story.directorTimeoutMs, 45_000),
+        }),
+      )
     : null
   const repository = databaseAvailable ? createPrismaStoryRepository() : null
   const keyframes = hasFalKey ? createKeyframeOrchestrator(queue) : null

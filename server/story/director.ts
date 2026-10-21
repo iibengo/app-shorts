@@ -1,6 +1,8 @@
 import type {
   DeepSeekChatRequest,
   DeepSeekMessage,
+  DirectorContext,
+  DirectorFinishReason,
   DirectorPlan,
   StoryDirector,
 } from './director-types'
@@ -9,23 +11,60 @@ import {
   storyDirectorSystemPrompt,
   storyDirectorUserMessage,
 } from './director-prompt'
-import { StoryError } from './errors'
+import { StoryError, isStoryError } from './errors'
 import { validateDirectorPlan } from './plan-validator'
 
 export const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
 export const DEEPSEEK_MODEL = 'deepseek-flash'
 export const DIRECTOR_TEMPERATURE = 0.4
 export const DIRECTOR_MAX_TOKENS = 1_400
+export const DIRECTOR_MAX_TOKENS_LIMIT = 2_000
+export const DIRECTOR_REPAIR_TOKEN_INCREMENT = 500
+
+const DIRECTOR_TOKENS_BY_SCENE_COUNT: Readonly<Record<number, number>> = {
+  4: 1_400,
+  5: 1_400,
+  6: 1_900,
+}
+
+/**
+ * Output budget per scene count, capped by the global limit.
+ */
+export function directorMaxTokens(sceneCount: number): number {
+  const base = DIRECTOR_TOKENS_BY_SCENE_COUNT[sceneCount] ?? DIRECTOR_MAX_TOKENS
+
+  return Math.min(base, DIRECTOR_MAX_TOKENS_LIMIT)
+}
+
+/**
+ * Budget for the single repair: a larger slice when the first answer was
+ * truncated, always capped by the global limit.
+ */
+export function directorRepairMaxTokens(baseMaxTokens: number): number {
+  return Math.min(
+    DIRECTOR_MAX_TOKENS_LIMIT,
+    baseMaxTokens + DIRECTOR_REPAIR_TOKEN_INCREMENT,
+  )
+}
+
+export interface StoryDirectorLogEvent {
+  readonly event: 'story.plan.ok' | 'story.plan.failed'
+  readonly attempt: 1 | 2
+  readonly finishReason: DirectorFinishReason
+  readonly errorCode?: string
+}
 
 export interface StoryDirectorOptions {
   readonly apiKey: string
   readonly baseUrl?: string
   readonly timeoutMs?: number
   readonly fetchImpl?: typeof fetch
+  readonly onEvent?: (event: StoryDirectorLogEvent) => void
 }
 
 interface CompletionResult {
-  readonly content: string
+  readonly content: string | null
+  readonly finishReason: DirectorFinishReason
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -58,6 +97,30 @@ function readMessageContent(payload: unknown): string | null {
   return typeof content === 'string' && content.length > 0 ? content : null
 }
 
+function readFinishReason(payload: unknown): DirectorFinishReason {
+  if (!isRecord(payload) || !Array.isArray(payload.choices)) {
+    return 'unknown'
+  }
+
+  const choice = payload.choices[0]
+
+  if (!isRecord(choice)) {
+    return 'unknown'
+  }
+
+  const reason = choice.finish_reason
+
+  if (reason === 'stop' || reason === 'length' || reason === 'content_filter') {
+    return reason
+  }
+
+  return 'unknown'
+}
+
+function errorCodeOf(error: unknown): string {
+  return isStoryError(error) ? error.code : 'internal-error'
+}
+
 function parsePlanJson(content: string): unknown {
   const trimmed = content.trim()
   const withoutFence = trimmed.startsWith('```')
@@ -76,41 +139,76 @@ export class NativeStoryDirector implements StoryDirector {
   private readonly baseUrl: string
   private readonly timeoutMs: number
   private readonly fetchImpl: typeof fetch
+  private readonly onEvent: ((event: StoryDirectorLogEvent) => void) | undefined
 
   constructor(options: StoryDirectorOptions) {
     this.apiKey = options.apiKey
     this.baseUrl = (options.baseUrl ?? DEFAULT_DEEPSEEK_BASE_URL).replace(/\/+$/, '')
     this.timeoutMs = options.timeoutMs ?? 45_000
     this.fetchImpl = options.fetchImpl ?? fetch
+    this.onEvent = options.onEvent
   }
 
   async createPlan(input: {
     readonly premise: string
     readonly sceneCount: number
     readonly referenceUrl: string | null
+    readonly context?: DirectorContext
   }): Promise<DirectorPlan> {
+    const baseMaxTokens = directorMaxTokens(input.sceneCount)
     const messages: DeepSeekMessage[] = [
       { role: 'system', content: storyDirectorSystemPrompt(input.sceneCount) },
-      storyDirectorUserMessage(input.premise, input.referenceUrl),
+      storyDirectorUserMessage(input.premise, input.referenceUrl, input.context),
     ]
-    const first = await this.complete(messages)
+    const first = await this.attempt(messages, baseMaxTokens, 1)
+
+    if (first.content === null) {
+      this.emitFailure(1, first.finishReason)
+
+      throw new StoryError('director-invalid-output')
+    }
+
     const firstAttempt = this.parse(first.content, input.sceneCount)
 
     if (firstAttempt.ok) {
+      this.emitSuccess(1, first.finishReason)
+
       return firstAttempt.plan
     }
 
+    this.emitFailure(1, first.finishReason)
+
+    const truncated = first.finishReason === 'length'
+    const repairMaxTokens = truncated
+      ? directorRepairMaxTokens(baseMaxTokens)
+      : baseMaxTokens
     const repairMessages: DeepSeekMessage[] = [
       ...messages,
       { role: 'assistant', content: first.content },
-      ...storyDirectorRepairMessages(input.sceneCount, first.content, firstAttempt.reason),
+      ...storyDirectorRepairMessages(
+        input.sceneCount,
+        first.content,
+        firstAttempt.reason,
+        truncated,
+      ),
     ]
-    const repaired = await this.complete(repairMessages)
+    const repaired = await this.attempt(repairMessages, repairMaxTokens, 2)
+
+    if (repaired.content === null) {
+      this.emitFailure(2, repaired.finishReason)
+
+      throw new StoryError('director-invalid-output')
+    }
+
     const secondAttempt = this.parse(repaired.content, input.sceneCount)
 
     if (secondAttempt.ok) {
+      this.emitSuccess(2, repaired.finishReason)
+
       return secondAttempt.plan
     }
+
+    this.emitFailure(2, repaired.finishReason)
 
     throw new StoryError('director-invalid-output')
   }
@@ -128,13 +226,56 @@ export class NativeStoryDirector implements StoryDirector {
     return validateDirectorPlan(parsed, sceneCount)
   }
 
-  private async complete(messages: readonly DeepSeekMessage[]): Promise<CompletionResult> {
+  private emit(event: StoryDirectorLogEvent): void {
+    this.onEvent?.(event)
+  }
+
+  private emitSuccess(attempt: 1 | 2, finishReason: DirectorFinishReason): void {
+    this.emit({ event: 'story.plan.ok', attempt, finishReason })
+  }
+
+  private emitFailure(attempt: 1 | 2, finishReason: DirectorFinishReason): void {
+    this.emit({
+      event: 'story.plan.failed',
+      attempt,
+      finishReason,
+      errorCode: 'director-invalid-output',
+    })
+  }
+
+  /**
+   * Runs one HTTP attempt. Transport failures are reported once with the
+   * stable Story error code and an unknown finish reason, then rethrown.
+   */
+  private async attempt(
+    messages: readonly DeepSeekMessage[],
+    maxTokens: number,
+    attempt: 1 | 2,
+  ): Promise<CompletionResult> {
+    try {
+      return await this.complete(messages, maxTokens)
+    } catch (error) {
+      this.emit({
+        event: 'story.plan.failed',
+        attempt,
+        finishReason: 'unknown',
+        errorCode: errorCodeOf(error),
+      })
+
+      throw error
+    }
+  }
+
+  private async complete(
+    messages: readonly DeepSeekMessage[],
+    maxTokens: number,
+  ): Promise<CompletionResult> {
     const body: DeepSeekChatRequest = {
       model: DEEPSEEK_MODEL,
       messages,
       response_format: { type: 'json_object' },
       temperature: DIRECTOR_TEMPERATURE,
-      max_tokens: DIRECTOR_MAX_TOKENS,
+      max_tokens: maxTokens,
       stream: false,
     }
 
@@ -191,13 +332,10 @@ export class NativeStoryDirector implements StoryDirector {
       throw new StoryError('director-unavailable')
     }
 
-    const content = readMessageContent(payload)
-
-    if (!content) {
-      throw new StoryError('director-invalid-output')
+    return {
+      content: readMessageContent(payload),
+      finishReason: readFinishReason(payload),
     }
-
-    return { content }
   }
 }
 

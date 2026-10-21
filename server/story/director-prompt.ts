@@ -1,4 +1,4 @@
-import type { DeepSeekMessage } from './director-types'
+import type { DeepSeekMessage, DirectorContext } from './director-types'
 import {
   DIRECTOR_MAX_LOGLINE_LENGTH,
   DIRECTOR_MAX_NARRATION_LENGTH,
@@ -7,6 +7,7 @@ import {
   DIRECTOR_MIN_NARRATION_LENGTH,
   DIRECTOR_MIN_VISUAL_PROMPT_LENGTH,
 } from './plan-validator'
+import { renderBriefBlock } from './premise-brief'
 
 export const DIRECTOR_JSON_SCHEMA = `{
   "title": "string (1-80)",
@@ -34,8 +35,11 @@ export function storyDirectorSystemPrompt(sceneCount: number): string {
 export function storyDirectorUserMessage(
   premise: string,
   referenceUrl: string | null,
+  context?: DirectorContext,
 ): DeepSeekMessage {
-  const instructions = `Premisa: ${premise}\n\nDevuelve exactamente el JSON del esquema:\n${DIRECTOR_JSON_SCHEMA}`
+  const block = context === undefined ? '' : renderBriefBlock(context.brief)
+  const blockPart = block.length > 0 ? `${block}\n\n` : ''
+  const instructions = `Premisa: ${premise}\n\n${blockPart}Devuelve exactamente el JSON del esquema:\n${DIRECTOR_JSON_SCHEMA}`
 
   if (!referenceUrl) {
     return { role: 'user', content: instructions }
@@ -54,14 +58,20 @@ export function storyDirectorRepairMessages(
   sceneCount: number,
   previousContent: string,
   reason: string,
+  truncated = false,
 ): readonly DeepSeekMessage[] {
+  const truncationNote = truncated
+    ? ' La respuesta anterior se truncó por el límite de tokens: acorta title, logline, visualPrompt y narration para que el JSON completo quepa en la respuesta.'
+    : ''
+
   return [
     {
       role: 'user',
       content: `La respuesta anterior no cumple el esquema (${reason}). `
         + `Corrige el JSON para que tenga exactamente ${sceneCount} beats válidos, `
         + 'sin HTML, sin Markdown y sin campos adicionales. '
-        + `Esquema:\n${DIRECTOR_JSON_SCHEMA}`,
+        + `Esquema:\n${DIRECTOR_JSON_SCHEMA}`
+        + truncationNote,
     },
     { role: 'assistant', content: previousContent },
     {

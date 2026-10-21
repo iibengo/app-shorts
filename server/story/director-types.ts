@@ -1,3 +1,5 @@
+import type { StoryBrief } from './premise-brief'
+
 export interface DirectorBeat {
   readonly order: number
   readonly visualPrompt: string
@@ -28,10 +30,21 @@ export interface DeepSeekChatRequest {
   readonly stream: false
 }
 
+export type DirectorFinishReason = 'stop' | 'length' | 'content_filter' | 'unknown'
+
+/**
+ * Server-only context the briefing decorator hands to the native director.
+ * It is never accepted from the client and never persisted.
+ */
+export interface DirectorContext {
+  readonly brief: StoryBrief
+}
+
 export interface StoryDirector {
   createPlan(input: {
     readonly premise: string
     readonly sceneCount: number
     readonly referenceUrl: string | null
+    readonly context?: DirectorContext
   }): Promise<DirectorPlan>
 }
