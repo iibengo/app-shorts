@@ -1,19 +1,19 @@
 import { createHash } from 'node:crypto'
 import { getRequestHeader } from 'h3'
 import type { ComposerApiError, ComposerUploadTicket } from '~/models/composer'
-import { ComposerError, sendComposerError } from '~~/server/composer/errors'
+import { ComposerError, sendComposerError } from '~~/server/shared/errors'
 import {
   applyComposerResponseHeaders,
   assertSameOrigin,
   getRequestContext,
-} from '~~/server/composer/request-context'
+} from '~~/server/shared/request-context'
 import { getComposerRuntime } from '~~/server/composer/runtime'
 import {
   canonicalUploadBody,
   readJsonBody,
   validateIdempotencyKey,
   validateUploadRequest,
-} from '~~/server/composer/validation'
+} from '~~/server/shared/validation'
 
 function hashBody(value: string): string {
   return createHash('sha256').update(value).digest('hex')

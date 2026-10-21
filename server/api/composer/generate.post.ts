@@ -1,17 +1,17 @@
 import { getRequestHeader } from 'h3'
 import type { ComposerApiError, ComposerJob } from '~/models/composer'
-import { ComposerError, sendComposerError } from '~~/server/composer/errors'
+import { ComposerError, sendComposerError } from '~~/server/shared/errors'
 import {
   applyComposerResponseHeaders,
   assertSameOrigin,
   getRequestContext,
-} from '~~/server/composer/request-context'
+} from '~~/server/shared/request-context'
 import { getComposerRuntime } from '~~/server/composer/runtime'
 import {
   readJsonBody,
   validateGenerateRequest,
   validateIdempotencyKey,
-} from '~~/server/composer/validation'
+} from '~~/server/shared/validation'
 import { setResponseStatus } from 'h3'
 
 export default defineEventHandler(

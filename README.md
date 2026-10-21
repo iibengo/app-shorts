@@ -21,11 +21,14 @@ Aplicación Nuxt 4 para crear y explorar shorts verticales 9:16. Incluye landing
 ```bash
 npm ci
 cp .env.example .env
-# Rellena NUXT_FAL_KEY y NUXT_COMPOSER_JOB_SECRET en .env
+# Rellena NUXT_FAL_KEY, NUXT_COMPOSER_JOB_SECRET y NUXT_DEEPSEEK_KEY en .env
+docker compose up -d postgres
+npm run db:generate
+npm run db:migrate
 npm run dev
 ```
 
-La app queda en `http://localhost:3000`.
+La app queda en `http://localhost:3000`. `db:migrate` solo es necesario cuando exista la feature Story; el Composer de 004 no usa PostgreSQL.
 
 ### Variables de entorno
 
@@ -88,7 +91,9 @@ app/
   pages/                  rutas Nuxt
 server/
   api/composer/           rutas finas (validar, autorizar, delegar)
-  composer/               servicios, adaptadores, tokens, rate limit y errores
+  fal/                    transporte Fal compartido: HTTP, queue, storage y adaptadores
+  shared/                 errores, rate limit, job token, request context y validación
+  composer/               dominio Composer: registry, prompts, orquestador y fachada
 tests/
   unit/                   lógica, servicios, adaptadores, componentes y composables
   acceptance/             SSR, rutas y regresión de feed/landing
@@ -129,7 +134,11 @@ Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reu
 ## Estado actual
 
 - Spec 004 implementada.
+- Fase 0 de Spec 005 completada: `server/fal/` y `server/shared/` extraídos con shims de compatibilidad en `server/composer/`.
+- Spec 005 redactada en `specs/005-story-composer/spec.md` (pendiente de Checkpoint 1).
+- Prisma 7 + PostgreSQL preparados: `prisma/schema.prisma` con `Story`/`Scene`, Docker local y scripts de migración. Sin migración aplicada todavía.
 - Suite automatizada: **613 tests en verde**.
 - Build Node/Nitro correcto.
 - Smoke real de Fal opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
 - Pendiente de QA manual de accesibilidad/navegador y validación de CORS/lifecycle reales en el entorno de despliegue.
+- Pendiente de ampliar las guardas estáticas a `server/fal/**` y `server/shared/**` en Spec 005.

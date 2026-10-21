@@ -4,13 +4,13 @@ import type {
   ComposerPreset,
   ComposerVideoDuration,
 } from '~/models/composer'
-import { ComposerError, isComposerError } from './errors'
-import type { ComposerEndpointId } from './fal-types'
-import type { FalHttpClient, FalHttpResponse } from './fal-http-client'
-import type { FalQueueService } from './fal-queue-service'
+import { ComposerError, isComposerError } from '../shared/errors'
+import type { ComposerEndpointId } from '../fal/types'
+import type { FalHttpClient, FalHttpResponse } from '../fal/http-client'
+import type { FalQueueService } from '../fal/queue-service'
 import type { ModelRegistry } from './model-registry'
 import type { PromptComposer } from './prompt-composer'
-import type { VideoOutput } from './adapters/types'
+import type { VideoOutput } from '../fal/adapters/types'
 
 export interface OrchestratorJob {
   readonly endpointId: ComposerEndpointId

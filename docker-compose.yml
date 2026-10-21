@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ai-shorts-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ai_shorts
+      POSTGRES_PASSWORD: ai_shorts
+      POSTGRES_DB: ai_shorts
+    ports:
+      - '5432:5432'
+    volumes:
+      - ai_shorts_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ai_shorts -d ai_shorts']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ai_shorts_pgdata:

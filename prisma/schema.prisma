@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../server/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StoryStatus {
+  PLANNING
+  GENERATING_KEYFRAMES
+  WAITING_APPROVAL
+  GENERATING_VIDEOS
+  VIDEOS_READY
+  ASSEMBLING
+  READY
+  FAILED
+  CANCELLED
+}
+
+enum SceneStatus {
+  PENDING
+  KEYFRAME_QUEUED
+  KEYFRAME_RUNNING
+  KEYFRAME_READY
+  KEYFRAME_FAILED
+  VIDEO_QUEUED
+  VIDEO_RUNNING
+  VIDEO_READY
+  VIDEO_FAILED
+  CANCELLED
+}
+
+model Story {
+  id                  String      @id @default(cuid())
+  sessionId           String
+  status              StoryStatus
+  premise             String      @db.Text
+  title               String?
+  logline             String?     @db.Text
+  referenceUrl        String?     @db.Text
+  referenceExpiresAt  DateTime?
+  preset              String
+  sceneCount          Int
+  durationSeconds     Int
+  aspectRatio         String      @default("9:16")
+  planJson            Json?
+  finalVideoUrl       String?     @db.Text
+  finalVideoExpiresAt DateTime?
+  errorCode           String?
+  errorMessage        String?     @db.Text
+  idempotencyKey      String?
+  version             Int         @default(0)
+  leaseOwner          String?
+  leaseUntil          DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  approvedAt          DateTime?
+  completedAt         DateTime?
+  expiresAt           DateTime
+  scenes              Scene[]
+
+  @@unique([sessionId, idempotencyKey])
+  @@index([sessionId])
+  @@index([sessionId, status])
+  @@index([status, leaseUntil])
+  @@index([expiresAt])
+}
+
+model Scene {
+  id                  String      @id @default(cuid())
+  storyId             String
+  order               Int
+  visualPrompt        String      @db.Text
+  narration           String      @db.Text
+  status              SceneStatus
+  keyframeUrl         String?     @db.Text
+  keyframeRequestId   String?
+  keyframeStatusUrl   String?     @db.Text
+  keyframeResponseUrl String?     @db.Text
+  keyframeCancelUrl   String?     @db.Text
+  keyframeError       String?     @db.Text
+  videoUrl            String?     @db.Text
+  videoRequestId      String?
+  videoStatusUrl      String?     @db.Text
+  videoResponseUrl    String?     @db.Text
+  videoCancelUrl      String?     @db.Text
+  videoError          String?     @db.Text
+  keyframeAttempts    Int         @default(0)
+  videoAttempts       Int         @default(0)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  story               Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, order])
+  @@index([storyId, status])
+}

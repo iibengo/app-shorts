@@ -42,8 +42,13 @@ app/
   utils/                  helpers puros
   pages/                  rutas
 server/
-  api/composer/           handlers finos
-  composer/               servicios, adaptadores, tokens, rate limit, errores
+  api/composer/           handlers finos del Composer
+  fal/                    transporte Fal compartido: HTTP, queue, storage, tipos y adaptadores
+  shared/                 errores, rate limit, job token, request context y validación compartidos
+  db/                     Prisma singleton lazy (solo Story)
+  composer/               dominio Composer: registry, prompts, orquestador y fachada
+prisma/
+  schema.prisma           Story/Scene + enums + leases
 tests/
   unit/                   lógica y componentes
   acceptance/             SSR, rutas, regresiones
@@ -55,11 +60,19 @@ specs/                    specs 001–004
 ## Estado actual (2026-10-21)
 
 - **Spec 004 — Composer real:** implementada.
+- **Fase 0 de Spec 005:** extracción compartida completada.
+  - `server/fal/`: HTTP client, queue, storage, tipos y adaptadores.
+  - `server/shared/`: errores, rate limit, job token, request context y validación.
+  - `server/composer/` conserva el dominio y mantiene shims de compatibilidad para no romper imports/tests de 004.
+- **Spec 005 — Story Composer:** redactada en `specs/005-story-composer/spec.md`, pendiente de Checkpoint 1.
+- **Prisma/PostgreSQL:** Prisma 7 + `@prisma/adapter-pg` instalados; `prisma/schema.prisma` con `Story`/`Scene`; Docker local; sin migración aplicada todavía. `db:generate` es obligatorio antes de build/test cuando Story importe Prisma.
 - **Tests:** 613/613 en verde, 44 archivos.
 - **Build:** `npm run build` correcto.
 - **Smoke real Fal:** opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
 - **Spec 003:** histórica; sustituida por 004 para el Composer. No reutilizar su mock.
 - **Pendiente:** QA manual de accesibilidad/navegador y validación de CORS/lifecycle/cancelación en el entorno real.
+- **Deuda conocida:** `tests/unit/composer-guards.spec.ts` todavía inspecciona las rutas antiguas de `server/composer/` (shims). En Spec 005 hay que ampliar las guardas a `server/fal/**` y `server/shared/**`.
+- **Deuda de extracción:** `server/shared/job-token.ts` y `server/shared/validation.ts` todavía contienen piezas específicas del payload/validación de Composer. Antes de reutilizarlos en Story, separar las primitivas genéricas (HMAC, JSON body, idempotency key) de los validadores de dominio.
 
 ## Patrones reutilizables de 004
 
@@ -152,7 +165,7 @@ No escribir la spec todavía. Antes de `/io-spec`, resolver estas decisiones:
 - ¿Se persiste el proyecto o cada sesión es efímera?
 
 ### Arquitectura candidata a evaluar
-- Extender `server/composer/` o crear `server/story/` reutilizando `FalHttpClient`, `FalQueueService`, `FalStorageService`, `JobTokenService`, `RateLimiter` y `ComposerError`.
+- Crear `server/story/` y reutilizar directamente `server/fal/` (`FalHttpClient`, `FalQueueService`, `FalStorageService`) y `server/shared/` (`JobTokenService`, `RateLimiter`, `ComposerError`, `request-context`, `validation`). No importar los shims de `server/composer/` desde código nuevo: los shims existen solo para compatibilidad de 004.
 - Un `StoryOrchestrator` que componga beats y use el mismo patrón de job asíncrono.
 - Un `StoryPlan`/`StoryBeat`/`StoryGenerationJob` en `app/models/`, con uniones discriminadas y sin `File`/`Blob`.
 - Si hay varios clips: decidir concatenación server-side, proveedor de edición o reproducción secuencial en cliente. No asumir que Fal devuelve un único vídeo.

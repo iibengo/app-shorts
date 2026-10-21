@@ -1,12 +1,12 @@
 import { getQuery, getRequestHeader, getRouterParam } from 'h3'
 import type { H3Event } from 'h3'
 import type { ComposerApiError, ComposerJob } from '~/models/composer'
-import { ComposerError, sendComposerError } from '~~/server/composer/errors'
+import { ComposerError, sendComposerError } from '~~/server/shared/errors'
 import {
   applyComposerResponseHeaders,
   assertSameOrigin,
   getRequestContext,
-} from '~~/server/composer/request-context'
+} from '~~/server/shared/request-context'
 import { getComposerRuntime } from '~~/server/composer/runtime'
 
 function assertNoQueryOrBody(event: H3Event): void {

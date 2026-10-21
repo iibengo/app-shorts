@@ -9,21 +9,32 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:validate": "prisma validate"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",
     "@nuxt/icon": "^2.5.1",
     "@nuxtjs/tailwindcss": "^6.14.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@vite-pwa/nuxt": "^1.1.1",
     "nuxt": "^4.5.2",
+    "pg": "^8.23.1",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@nuxt/test-utils": "^4.3.4",
+    "@types/pg": "^8.23.1",
     "@vue/test-utils": "^2.5.1",
+    "dotenv": "^18.0.8",
     "happy-dom": "^21.0.3",
+    "prisma": "^7.10.1",
     "vitest": "^5.0.5"
   }
 }

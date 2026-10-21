@@ -7,14 +7,14 @@ import type {
   ComposerPreset,
   ComposerVideoDuration,
 } from '~/models/composer'
-import { ComposerError, isComposerError, toComposerJobError } from './errors'
-import type { ComposerJobTokenPayload, JobTokenService } from './job-token'
-import type { FalQueueService } from './fal-queue-service'
+import { ComposerError, isComposerError, toComposerJobError } from '../shared/errors'
+import type { ComposerJobTokenPayload, JobTokenService } from '../shared/job-token'
+import type { FalQueueService } from '../fal/queue-service'
 import type { GenerationOrchestrator } from './generation-orchestrator'
-import type { RateLimiter } from './rate-limit'
-import { IdempotencyStore } from './rate-limit'
-import type { ComposerRequestContext } from './request-context'
-import { canonicalGenerationBody } from './validation'
+import type { RateLimiter } from '../shared/rate-limit'
+import { IdempotencyStore } from '../shared/rate-limit'
+import type { ComposerRequestContext } from '../shared/request-context'
+import { canonicalGenerationBody } from '../shared/validation'
 
 export interface CreateComposerJobInput {
   readonly request: ComposerGenerationRequest

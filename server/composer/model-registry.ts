@@ -3,14 +3,14 @@ import type {
   ComposerPreset,
   ComposerVideoDuration,
 } from '~/models/composer'
-import { ComposerError } from './errors'
-import type { ComposerEndpointId } from './fal-types'
-import { isComposerEndpointId } from './fal-types'
-import { FluxImageAdapter } from './adapters/flux-image-adapter'
-import { FluxKontextAdapter } from './adapters/flux-kontext-adapter'
-import { KlingVideoAdapter } from './adapters/kling-video-adapter'
-import { MinimaxVideoAdapter } from './adapters/minimax-video-adapter'
-import type { KeyframeAdapter, VideoAdapter } from './adapters/types'
+import { ComposerError } from '../shared/errors'
+import type { ComposerEndpointId } from '../fal/types'
+import { isComposerEndpointId } from '../fal/types'
+import { FluxImageAdapter } from '../fal/adapters/flux-image-adapter'
+import { FluxKontextAdapter } from '../fal/adapters/flux-kontext-adapter'
+import { KlingVideoAdapter } from '../fal/adapters/kling-video-adapter'
+import { MinimaxVideoAdapter } from '../fal/adapters/minimax-video-adapter'
+import type { KeyframeAdapter, VideoAdapter } from '../fal/adapters/types'
 
 export interface VideoModelDefinition {
   readonly preset: ComposerPreset
