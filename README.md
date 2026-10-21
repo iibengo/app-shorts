@@ -126,8 +126,17 @@ Flujo obligatorio:
 2. `/io-spec` — Architect escribe la spec.
 3. **Checkpoint 1** — aprobación humana de la spec.
 4. Developer implementa.
-5. **Checkpoint 2** — revisión humana de la implementación.
-6. Tester reescribe/añade tests y ejecuta `npm run test:run` + `npm run build`.
+5. Reviewer read-only revisa spec drift, seguridad y regresiones (`/io-review`).
+6. **Checkpoint 2** — revisión humana de la implementación y del informe del reviewer.
+7. Tester reescribe/añade tests y ejecuta `npm run test:run` + `npm run build`.
+
+Los skills de proyecto viven en `.opencode/skills/`:
+
+- `fal-deepseek-pipeline`
+- `prisma-leases`
+- `ffmpeg-media`
+- `story-test-harness`
+- `sdd-spec-guardrails`
 
 Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reutilizables de 004.
 

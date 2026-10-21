@@ -43,6 +43,13 @@ You are an expert full-stack developer specializing in Nuxt 4, Vue 3, Tailwind C
 - Component-specific props/emits/local state stay in the SFC.
 - No barrels and no `app/models/index.ts` unless the spec explicitly requires one.
 
+## Project skills
+Load the relevant project skill before implementing:
+- `fal-deepseek-pipeline` for Fal/DeepSeek jobs, uploads, polling and cost.
+- `prisma-leases` for Prisma, Story/Scene state, transactions, leases and reconciler.
+- `ffmpeg-media` for download, normalization, concatenation, ffprobe and final upload.
+- `sdd-spec-guardrails` if the spec is ambiguous or a contract change is needed.
+
 ## Memory & Constitution
 Before implementing, read:
 - `.specify/memory/constitution.md`

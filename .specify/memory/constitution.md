@@ -11,7 +11,8 @@ No implementation code can be written without a formal technical specification. 
 - **Phase 1:** Architect writes or updates `specs/NNN-feature-name/spec.md`.
 - **Checkpoint 1:** human approval of the spec. No code before this approval.
 - **Phase 2:** Developer implements strictly against the approved spec.
-- **Checkpoint 2:** human review of the implementation.
+- **Phase 2.5:** read-only Reviewer checks spec drift, security, regressions, races and missing tests.
+- **Checkpoint 2:** human review of the implementation, including Reviewer findings.
 - **Phase 3:** Tester rewrites/adds tests, runs the full suite and reports regressions.
 
 Specs live under `specs/`, never `.github/spec/`. When a new spec changes an existing contract, it must include an explicit amendment/supersession table. Historical specs remain in the repository as traceability.
@@ -59,13 +60,23 @@ Changes must be verified. The Tester agent must validate implementations with au
 ## Additional Constraints & Tech Stack
 - **Framework:** Nuxt 4 with the `app/` directory, auto-imports and standard conventions.
 - **Styling:** Tailwind CSS 3.4.x via `@nuxtjs/tailwindcss` 6.14. Tailwind v4 syntax is prohibited until a separate migration spec is approved.
-- **Server runtime:** Node.js 22 LTS with Nitro. The production build is `npm run build` and the Node server output. `nuxt generate` is only valid for static pages; it is not a valid deployment for server routes, AI jobs or signed uploads.
+- **Server runtime:** Node.js 22 LTS with Nitro. The production build is `npm run build` and the Node server output. `nuxt generate` is only valid for static pages; it is not a valid deployment for server routes, AI jobs, signed uploads or media assembly.
+- **Persistence:** PostgreSQL is the approved persistence store. Prisma 7 with the PostgreSQL driver adapter is the approved ORM, server-only, behind repository interfaces. Migrations use `DIRECT_URL`; runtime uses pooled `DATABASE_URL`. No database access from `app/`.
+- **Media:** FFmpeg/ffprobe are the approved assembly engine. They require a persistent Node process, a writable temp directory and explicit timeouts/cleanup. Hard cuts only unless a spec approves transitions.
+- **AI providers:** Fal.ai is the approved generation provider (Queue, Storage, FLUX, MiniMax, Kling). DeepSeek is the approved script/JSON provider. New providers require a spec and an explicit security review.
 - **PWA:** the service worker must not cache `/api/**` or provider media/queue hosts. Offline behavior must be explicit and must not fake a successful generation.
 - **AI provider pattern:** asynchronous queue + opaque job token + polling/webhook + explicit cancellation + terminal failure/partial-success states. Provider errors map to stable domain errors; raw provider messages never reach the client.
 - **Vertical video pattern:** when a provider inherits aspect ratio from an input image, generate a 9:16 keyframe first and animate it. Preserve the keyframe as poster/partial result if the video stage fails.
-- **Orchestration:** OpenCode v2 with primary Orchestrator and sub-agents Architect, Developer and Tester. Human checkpoints are mandatory.
+- **Orchestration:** OpenCode v2 with primary Orchestrator and sub-agents Architect, Developer, Reviewer and Tester. Human checkpoints are mandatory.
+
+### Project Skills
+- Project skills live in `.opencode/skills/<skill-id>/SKILL.md`; supporting files stay beside them in `references/`, `scripts/` or `templates/`.
+- Skills are on-demand instructions, not tools, capabilities or permissions. They must not contain secrets or duplicate entire specs.
+- Approved project skills: `fal-deepseek-pipeline`, `prisma-leases`, `ffmpeg-media`, `story-test-harness`, `sdd-spec-guardrails`. A new skill requires a clear owner and a reason it is not already covered by `AGENTS.md` or a spec.
+- `.cursor/skills` remain Cursor-specific and must not be copied blindly into `.opencode/skills`.
+- `AGENTS.md` remains the canonical entry point; skills must reference it and the relevant specs rather than contradict them.
 
 ## Governance
 This Constitution supersedes ad-hoc development practices. Every spec, agent prompt and workflow must verify compliance with these principles. Any deviation must be explicit in the spec, justified, and approved at the corresponding checkpoint.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-21
+**Version**: 1.2.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-21

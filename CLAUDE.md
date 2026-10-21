@@ -23,8 +23,20 @@ El contexto canónico del proyecto está en [`AGENTS.md`](./AGENTS.md). Léelo a
 - Tests con stubs; nunca Fal real en CI. Gate final: `npm run test:run` + `npm run build`.
 - Despliegue Node/Nitro con `npm run build`; `nuxt generate` no sirve para `/api/**` ni Composer real.
 
+## Project skills
+
+Carga bajo demanda desde `.opencode/skills/`:
+
+- `sdd-spec-guardrails` antes de una spec o cambio de contrato.
+- `fal-deepseek-pipeline` para Fal/DeepSeek.
+- `prisma-leases` para Prisma/PostgreSQL/leases.
+- `ffmpeg-media` para ensamblaje de vídeo.
+- `story-test-harness` para tests de Story y regresión 004.
+
+Los skills de `.cursor/skills` son exclusivos de Cursor. El reviewer read-only está en `.opencode/agents/reviewer.md` y se invoca con `/io-review`.
+
 ## Estado actual
 
-- Spec 004 implementada; 613 tests en verde y build correcto.
-- Spec 003 es histórica y está sustituida por 004 para el Composer.
-- Antes de Spec 005 (micro-relatos), revisar la sección “Preparación de Spec 005” de `AGENTS.md`.
+- Specs 004 y 005 implementadas.
+- 1505 tests en verde y 7 skips opt-in; 613 tests de 004 intactos.
+- Build Node/Nitro correcto con Prisma 7, PostgreSQL, FFmpeg y Story Composer.

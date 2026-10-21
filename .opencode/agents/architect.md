@@ -36,3 +36,6 @@ Before generating any specification or plan, read and follow:
 - `.specify/memory/constitution.md`
 - `AGENTS.md`
 - the relevant existing specs under `specs/`
+
+## Project skills
+Load `sdd-spec-guardrails` for any spec or contract change. Load `fal-deepseek-pipeline` and `prisma-leases` when the feature touches AI providers, jobs, uploads, PostgreSQL or leases. Do not duplicate skill content in the spec; reference the source of truth.

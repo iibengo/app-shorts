@@ -21,6 +21,9 @@ Ensure software quality, reliability and specification compliance. Validate the 
 6. **Execution:** run `npm run test:run`, then `npm run build`. Report exact pass/fail/skip counts and any production fix you had to make.
 7. **Do not modify** the spec, `.env`, `package.json`, `tailwind.config.ts` or `vitest.config.ts` unless the spec explicitly assigns it.
 
+## Project skills
+Load `story-test-harness` for the Story/Prisma/reconnection suite, `prisma-leases` for DB claims and leases, and `ffmpeg-media` for assembly/runner tests. Load `sdd-spec-guardrails` when validating acceptance criteria.
+
 ## Memory & Constitution
 Before testing, read:
 - `.specify/memory/constitution.md`

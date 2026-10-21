@@ -9,7 +9,21 @@ Este archivo es el punto de entrada para cualquier agente que trabaje en AI Shor
 3. La spec relevante en `specs/NNN-feature-name/spec.md`
 4. El código y los tests que se van a tocar
 
-Para una feature nueva: `/io-plan` → `/io-spec` → aprobación humana → implementación → revisión humana → tests.
+Para una feature nueva: `/io-plan` → `/io-spec` → aprobación humana → implementación → reviewer → revisión humana → tests.
+
+## Project skills
+
+Los skills de proyecto viven en `.opencode/skills/<skill-id>/SKILL.md` y se cargan bajo demanda. Están versionados en el repositorio y no sustituyen a `AGENTS.md` ni a las specs.
+
+| Skill | Cuándo cargarlo |
+|---|---|
+| `sdd-spec-guardrails` | Antes de `/io-spec`, `/io-modify` o un cambio de contrato. |
+| `fal-deepseek-pipeline` | Trabajo con Fal, DeepSeek, jobs, uploads, polling o coste. |
+| `prisma-leases` | Prisma, Story/Scene, transacciones, leases o reconciliador. |
+| `ffmpeg-media` | Descarga, normalización, concatenación, ffprobe o subida final. |
+| `story-test-harness` | Tests de Story, rutas, stubs, DB/FFmpeg smokes o regresión 004. |
+
+Los skills de `.cursor/skills` son de Cursor y no se descubren desde OpenCode. Cárgalos con `@skill-id` o deja que el agente use la herramienta `skill`.
 
 ## No negociables
 
@@ -192,7 +206,8 @@ No escribir la spec todavía. Antes de `/io-spec`, resolver estas decisiones:
 ## Comandos
 
 - `/io-plan` — investigación y alternativas antes de la spec.
-- `/io-spec` — flujo completo con checkpoints.
+- `/io-spec` — flujo completo con checkpoints y reviewer.
+- `/io-review` — revisión read-only de spec drift, seguridad y regresiones.
 - `/io-modify` — modificar una spec existente con tabla de enmienda.
 - `npm run test:run` — suite completa.
 - `npm run build` — build Node/Nitro.

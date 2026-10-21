@@ -11,7 +11,8 @@ Follow these steps sequentially and respect the human checkpoints:
 2. Invoke the **architect** agent to create/update `specs/NNN-feature-name/spec.md`.
 3. **CHECKPOINT 1:** present the spec summary and STOP. Wait for explicit human approval before any implementation.
 4. Invoke the **developer** agent to implement strictly against the approved spec using Nuxt 4, Vue 3, Tailwind CSS 3.4, `app/models/`, thin `server/api/` routes and `server/<domain>/` services.
-5. **CHECKPOINT 2:** summarize files, architecture, build result and known limitations and STOP. Wait for explicit human approval before testing.
-6. Invoke the **tester** agent to rewrite/add unit, route, component and acceptance tests, run `npm run test:run` and `npm run build`, and report exact results.
+5. Invoke the read-only **reviewer** agent for spec drift, security, 004 regressions, races and missing tests. Include its findings in the checkpoint.
+6. **CHECKPOINT 2:** summarize files, architecture, build result, reviewer findings and known limitations and STOP. Wait for explicit human approval before testing.
+7. Invoke the **tester** agent to rewrite/add unit, route, component and acceptance tests, run `npm run test:run` and `npm run build`, and report exact results.
 
 Do not skip checkpoints. Do not add dependencies or call real AI providers without approval.

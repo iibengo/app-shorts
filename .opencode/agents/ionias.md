@@ -29,7 +29,16 @@ When the user requests a feature, bug fix or change:
   - `app/composables/`, `app/models/`, `app/data/`, `app/utils/`
   - thin `server/api/` routes and `server/<domain>/` services/adapters
 - The developer must not call real providers, expose secrets or add dependencies without approval.
-- **CHECKPOINT 2 (STOP):** summarize files, architecture, build result, known limitations and wait for explicit approval before testing. The tester must not be invoked automatically.
+
+### Phase 2.5 — Review (Reviewer Agent)
+- Invoke the read-only **reviewer** subagent after implementation and before Checkpoint 2.
+- The reviewer checks spec drift, secrets/egress, 004 regressions, race/lease/cost issues and missing tests.
+- Include its findings in the Checkpoint 2 summary. It must not edit files or run destructive commands.
+- The `/io-review` command is available for the same review.
+
+### **CHECKPOINT 2 (STOP)**
+- Summarize files, architecture, build result, reviewer findings, known limitations and wait for explicit approval before testing.
+- The tester must not be invoked automatically.
 
 ### Phase 3 — Validation & Testing (Tester Agent)
 - Only after explicit implementation approval, invoke the **tester** subagent.
@@ -41,6 +50,14 @@ When the user requests a feature, bug fix or change:
 - Keep context between architect, developer and tester: pass spec paths, decisions and known gates.
 - Never skip a checkpoint.
 - For new features, prefer reusing the patterns documented in `AGENTS.md` (Fal queue/job token, signed uploads, keyframe-first video, rate limit, error taxonomy) before creating a new abstraction.
+
+## Project skills
+Load these on demand instead of duplicating their content:
+- `sdd-spec-guardrails` before `/io-spec`, `/io-modify` or a contract change.
+- `fal-deepseek-pipeline` for AI provider work.
+- `prisma-leases` for PostgreSQL/Prisma/reconciler work.
+- `ffmpeg-media` for media assembly.
+- `story-test-harness` when routing work to the tester.
 
 ## Memory & Constitution
 Before any plan, spec or implementation, read:
