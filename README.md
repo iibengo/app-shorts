@@ -43,10 +43,11 @@ No uses variables `NUXT_PUBLIC_*` para secretos. `.env` está ignorado por git.
 ## Scripts
 
 ```bash
-npm run dev       # desarrollo
-npm run test:run  # suite completa
-npm run build     # build de producción Node/Nitro
-npm run preview   # previsualización del build
+npm run dev           # desarrollo
+npm run test:run      # suite completa; solo gate final
+npm run test:run:low  # suite completa con maxWorkers=2 para no saturar la CPU
+npm run build         # build de producción Node/Nitro
+npm run preview       # previsualización del build
 ```
 
 `npm run generate` solo es válido para contenido estático. **No sirve para el Composer real ni para las rutas `/api/composer/**`**, porque necesitan un servidor Nitro en ejecución.
@@ -119,16 +120,21 @@ Las specs viven en `specs/`:
 - `002-shorts-feed-mock`
 - `003-composer-mock` — histórica; sustituida por 004 para el Composer.
 - `004-composer-real` — Composer real con Fal.ai.
+- `005-story-composer` — Story con escenas, leases, QC y FFmpeg.
+- `006-story-continuity` — Story Bible, continuidad y QC de fotogramas.
+- `007-story-modes` — modos `faithful`/`creative`, canon y localizaciones.
+- `008-tiktok-reel-engine` — duración como contrato, escenas con varios planos y montaje por shot.
 
 Flujo obligatorio:
 
 1. `/io-plan` — investigación y alternativas.
 2. `/io-spec` — Architect escribe la spec.
 3. **Checkpoint 1** — aprobación humana de la spec.
-4. Developer implementa.
-5. Reviewer read-only revisa spec drift, seguridad y regresiones (`/io-review`).
+4. Developer implementa con tests dirigidos y un build, no la suite completa en bucle.
+5. Reviewer read-only revisa spec drift, seguridad, config/docs y regresiones 004–008 (`/io-review`).
 6. **Checkpoint 2** — revisión humana de la implementación y del informe del reviewer.
-7. Tester reescribe/añade tests y ejecuta `npm run test:run` + `npm run build`.
+7. Tester reescribe/añade tests y ejecuta el gate completo, una vez: `npm run test:run` + `npm run build`.
+8. `/io-close` — estado de la spec, `AGENTS.md`, README, skills y propuesta de commit.
 
 Los skills de proyecto viven en `.opencode/skills/`:
 
@@ -138,21 +144,21 @@ Los skills de proyecto viven en `.opencode/skills/`:
 - `story-test-harness`
 - `sdd-spec-guardrails`
 
-Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reutilizables de 004.
+Antes de la Spec 009 (audio, voz, música y subtítulos), lee `AGENTS.md` y las secciones de estado y preparación de 009.
 
 ## Estado actual
 
 - Spec 004 implementada.
-- Fase 0 de Spec 005 completada: `server/fal/` y `server/shared/` extraídos con shims de compatibilidad en `server/composer/`.
 - Spec 005 implementada: Story Composer con `/story`, `/story/[id]`, reconciliador con leases, FFmpeg y persistencia PostgreSQL.
-- Prisma 7 + PostgreSQL preparados: `prisma/schema.prisma` con `Story`/`Scene`, Docker local y migración inicial aplicada.
 - Spec 006 implementada: Story Bible, continuidad en prompts, QC de fotogramas y estados `QC`/`WAITING_QC`.
 - Spec 007 implementada: modos `faithful`/`creative`, canon con localizaciones y `source`, dos pasadas de DeepSeek y QC por escena.
-- Suite automatizada: **1926 tests en verde** (13 skips opt-in, 138 archivos); los 613 tests de 004 siguen intactos.
-- Build Node/Nitro correcto.
-- Smoke real de Fal opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
-- Pendiente de QA manual de accesibilidad/navegador y validación de CORS/lifecycle reales en el entorno de despliegue.
-- Pendiente de ampliar las guardas estáticas a `server/fal/**` y `server/shared/**` en Spec 005.
+- Spec 008 implementada y validada (`dff2764`): duración como contrato, escenas con varios planos, perfiles budget/standard/production, worker por shot, QC por shot, montaje y UI por plano.
+- Prisma 7 + PostgreSQL: `Story`/`Scene`/`Shot`, migraciones hasta `20261022171500_shot_version`, Docker local.
+- Suite automatizada: **2089 tests en verde** (13 skips opt-in, 154 archivos); `npm run build` correcto.
+- 004 sin archivos modificados; la suite 004 reproducible es **605 tests**. La cifra histórica de 613 no es reproducible con el árbol actual.
+- Smoke real opt-in (`RUN_STORY_SMOKE=1`, `RUN_FAL_SMOKE=1`), no ejecutado en esta validación. Fal disponible: ~5 USD; no gastar sin aprobación.
+- Pendiente: QA manual de accesibilidad/navegador, smoke real 15 s budget, CORS/lifecycle/cancelación y gates D1–D10/G1–G8.
+- Siguiente: Spec 009 — audio, voz, música y subtítulos; Spec 010 — consistencia de personajes/3D.
 
 ## Spec 006 — Continuidad de historias
 
@@ -171,8 +177,8 @@ La Spec 006 añade una Story Bible al director, propaga un bloque global idénti
 |----------|---------|-----|
 | `NUXT_STORY_COST_QC_USD` | `0.02` | Coste estimado por evaluación de visión y escena. |
 | `NUXT_STORY_QC_ENABLED` | `false` | Interruptor del QC con visión. Desactivado por defecto hasta cerrar G1/G2. |
-| `NUXT_STORY_QC_TIMEOUT_MS` | `240000` | Presupuesto total del QC por historia. |
-| `NUXT_STORY_QC_LEASE_MS` | `300000` | Lease de la fase `QC`. |
+| `NUXT_STORY_QC_TIMEOUT_MS` | `600000` | Presupuesto total del QC por historia. |
+| `NUXT_STORY_QC_LEASE_MS` | `720000` | Lease de la fase `QC`. |
 | `NUXT_STORY_QC_CONCURRENCY` | `1` | Historias en QC por instancia. |
 | `NUXT_STORY_QC_MIN_CONFIDENCE` | `0.7` | Umbral de confianza para `PASSED`. |
 | `NUXT_STORY_QC_RETRY_LIMIT` | `3` | `qc/retry` por hora y por historia. |
@@ -213,4 +219,22 @@ La Spec 007 sustituye la historia de una sola localización de 006 por un canon 
 | `NUXT_STORY_VISUAL_TIMEOUT_MS` | `40000` | Timeout de la pasada visual. |
 | `NUXT_STORY_DIRECTOR_TOTAL_TIMEOUT_MS` | `180000` | Timeout total compartido por canon, beats y visual. |
 
+> En 008 el coste visual configurado es `NUXT_STORY_COST_VISUAL_USD=0.012`; la tabla anterior se conserva como referencia histórica de 007. Consulta la sección de 008 y `nuxt.config.ts` para los defaults vigentes.
+
 Smokes opt-in: `RUN_STORY_NARRATIVE_SMOKE=1`, `RUN_DB_SMOKE=1`, `RUN_STORY_QC_VISION_SMOKE=1`, `RUN_FFMPEG_SMOKE=1` y `RUN_FAL_SMOKE=1`. Nunca se ejecutan en CI.
+
+## Spec 008 — TikTok Reel Engine
+
+La Spec 008 sustituye la escena de 6 s como unidad de generación por el **plano** (`Shot`), manteniendo la escena como unidad narrativa. La duración es un contrato y el resultado es un MP4 vertical mudo; la capa de audio llega en la Spec 009.
+
+- Perfiles de producción: `budget`, `standard` y `production`; duraciones 15/30/45/60/90 s con `targetDurationSeconds` y `maxDurationSeconds`.
+- Presupuesto: 15 s y 4–5 planos, `fast`, cap 2,50 USD; 90 s budget con 15 planos de 6 s y cap 7 USD.
+- Estándar: 15/30/45/60 s, cap 5/7/9/11 USD; default 30 s. Producción 90 s: 26–30 planos y cap 15 USD.
+- Directores reales: canon y escenas narrativas, después storyboard multi-shot con encuadre, cámara, acción, localización y reglas de retención.
+- Worker por plano con keyframes, vídeos, intentos, coste, leases y cancelación.
+- QC por plano: comprobación técnica siempre; visión y `similar-shots` opt-in. `NUXT_STORY_QC_ENABLED=false` sigue siendo el default.
+- Montaje por plano con duración exacta, 720×1280, 30 fps y sin audio.
+- UI con selector de plataforma/coste/duración, revisión, regeneración por plano, progreso, QC y resultado.
+- Spec: `specs/008-tiktok-reel-engine/spec.md`. Commit: `dff2764`.
+- Validación: 2089 tests / 13 skipped; build correcto; 004 sin archivos modificados.
+- Pendiente: smoke real 15 s budget, QA de navegador y gates D1–D10/G1–G8.

@@ -25,8 +25,9 @@
 ## Videos
 
 - `fal-ai/minimax/hailuo-02/standard/image-to-video`: 6 s, 768P, `prompt_optimizer: false`.
-- `fal-ai/kling-video/v2.5-turbo/pro/image-to-video`: 10 s native, trimmed to 6 s by FFmpeg.
+- `fal-ai/kling-video/v2.5-turbo/pro/image-to-video`: 10 s native, trimmed by FFmpeg.
 - Both accept `image_url` + `prompt`; neither accepts video references in this project.
+- 008 trims each provider clip to its persisted `Shot.durationSeconds` (2–6 s); do not assume a fixed 6 s final duration.
 
 ## Error mapping
 

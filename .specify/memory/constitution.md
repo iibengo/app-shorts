@@ -14,6 +14,7 @@ No implementation code can be written without a formal technical specification. 
 - **Phase 2.5:** read-only Reviewer checks spec drift, security, regressions, races and missing tests.
 - **Checkpoint 2:** human review of the implementation, including Reviewer findings.
 - **Phase 3:** Tester rewrites/adds tests, runs the full suite and reports regressions.
+- **Phase 4:** Close the spec: update its status, `AGENTS.md`, README, affected skills and changelog; verify the final gate and present the commit proposal.
 
 Specs live under `specs/`, never `.github/spec/`. When a new spec changes an existing contract, it must include an explicit amendment/supersession table. Historical specs remain in the repository as traceability.
 
@@ -57,6 +58,30 @@ Changes must be verified. The Tester agent must validate implementations with au
 - A full `npm run test:run` and `npm run build` gate before closing a feature.
 - No real provider calls in CI. Real-provider smoke tests must be opt-in, cost-aware and documented.
 
+### VI. Specification Closure & Documentation
+A feature is not complete when the tests pass. It is complete when Phase 4 closes it:
+- The spec status is updated to `Implemented` or `Validated` with the commit, date, exact test/build counts and known deviations.
+- `AGENTS.md` reflects the current commit, implemented specs, test counts, open gates and next spec.
+- `README.md`, `.env.example`, `nuxt.config.ts` and affected project skills agree on every environment default that changed.
+- Superseded test counts, old defaults and historical status lines are removed or explicitly marked historical.
+- The closure summary includes `git status --short`, `git diff --stat`, the exact gate output and whether real-provider smokes ran or were skipped.
+- No commit is proposed until the closure summary is reviewed by a human.
+
+### VII. Test Execution Economy
+The full suite is a final gate, not a development loop:
+- The Developer runs targeted tests for the files it changed and one build when compilation risk exists.
+- The Orchestrator must not run the full suite after every Developer turn or every review fix. It verifies targeted tests and the diff, then delegates the full gate.
+- The Reviewer is read-only and does not run tests.
+- The Tester owns the full `npm run test:run` and `npm run build` gate. It runs them once per implementation pass and repeats them only after test or contract changes.
+- `npm run test:run:low` is available for local checks that must leave CPU headroom. It does not replace the final gate.
+- A test that encodes superseded behavior must be updated with the amendment. Tests must never be weakened, skipped or given a production-only escape hatch to make a gate pass.
+
+### VIII. Contract Traceability & Backward Compatibility
+- Every spec must identify the contract surfaces it changes: shared DTOs, routes, persistence, runtime config, environment defaults, UI copy and tests.
+- Runtime configuration defaults are part of the contract. A change to `nuxt.config.ts`, `.env.example` or a server default must be reflected in the spec, README and tests.
+- Backward compatibility must be explicit, time-bound and covered by tests. Silent fallbacks between engines, implicit legacy routes or permanent `legacy` flags are not allowed; if a compatibility path is necessary, the spec must name its removal condition.
+- The Reviewer must check documentation/config drift and regressions across every implemented spec, not only 004.
+
 ## Additional Constraints & Tech Stack
 - **Framework:** Nuxt 4 with the `app/` directory, auto-imports and standard conventions.
 - **Styling:** Tailwind CSS 3.4.x via `@nuxtjs/tailwindcss` 6.14. Tailwind v4 syntax is prohibited until a separate migration spec is approved.
@@ -79,4 +104,4 @@ Changes must be verified. The Tester agent must validate implementations with au
 ## Governance
 This Constitution supersedes ad-hoc development practices. Every spec, agent prompt and workflow must verify compliance with these principles. Any deviation must be explicit in the spec, justified, and approved at the corresponding checkpoint.
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-21
+**Version**: 1.3.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-22

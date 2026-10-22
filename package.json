@@ -10,6 +10,7 @@
     "postinstall": "nuxt prepare",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:run:low": "vitest run --maxWorkers=2",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

@@ -4,9 +4,18 @@
 
 **Created**: 2026-10-22
 
-**Status**: Draft for Checkpoint 1. No implementation until approval.
+**Status**: Implemented and validated (commit `dff2764`, 2026-10-22). Tests: **2089 passed / 13 skipped**; build green. Real-provider smoke pending; see “Cierre de 008”.
 
 **Input**: User description: "El motor de 007 hace 4–6 escenas de 6 segundos con un keyframe y un vídeo por escena. El resultado dura 24–36 s, se ve repetitivo y no se parece a un reel de TikTok o Instagram: no hay cambios de localización dentro de la cobertura, no hay varios planos por escena, no hay hook en el primer segundo y no hay forma de elegir la duración. Quiero reels de 15–90 s con escenas narrativas y varios planos visuales por escena, cobertura variada, cambios de localización, ritmo de retención (gancho, conflicto, pattern interrupts, giro y payoff) y la opción de regenerar un plano concreto sin rehacer toda la escena. La duración es un contrato: el Narrador y el Director Visual se adaptan y ningún MP4 puede superar el máximo elegido. El flujo automático sigue siendo el camino por defecto; la edición es opcional. Sin audio, sin subtítulos y sin publicación."
+
+### Cierre de 008 (2026-10-22)
+
+- **Commit:** `dff2764 spec 8`.
+- **Gate:** `npm run test:run` → 2089 passed / 13 skipped; `npm run build` correcto; `npx prisma validate` correcto; 5 migraciones.
+- **004:** sin archivos modificados; 605 tests reproducibles (la cifra histórica 613 no es reproducible con el árbol actual).
+- **Smoke real:** no ejecutado; el saldo Fal disponible era ~5 USD y no se autorizó gasto.
+- **Desviaciones conocidas:** `legacy: true` como escape hatch 005–007; escrituras batch historia→shots no transaccionales; fallback de `qc-frames` con `filePath === null`; los 007 migrados con shots reales no siempre muestran `Plano heredado`.
+- **Pendiente:** QA manual de navegador/accesibilidad, smoke real 15 s budget y gates D1–D10/G1–G8.
 
 > **Enmienda 2026-10-22 — decisiones de producto aprobadas.** Esta enmienda prevalece sobre el resto del documento donde haya conflicto. Introduce un **modo de producción** (`costMode`) con tres perfiles (Presupuesto, Estándar, Producción), un perfil de 90 s en dos variantes y una tabla de caps por perfil. No cambia la máquina de estados, el ownership, la idempotencia ni el montaje por plano.
 
@@ -59,7 +68,7 @@
 | Cláusula de 004 | Efecto de 008 |
 |---|---|
 | `/composer`, `app/models/composer.ts`, `app/components/composer/**`, `app/composables/useComposer*`, `server/composer/**`, `server/api/composer/**` | **Intactos.** 008 no importa ni modifica nada del Composer. |
-| Los **613 tests** de 004, sus fixtures y `tests/unit/server/adapters/kling-video-adapter.spec.ts` | **Intactos y en verde, sin modificaciones.** |
+| Los **605 tests** de 004, sus fixtures y `tests/unit/server/adapters/kling-video-adapter.spec.ts` | **Intactos y en verde, sin modificaciones.** |
 | `ComposerVideoDuration = 5 \| 6 \| 10`, `VideoInput.durationSeconds` y el mapeo de cada adaptador | **Sin cambios.** Story 008 no toca los adaptadores: elige 6 (MiniMax) o 5 (Kling) y recorta después. |
 | Contratos de error, cabeceras, cookie `composer_sid` y tokens de job | **Sin cambios.** |
 
@@ -145,7 +154,7 @@ Reglas del perfil:
 
 | Cláusula de 007 | Texto anterior (resumen) | Enmienda de 008 |
 |---|---|---|
-| **FR-401** | No modificar el Composer; 613 tests intactos. | **Se mantiene.** |
+| **FR-401** | No modificar el Composer; 605 tests intactos. | **Se mantiene.** |
 | **FR-402** | No añadir ni cambiar estados, transiciones, rutas de comando, códigos de QC, umbrales, coste, cap de 8 USD, leases, concurrencia ni montaje. | **Superseded.** Se añaden rutas por plano; se cambia el montaje (por plano), el cap (por perfil), la concurrencia y el catálogo de QC (+`similar-shots`). Los **estados y transiciones globales no cambian**. |
 | **FR-405** | Sin nuevas tablas ni índices. | **Superseded.** Se añade la tabla `Shot` y sus índices. Sin nuevas dependencias ni proveedores. |
 | **FR-410 a FR-418** | Canon: `style`, `tone`, `theme`, `leadCharacterId`, `signaturePropId`, personajes/localizaciones/props con `source`, `forbidden`, `continuityRules`. | **Se mantiene sin cambios.** |
@@ -313,11 +322,11 @@ En la revisión, la persona ve las escenas con sus planos. El plano 3 de la esce
 
 ### User Story 6 - Persistencia, migración de 007 y convivencia (Priority: P1)
 
-La migración crea `Shot`, añade la plataforma y las duraciones a `Story`, y rellena cada escena antigua como un plano de 6 s copiando su estado de proveedor. Una historia de 007 a medias se puede terminar. Los 613 tests de 004 siguen intactos.
+La migración crea `Shot`, añade la plataforma y las duraciones a `Story`, y rellena cada escena antigua como un plano de 6 s copiando su estado de proveedor. Una historia de 007 a medias se puede terminar. Los 605 tests de 004 siguen intactos.
 
 **Why priority**: la suite y las historias existentes son la red de seguridad.
 
-**Independent Test**: `npm run db:generate && npm run test:run && npm run build` en verde; una fila de 007 con `scenes` y sin `shots` se lee con un plano sintético de 6 s; los 613 tests de 004 pasan sin cambios.
+**Independent Test**: `npm run db:generate && npm run test:run && npm run build` en verde; una fila de 007 con `scenes` y sin `shots` se lee con un plano sintético de 6 s; los 605 tests de 004 pasan sin cambios.
 
 **Acceptance Scenarios**:
 
@@ -326,7 +335,7 @@ La migración crea `Shot`, añade la plataforma y las duraciones a `Story`, y re
 3. **Given** una fila de 007 con `planJson.beats`, **When** se lee, **Then** `plan.scenes` se deriva de `beats` sin perder narrativa y los campos visuales se resuelven desde `Shot`.
 4. **Given** una historia de 007 en `GENERATING_VIDEOS`, **When** el reconciliador la procesa, **Then** sigue con el camino por plano y termina en `READY`.
 5. **Given** la misma `Idempotency-Key`, **When** la segunda petición cambia solo `platform`, **Then** 409 `idempotency-conflict`.
-6. **Given** la suite completa, **When** se ejecuta, **Then** los 613 tests de 004 pasan sin modificaciones.
+6. **Given** la suite completa, **When** se ejecuta, **Then** los 605 tests de 004 pasan sin modificaciones.
 
 ---
 
@@ -393,7 +402,7 @@ La revisión muestra la duración planificada, las escenas y, dentro de cada esc
 
 **Why priority**: la suite es el contrato de no regresión.
 
-**Independent Test**: `npm run test:run` y `npm run build` en verde; los 613 tests de 004 sin modificar; `/composer`, `/feed` y `/` sin cambios.
+**Independent Test**: `npm run test:run` y `npm run build` en verde; los 605 tests de 004 sin modificar; `/composer`, `/feed` y `/` sin cambios.
 
 **Acceptance Scenarios**:
 
@@ -522,7 +531,7 @@ Para 90 s la persona elige entre `Presupuesto` (15 planos de 6 s, ritmo más len
 
 #### Alcance, contratos y no regresión
 
-- **FR-501**: 008 MUST NOT modificar `/composer`, `app/pages/composer.vue`, `app/components/composer/**`, `app/composables/useComposer*.ts`, `app/models/composer.ts`, `server/composer/**` ni `server/api/composer/**`. Los 613 tests de 004 MUST permanecer sin cambios y en verde.
+- **FR-501**: 008 MUST NOT modificar `/composer`, `app/pages/composer.vue`, `app/components/composer/**`, `app/composables/useComposer*.ts`, `app/models/composer.ts`, `server/composer/**` ni `server/api/composer/**`. Los 605 tests de 004 MUST permanecer sin cambios y en verde.
 - **FR-502**: 008 MUST NOT añadir dependencias npm, proveedores, variables públicas ni un segundo sistema de leases. Fal sigue siendo el único proveedor de imagen/vídeo y DeepSeek el único de texto y visión.
 - **FR-503**: Los modelos compartidos MUST vivir en `app/models/story.ts`, ser `readonly`, usar uniones discriminadas y no contener `any`, `unknown` público, `File`, `Blob`, `FileList` ni barrels. `app/**` MUST NOT importar `server/**`, `@prisma/client` ni `node:crypto`.
 - **FR-504**: Los DTOs de DeepSeek, los puertos de los directores, los tipos de Prisma, los validadores, el algoritmo de variedad y las constantes de prompt MUST vivir solo en `server/` o `prisma/`.
@@ -2082,7 +2091,7 @@ Variables:
 | `NUXT_STORY_COST_VIDEO_QUALITY_SHORT_USD` | `0.35` | Kling 5 s. |
 | `NUXT_STORY_COST_VIDEO_QUALITY_USD` | `0.70` | Kling 10 s (**no usado por Story 008**). |
 | `NUXT_STORY_SHOTS_TIMEOUT_MS` | `75000` | Pasada de planos. |
-| `NUXT_STORY_DIRECTOR_TOTAL_TIMEOUT_MS` | `300000` | Deadline total. |
+| `NUXT_STORY_DIRECTOR_TOTAL_TIMEOUT_MS` | `180000` | Deadline total. |
 | `NUXT_STORY_ASSEMBLY_TIMEOUT_MS` | `420000` | Montaje total. |
 | `NUXT_STORY_QC_TIMEOUT_MS` | `600000` | QC por planos. |
 | `NUXT_STORY_VARIETY_HAMMING_MAX` | `6` | Umbral de similitud. |
@@ -2108,7 +2117,7 @@ El proxy de `POST /api/story` MUST permitir ≥ 360 s. Nunca se muestran porcent
 
 ## Test Plan
 
-La baseline es la de 007 (**1505 passed / 7 skipped opt-in / 96 archivos**) más los archivos nuevos.
+La baseline histórica de 007 era **1505 passed / 7 skipped opt-in / 96 archivos**; la baseline validada de 008 es **2089 passed / 13 skipped / 154 archivos**.
 
 ### Gate de calidad
 
@@ -2202,7 +2211,7 @@ Los archivos de 004 (`tests/unit/server/adapters/**`, `tests/acceptance/composer
 | `tests/acceptance/story-duration-overflow.spec.ts` | Plan que suma más de `max` → recorte; si no se puede recortar → 502; nunca se persiste un plan fuera de contrato. |
 | `tests/acceptance/story-007-legacy.spec.ts` | Fila de 007 con `beats` y `Scene` sin `Shot` → shot sintético; se puede terminar; DTO con `Plano heredado`; sin accidentes de `sceneCount = 0`. |
 | `tests/acceptance/story-006-faithful-regression.spec.ts` (actualizado) | Una historia `faithful` nueva no inventa canon; los estados y el QC no cambian de semántica. |
-| `tests/acceptance/story-004-regression.spec.ts` | **Sin cambios.** `/composer`, `/feed`, `/` intactos; 613 tests de 004. |
+| `tests/acceptance/story-004-regression.spec.ts` | **Sin cambios.** `/composer`, `/feed`, `/` intactos; 605 tests de 004. |
 | `tests/acceptance/story-route.spec.ts` (actualizado) | SSR inicial con `Modo`, `Duración` y `Plataforma`, defaults Estándar/30/TikTok; el selector de duración solo muestra las opciones válidas; el formulario no envía sin JavaScript. |
 | `tests/acceptance/story-detail-route.spec.ts` (actualizado) | El SSR de `/story/[id]` no filtra planos de otra sesión ni datos internos. |
 
@@ -2257,7 +2266,7 @@ Los componentes nuevos (`StoryCostModePicker.vue`, `StoryCostSummary.vue`, `Stor
 25. Cancelar una historia con 30 planos en vuelo y comprobar `CANCELLED` y el límite de 30 llamadas.
 26. Revisar logs: aparecen `shotId`, `shotOrder`, `framing`, `durationSeconds`, `shotCount` y `costMode`; no aparecen premisa, narrativa, `action`, `subject`, `visualPrompt`, prompts ni negativos.
 27. Auditar teclado, lector de pantalla, 44 px, 320–1920 px, zoom 200 %/400 %, reduced motion y forced-colors del selector de modo, el resumen de coste y los avisos.
-28. Comprobar que `/composer`, `/feed` y `/` no cambian y que los 613 tests de 004 pasan.
+28. Comprobar que `/composer`, `/feed` y `/` no cambian y que los 605 tests de 004 pasan.
 
 ---
 
@@ -2376,7 +2385,7 @@ Las decisiones de producto de la enmienda 2026-10-22 están **aprobadas**. Estas
 - `validation.ts` (`invalid-cost-mode`), `story-service.ts`, rutas por plano, `prisma-story-repository.ts`.
 - `StoryCostModePicker.vue`, `StoryCostSummary.vue`, `StoryDurationPicker.vue`, `StoryPlatformPicker.vue`, `StoryShotCard.vue`, `StorySceneCard.vue`, `StoryReview.vue`, `StoryCreateForm.vue`, `StoryResult.vue`, `pages/story/index.vue`, `pages/story/[id].vue`, `useStory.ts`, `useStoryApi.ts`, `data/story.ts`, `utils/story.ts`.
 - README, `.env.example`, guardas estáticas.
-- **Exit criteria**: contrato exacto de la sección API; selector de modo con duraciones válidas; resumen de coste/tiempo y aviso de Presupuesto; 90 s como `Avanzado`; revisión por escena y plano; default sin clics extra; accesibilidad; `npm run db:generate && npm run test:run && npm run build` en verde; 613 tests de 004 intactos.
+- **Exit criteria**: contrato exacto de la sección API; selector de modo con duraciones válidas; resumen de coste/tiempo y aviso de Presupuesto; 90 s como `Avanzado`; revisión por escena y plano; default sin clics extra; accesibilidad; `npm run db:generate && npm run test:run && npm run build` en verde; 605 tests de 004 intactos.
 
 ### Fase 5 — Hardening, gates y cierre
 
@@ -2398,7 +2407,7 @@ Las decisiones de producto de la enmienda 2026-10-22 están **aprobadas**. Estas
 - **SC-209 (Migración)**: cada escena de 007 tiene un plano de 6 s con estado copiado y `costMode = standard`; `planJson` intacto; historia terminable.
 - **SC-210 (API)**: los códigos y rutas nuevas coinciden exactamente con el contrato; los 400 se devuelven antes de DeepSeek; `invalid-cost-mode` cubre modo desconocido, combinación inválida y `quality` en Presupuesto; el 404 es uniforme.
 - **SC-211 (UI)**: selectores de modo, duración y plataforma con defaults; resumen del perfil con coste y tiempo estimados; aviso de cap en Presupuesto; badge `Avanzado` en 90 s; revisión por escena y plano; aviso de variedad; `Plano heredado`; accesibilidad completa.
-- **SC-212 (No regresión)**: 613 tests de 004 sin modificar; 005/006/007 conservan ownership, idempotencia, leases, QC sin falso PASS, lifecycle y cancelación.
+- **SC-212 (No regresión)**: 605 tests de 004 sin modificar; 005/006/007 conservan ownership, idempotencia, leases, QC sin falso PASS, lifecycle y cancelación.
 - **SC-213 (Calidad)**: `npm run db:generate`, `npm run test:run` y `npm run build` en verde; cada archivo runtime nuevo con cobertura; smokes opt-in.
 - **SC-214 (Seguridad)**: ninguna respuesta, HTML o log contiene claves, prompts, negativos, `sessionId`, `requestId`, `leaseOwner`, `qcJson` crudo ni `DATABASE_URL`; los logs tampoco contienen premisa, narrativa, `action`, `subject` ni `visualPrompt`.
 - **SC-215 (Observabilidad)**: cada etapa y cada plano emite eventos con `shotId`, `shotOrder`, `durationSeconds`, `framing`, `camera`, `costMode`, `latencyMs` y `errorCode`, sin contenido del usuario.

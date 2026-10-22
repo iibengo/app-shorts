@@ -50,6 +50,7 @@ app/
   components/ui/          primitivas atómicas
   components/composer/    dominio Composer
   components/shorts/      dominio feed
+  components/story/       dominio Story (007/008: escenas, shots, QC, resultado)
   composables/            estado/orquestación de cliente
   models/                 contratos compartidos
   data/                   presets, defaults y datos estáticos
@@ -57,36 +58,45 @@ app/
   pages/                  rutas
 server/
   api/composer/           handlers finos del Composer
+  api/story/              handlers finos de Story
   fal/                    transporte Fal compartido: HTTP, queue, storage, tipos y adaptadores
   shared/                 errores, rate limit, job token, request context y validación compartidos
   db/                     Prisma singleton lazy (solo Story)
   composer/               dominio Composer: registry, prompts, orquestador y fachada
+  story/                   dominio Story: directores, reels, shots, worker, QC, coste y montaje
 prisma/
-  schema.prisma           Story/Scene + enums + leases
+  schema.prisma           Story/Scene/Shot + enums + leases
 tests/
   unit/                   lógica y componentes
-  acceptance/             SSR, rutas, regresiones
+  acceptance/             SSR, rutas, regresiones y smokes opt-in
   fixtures/fal/           contratos de proveedor sin secretos
   helpers/                stubs HTTP/H3
-specs/                    specs 001–004
+specs/                    specs 001–008
 ```
 
-## Estado actual (2026-10-21)
+## Estado actual (2026-10-22)
 
 - **Spec 004 — Composer real:** implementada.
-- **Fase 0 de Spec 005:** extracción compartida completada.
-  - `server/fal/`: HTTP client, queue, storage, tipos y adaptadores.
-  - `server/shared/`: errores, rate limit, job token, request context y validación.
-  - `server/composer/` conserva el dominio y mantiene shims de compatibilidad para no romper imports/tests de 004.
-- **Spec 005 — Story Composer:** implementada en `specs/005-story-composer/spec.md`; `/story`, `/story/[id]`, `server/story/`, reconciliador con leases y FFmpeg.
-- **Prisma/PostgreSQL:** Prisma 7 + `@prisma/adapter-pg`; migración `20261021001927_init` aplicada; Docker local; `db:generate` es obligatorio antes de build/test cuando Story importe Prisma.
-- **Tests:** 1505 passed / 7 skipped opt-in, 96 archivos; los 613 tests de 004 siguen intactos.
-- **Build:** `npm run build` correcto.
-- **Smoke real Fal:** opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
+- **Spec 005 — Story Composer:** implementada.
+- **Spec 006 — Continuidad:** implementada.
+- **Spec 007 — Modos/canon:** implementada.
+- **Spec 008 — TikTok Reel Engine:** implementada y validada, commit `dff2764 spec 8`.
+  - Escenas narrativas + `Shot` como unidad de generación.
+  - Duraciones 15/30/45/60/90 s y perfiles budget/standard/production.
+  - Directores reales, worker por shot, QC técnico/visual, montaje por shot y UI por plano.
+  - `legacy: true` sigue como escape hatch explícito para 005–007; es una desviación conocida.
+- **Prisma/PostgreSQL:** Prisma 7 + `@prisma/adapter-pg`; migraciones hasta `20261022171500_shot_version`; Docker local; `db:generate` es obligatorio antes de build/test cuando Story importe Prisma.
+- **Tests:** 2089 passed / 13 skipped opt-in, 154 archivos; `npm run build` correcto.
+- **004:** sin archivos modificados. La suite 004 reproducible es **605 tests**; la cifra histórica de 613 no es reproducible con el árbol actual.
+- **Smoke real:** opt-in (`RUN_STORY_SMOKE=1`, `RUN_FAL_SMOKE=1`, etc.); no ejecutado en esta validación. Fal disponible: ~5 USD; no gastar sin aprobación.
 - **Spec 003:** histórica; sustituida por 004 para el Composer. No reutilizar su mock.
-- **Pendiente:** QA manual de accesibilidad/navegador y validación de CORS/lifecycle/cancelación en el entorno real.
-- **Deuda conocida:** `tests/unit/composer-guards.spec.ts` todavía inspecciona las rutas antiguas de `server/composer/` (shims). En Spec 005 hay que ampliar las guardas a `server/fal/**` y `server/shared/**`.
-- **Deuda de extracción:** `server/shared/job-token.ts` y `server/shared/validation.ts` todavía contienen piezas específicas del payload/validación de Composer. Antes de reutilizarlos en Story, separar las primitivas genéricas (HMAC, JSON body, idempotency key) de los validadores de dominio.
+- **Pendiente:** QA manual de accesibilidad/navegador, smoke real 15 s budget, validación de CORS/lifecycle/cancelación y gates D1–D10/G1–G8.
+- **Deuda 008:**
+  - Las escrituras historia→shots de operaciones batch aún no son transaccionales.
+  - El fallback de `qc-frames` con `filePath === null` debe reforzarse.
+  - Los 007 migrados con shots reales no siempre muestran `Plano heredado`.
+  - `legacy: true` debe retirarse o quedar con condición de retirada explícita.
+- **Siguiente:** Spec 009 — audio, voz, música y subtítulos; Spec 010 — consistencia de personajes/3D.
 
 ## Patrones reutilizables de 004
 
@@ -164,54 +174,84 @@ No mantener una petición HTTP abierta durante minutos. No reconstruir URLs de F
 - Tests de token, rate limit, idempotencia y ausencia de fugas.
 - Tests de polling con timers falsos: backoff, 429, 404/410, 5xx, cancelación, retry, unmount.
 - Tests de componentes para copy, foco, ARIA y estados.
-- `npm run test:run` + `npm run build` como gate final.
+- `npm run test:run` + `npm run build` como gate final, una vez por pase de implementación.
 
-## Preparación de Spec 005 — micro-relatos
+## Política de ejecución de tests
 
-No escribir la spec todavía. Antes de `/io-spec`, resolver estas decisiones:
+- **Developer:** tests dirigidos a los archivos cambiados; un `npm run build` al final del bloque si hay riesgo de compilación. No ejecuta la suite completa en bucle.
+- **Orchestrator:** no ejecuta `npm run test:run` después de cada turno del developer ni de cada corrección del reviewer. Verifica tests dirigidos, diff y build; delega el gate completo.
+- **Reviewer:** read-only; no ejecuta tests.
+- **Tester:** dueño del gate completo. Ejecuta `npm run test:run` + `npm run build` una vez por pase y solo repite si cambian tests o contratos.
+- **`npm run test:run:low`:** `vitest run --maxWorkers=2` para trabajar sin saturar la CPU. No sustituye al gate final.
+- No se debilitan, omiten ni modifican tests para ocultar una regresión. Un test que consolida un contrato viejo se actualiza con la enmienda.
+
+## Cierre obligatorio de spec
+
+Antes de proponer commit:
+
+1. Spec en `Implemented`/`Validated` con commit, fecha, tests/build y desviaciones.
+2. `AGENTS.md` con estado real, gates abiertos y siguiente spec.
+3. README, `.env.example`, `nuxt.config.ts` y skills sincronizados con los defaults.
+4. Recuentos históricos y compatibilidades `legacy` marcados o retirados.
+5. `git status --short`, `git diff --stat` y `git diff --check`.
+6. Resumen de smokes reales: ejecutados, skipped o pendientes.
+7. Aprobación humana antes de commit.
+
+## Preparación de Spec 009 — audio, narración, música y subtítulos
+
+No escribir la spec todavía. La 008 ya genera el vídeo mudo; la 009 añade la capa de audio. Antes de `/io-spec`, resolver estas decisiones:
 
 ### Producto
-- ¿Qué es un “micro-relato”? ¿3–6 escenas? ¿Duración objetivo? ¿Voz en off, texto en pantalla, música o solo vídeo?
-- ¿El usuario escribe una idea y el sistema genera un guion/beats, o el usuario edita beats?
-- ¿El resultado es un solo vídeo concatenado o una secuencia de clips?
-- ¿Cuál es el camino de 1–3 clics y qué queda en ajustes avanzados?
-- ¿Se publica en el feed o sigue siendo terminal?
-- ¿Se persiste el proyecto o cada sesión es efímera?
+- ¿Voz en off, texto en pantalla, música, efectos o combinación? El objetivo de referencia incluye voz, música y subtítulos quemados.
+- ¿Voz por escena o por plano? Recomendación inicial: por escena, alineada después con los planos.
+- ¿Idioma/español neutro, variante y presets de velocidad? ¿La voz se elige por historia o hay un default?
+- ¿Subtítulos quemados, sidecar SRT/VTT o ambos? ¿Estilo y zona segura vertical?
+- ¿La música se elige por tono o se genera? ¿SFX en el MVP o después?
+- ¿El resultado final sigue siendo terminal o se publica?
 
 ### Arquitectura candidata a evaluar
-- Crear `server/story/` y reutilizar directamente `server/fal/` (`FalHttpClient`, `FalQueueService`, `FalStorageService`) y `server/shared/` (`JobTokenService`, `RateLimiter`, `ComposerError`, `request-context`, `validation`). No importar los shims de `server/composer/` desde código nuevo: los shims existen solo para compatibilidad de 004.
-- Un `StoryOrchestrator` que componga beats y use el mismo patrón de job asíncrono.
-- Un `StoryPlan`/`StoryBeat`/`StoryGenerationJob` en `app/models/`, con uniones discriminadas y sin `File`/`Blob`.
-- Si hay varios clips: decidir concatenación server-side, proveedor de edición o reproducción secuencial en cliente. No asumir que Fal devuelve un único vídeo.
-- Si hay voz/audio: spec separada o fase posterior; no mezclar con el MVP de micro-relatos.
-- Reutilizar el keyframe-first para cada beat vertical; evaluar consistencia de personaje/estilo entre beats.
-- Reutilizar upload firmado si hay referencias; decidir límite (1 imagen, multi-referencia, video-referencia) antes de tocar UI.
+- `TtsAdapter` y `MusicProvider` server-side; el cliente no conoce proveedores ni claves.
+- Reutilizar `server/fal/`, `server/shared/` y el worker/leases de Story; no duplicar el motor.
+- Generar voz por escena, medir duración real y ajustar planos si no cabe; no acelerar la voz de forma antinatural.
+- Timestamps del TTS si existen; si no, evaluar forced alignment local.
+- Subtítulos ASS + FFmpeg/libass; sidecar SRT/VTT.
+- Mezcla FFmpeg: voz prioritaria, música con ducking, ~−14 LUFS, ~−1 dBTP, AAC 48 kHz.
+- Persistencia de `audioUrl`, `voiceId`, `musicId`, `captionsUrl`, duración de voz y metadatos de mezcla; lifecycle explícito.
+- Generar audio en paralelo con keyframes/vídeos cuando sea posible; estado/recovery explícitos.
 
-### Riesgos específicos
-- Coste multiplicado por número de beats; presupuesto por job y por historia.
-- Latencia acumulada; progreso por beat y cancelación del job completo.
-- Consistencia visual entre beats; seeds, referencias y prompts.
-- Concatenación/transiciones y duración final.
-- Audio, subtítulos y derechos.
-- Persistencia si hay edición de beats; no añadir DB sin spec.
-- Moderación de contenido en cada beat.
+### Alternativas a comparar
+- TTS económico en la nube (OpenAI/Azure/Polly) + música licenciada.
+- TTS premium (ElevenLabs) + música licenciada.
+- TTS local (Piper/Kokoro) + música local/CC, coste cero por uso.
+- Música generativa solo como alternativa futura, con licencia/coste/calidad.
 
-### Entregable de `/io-plan` para 005
-- 2–3 alternativas (un solo prompt vs beats; un solo modelo vs pipeline; cliente vs server concatenation).
-- Matriz de coste/latencia.
+### Riesgos y restricciones
+- Fal disponible: ~5 USD. No ejecutar proveedores reales sin aprobación ni cap duro.
+- Derechos de voz/música/SFX; nada de clonación no consentida ni voces de famosos.
+- La voz no puede romper la duración máxima de 008.
+- Si falla TTS/música/alineación, decidir si se entrega vídeo mudo o se bloquea; nunca falsear éxito.
+- No añadir dependencias ni proveedores sin aprobación.
+- Tests con stubs/audio sintético; ningún proveedor real en CI.
+
+### Entregable de `/io-plan` para 009
+- 2–3 alternativas con matriz coste/latencia/calidad/licencias.
 - Decisión de alcance MVP y fuera de alcance.
-- Plan de reutilización explícito de los patrones de 004.
+- Plan de reutilización explícito de 004–008.
+- Impacto en config/docs/DTO/estado/coste.
 - Preguntas que deben cerrarse antes de `/io-spec`.
 
 ## Comandos
 
 - `/io-plan` — investigación y alternativas antes de la spec.
-- `/io-spec` — flujo completo con checkpoints y reviewer.
-- `/io-review` — revisión read-only de spec drift, seguridad y regresiones.
+- `/io-spec` — flujo completo con checkpoints, reviewer, tester y cierre.
+- `/io-review` — revisión read-only de spec drift, seguridad, config/docs y regresiones 004–008.
 - `/io-modify` — modificar una spec existente con tabla de enmienda.
-- `npm run test:run` — suite completa.
+- `/io-close` — cierre de una spec validada: estado, docs, gate y propuesta de commit.
+- `npm run test:run` — suite completa; solo gate final.
+- `npm run test:run:low` — suite completa con `maxWorkers=2` para no saturar la CPU.
 - `npm run build` — build Node/Nitro.
 
 ## Registro de cambios
 
 - **2026-10-21:** contexto canónico creado tras 004. Se documentan patrones de Fal, subida firmada, job token, keyframe-first, rate limit y testing; se prepara la agenda de Spec 005.
+- **2026-10-22:** Spec 008 implementada y validada (`dff2764`); se actualiza el estado canónico, se documenta la política de ejecución de tests y el cierre obligatorio de spec; se prepara la Spec 009 de audio, voz, música y subtítulos.

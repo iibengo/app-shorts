@@ -11,7 +11,7 @@ npm run build
 
 ## Current baseline
 
-- 004: 613 tests, must stay green.
+- 004: 605 reproducible tests, must stay green. The historical 613 count is not reproducible with the current tree.
 - Story: unit, route, component and acceptance tests.
 - Default skips: DB smoke, FFmpeg smoke, E2E smoke.
 

@@ -10,8 +10,10 @@ Load `sdd-spec-guardrails` and any relevant project skill (`fal-deepseek-pipelin
 Report findings by severity with file/line references:
 1. Spec drift or missing amendment.
 2. Secret/egress or provider-call violations.
-3. 004 regressions or missing tests.
-4. Cost, race, lease or recovery issues.
-5. UX dead ends, fake progress or accessibility gaps.
+3. 004–008 regressions or missing tests.
+4. Cost, race, lease or recovery issues, including non-transactional multi-row writes.
+5. Config/docs drift: `nuxt.config.ts`, `.env.example`, README, spec status, `AGENTS.md`, skills and test counts.
+6. UX dead ends, fake progress or accessibility gaps.
+7. Closure readiness: spec status, docs, changelog and commit evidence.
 
-Do not edit files. End with a clear verdict: approve, approve with follow-ups, or block.
+Do not edit files and do not run the test suite. End with a clear verdict: approve, approve with follow-ups, or block.

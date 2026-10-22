@@ -10,4 +10,5 @@
 - Set `max_tokens` and a 45 s timeout.
 - `deepseek-flash` supports vision with `image_url` content blocks; verify this gate before relying on it.
 - Never log the premise, plan, prompts, narration or key.
-- Story plan contract: `title`, `logline`, exactly `sceneCount` beats with consecutive `order`, `visualPrompt` and `narration`.
+- Story plan contract (005–007): `title`, `logline`, exactly `sceneCount` beats with consecutive `order`, `visualPrompt` and `narration`.
+- 008 contract: narrative canon + `StoryNarrativeScene` list, then a visual storyboard of `Shot` entries. The narrative pass does not copy `Shot` visuals, and the shot director does not change canon. Validate scene and shot count/duration against the selected profile; `sceneCount` is ignored.

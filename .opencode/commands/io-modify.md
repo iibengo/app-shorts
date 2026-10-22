@@ -1,6 +1,6 @@
 ---
 description: Modify an existing technical specification or refactor requirements
-agent: orchestrator
+agent: ionias
 ---
 
 Act as the Architect Agent. The user wants to modify an existing technical specification or adjust requirements for the project.
