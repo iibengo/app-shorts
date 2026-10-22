@@ -86,7 +86,8 @@ specs/                    specs 001–008
   - Directores reales, worker por shot, QC técnico/visual, montaje por shot y UI por plano.
   - `legacy: true` sigue como escape hatch explícito para 005–007; es una desviación conocida.
 - **Prisma/PostgreSQL:** Prisma 7 + `@prisma/adapter-pg`; migraciones hasta `20261022171500_shot_version`; Docker local; `db:generate` es obligatorio antes de build/test cuando Story importe Prisma.
-- **Tests:** 2089 passed / 13 skipped opt-in, 154 archivos; `npm run build` correcto.
+- **Tests:** 2090 passed / 13 skipped opt-in, 154 archivos; `npm run build` correcto.
+- **DeepSeek thinking (2026-10-23):** el cliente exige `thinking` explícito en cada petición; canon, escenas, planos y QC envían `{ type: 'disabled' }`. Medido: DeepSeek razona por defecto, consume `max_tokens` y `temperature` no tiene efecto con thinking activo. Ver Enmienda B de 005 y la enmienda 2026-10-23 de 008.
 - **004:** sin archivos modificados. La suite 004 reproducible es **605 tests**; la cifra histórica de 613 no es reproducible con el árbol actual.
 - **Smoke real:** opt-in (`RUN_STORY_SMOKE=1`, `RUN_FAL_SMOKE=1`, etc.); no ejecutado en esta validación. Fal disponible: ~5 USD; no gastar sin aprobación.
 - **Spec 003:** histórica; sustituida por 004 para el Composer. No reutilizar su mock.
@@ -255,3 +256,4 @@ No escribir la spec todavía. La 008 ya genera el vídeo mudo; la 009 añade la 
 
 - **2026-10-21:** contexto canónico creado tras 004. Se documentan patrones de Fal, subida firmada, job token, keyframe-first, rate limit y testing; se prepara la agenda de Spec 005.
 - **2026-10-22:** Spec 008 implementada y validada (`dff2764`); se actualiza el estado canónico, se documenta la política de ejecución de tests y el cierre obligatorio de spec; se prepara la Spec 009 de audio, voz, música y subtítulos.
+- **2026-10-23:** B1 confirmado y corregido. DeepSeek razonaba por defecto, consumía `max_tokens` y hacía inerte `temperature`; el cliente exige ahora `thinking` explícito y canon, escenas, planos y QC lo desactivan (`b09584d`). Enmiendas en 005 (B), 006, 007 y 008. Gate: 2090 passed / 13 skipped, build correcto. Smoke real sigue pendiente.
