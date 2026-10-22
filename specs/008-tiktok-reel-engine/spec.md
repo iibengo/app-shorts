@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Implemented and validated (commit `dff2764`, 2026-10-22; enmienda de thinking 2026-10-23 en `b09584d`). Tests: **2090 passed / 13 skipped**; build green. Real-provider smoke pending; see “Cierre de 008”.
+**Status**: Implemented and validated (commit `dff2764`, 2026-10-22; enmiendas 2026-10-23 de thinking y de errores transitorios/jobs inactivos en `b09584d` y `d96decc`). Tests: **2099 passed / 13 skipped**; build green. Real-provider smoke pending; see “Cierre de 008”.
 
 **Input**: User description: "El motor de 007 hace 4–6 escenas de 6 segundos con un keyframe y un vídeo por escena. El resultado dura 24–36 s, se ve repetitivo y no se parece a un reel de TikTok o Instagram: no hay cambios de localización dentro de la cobertura, no hay varios planos por escena, no hay hook en el primer segundo y no hay forma de elegir la duración. Quiero reels de 15–90 s con escenas narrativas y varios planos visuales por escena, cobertura variada, cambios de localización, ritmo de retención (gancho, conflicto, pattern interrupts, giro y payoff) y la opción de regenerar un plano concreto sin rehacer toda la escena. La duración es un contrato: el Narrador y el Director Visual se adaptan y ningún MP4 puede superar el máximo elegido. El flujo automático sigue siendo el camino por defecto; la edición es opcional. Sin audio, sin subtítulos y sin publicación."
 
@@ -2143,7 +2143,7 @@ El proxy de `POST /api/story` MUST permitir ≥ 360 s. Nunca se muestran porcent
 
 ## Test Plan
 
-La baseline histórica de 007 era **1505 passed / 7 skipped opt-in / 96 archivos**; la baseline validada de 008 es **2089 passed / 13 skipped / 154 archivos**, y **2090** tras la enmienda de thinking del 2026-10-23.
+La baseline histórica de 007 era **1505 passed / 7 skipped opt-in / 96 archivos**; la baseline validada de 008 es **2089 passed / 13 skipped / 154 archivos**, **2090** tras la enmienda de thinking y **2099** tras la de errores transitorios y jobs inactivos (2026-10-23).
 
 ### Gate de calidad
 
