@@ -1,7 +1,7 @@
 ---
 description: Central orchestrator managing the full Spec-Driven Development (SDD) lifecycle across agents
 mode: primary
-model: anthropic/claude-sonnet-5-5
+model: deepseek/deepseek-flash
 ---
 
 # Role: Central Orchestrator Agent
