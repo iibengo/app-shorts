@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
   canonicalStoryBody,
   createStoryRuntime,
@@ -43,8 +45,8 @@ describe('createStoryRuntime configuration', () => {
     expect(runtime.storyTtlMs).toBe(86_400_000)
     expect(runtime.reconcilerEnabled).toBe(true)
     expect(runtime.reconcilerIntervalMs).toBe(5_000)
-    expect(runtime.videoConcurrency).toBe(2)
-    expect(runtime.assemblyTimeoutMs).toBe(180_000)
+    expect(runtime.videoConcurrency).toBe(4)
+    expect(runtime.assemblyTimeoutMs).toBe(420_000)
     expect(runtime.canonTimeoutMs).toBe(60_000)
     expect(runtime.beatsTimeoutMs).toBe(60_000)
     expect(runtime.visualTimeoutMs).toBe(40_000)
@@ -94,8 +96,7 @@ describe('createStoryRuntime configuration', () => {
     expect(runtime.assembler).not.toBeNull()
   })
 
-  it('reads the QC configuration defaults and overrides', () => {
-    vi.stubEnv('DATABASE_URL', '')
+  it('reads the QC configuration defaults and overrides', () => {    vi.stubEnv('DATABASE_URL', '')
 
     const disabled = createStoryRuntime({
       falKey: FAL_KEY,
@@ -120,6 +121,59 @@ describe('createStoryRuntime configuration', () => {
     expect(enabled.qcEnabled).toBe(true)
     expect(enabled.qcMinConfidence).toBe(0.55)
     expect(enabled.costQcUsd).toBe(0.03)
+  })
+
+  it('applies the 008 production configuration (6/4, 420 s, 0.012)', () => {
+    vi.stubEnv('DATABASE_URL', DATABASE_URL)
+    vi.stubEnv('FFMPEG_PATH', '/missing/ffmpeg')
+    vi.stubEnv('FFPROBE_PATH', '/missing/ffprobe')
+
+    const runtime = createStoryRuntime({
+      falKey: FAL_KEY,
+      deepseekKey: DEEPSEEK_KEY,
+      story: {},
+    })
+    const reconciler = runtime.reelReconciler as unknown as {
+      config: {
+        leaseMs: number
+        assemblyLeaseMs: number
+        qcLeaseMs: number
+        tickBudgetMs: number
+        keyframeConcurrency: number
+        videoConcurrency: number
+      }
+    }
+    const reelCosts = (runtime.reelCostGuard as unknown as {
+      costs: Record<string, number>
+    }).costs
+    const reelQc = runtime.reelQcService as unknown as {
+      config: { timeoutMs: number }
+    }
+
+    expect(reconciler.config).toMatchObject({
+      keyframeConcurrency: 6,
+      videoConcurrency: 4,
+      assemblyLeaseMs: 480_000,
+      qcLeaseMs: 720_000,
+      tickBudgetMs: 45_000,
+    })
+    expect(runtime.assemblyTimeoutMs).toBe(420_000)
+    expect(runtime.reelShotTimeoutMs).toBe(75_000)
+    expect(runtime.reelDirectorTotalTimeoutMs).toBe(300_000)
+    expect(reelCosts).toMatchObject({
+      visualCostUsd: 0.012,
+      keyframeCostUsd: 0.05,
+      videoFastCostUsd: 0.35,
+      videoQualityShortCostUsd: 0.35,
+    })
+    expect(reelCosts.videoQualityCostUsd).toBe(0.7)
+    expect(reelQc.config.timeoutMs).toBe(600_000)
+
+    const nuxtConfig = readFileSync(resolve(process.cwd(), 'nuxt.config.ts'), 'utf8')
+    expect(nuxtConfig).toContain('costVisualUsd: 0.012')
+    expect(nuxtConfig).toContain('keyframeConcurrency: 6')
+    expect(nuxtConfig).toContain('videoConcurrency: 4')
+    expect(nuxtConfig).toContain('assemblyTimeoutMs: 420_000')
   })
 
   it('applies the story configuration with safe numeric fallbacks', () => {    vi.stubEnv('DATABASE_URL', '')
@@ -217,7 +271,7 @@ describe('createStoryRuntime configuration', () => {
     expect(runtime.pollAfterMs).toBe(2_500)
     expect(runtime.storyTtlMs).toBe(86_400_000)
     expect(runtime.reconcilerIntervalMs).toBe(5_000)
-    expect(runtime.videoConcurrency).toBe(2)
+    expect(runtime.videoConcurrency).toBe(4)
     expect(runtime.reconcilerEnabled).toBe(true)
     expect(runtime.canonTimeoutMs).toBe(60_000)
     expect(runtime.beatsTimeoutMs).toBe(60_000)

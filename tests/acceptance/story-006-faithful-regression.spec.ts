@@ -24,6 +24,7 @@ const PREMISE = 'Una repostera descubre que sus postres pueden predecir el futur
 function createBody(mode: 'faithful' | 'creative') {
   return {
     premise: PREMISE,
+    legacy: true,
     sceneCount: 5,
     preset: 'fast',
     mode,

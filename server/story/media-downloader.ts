@@ -28,14 +28,15 @@ export interface MediaDownloaderOptions {
   readonly timeoutMs?: number
   readonly maxClipBytes?: number
   readonly maxTotalBytes?: number
+  readonly maxOrder?: number
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000
 const DEFAULT_MAX_CLIP_BYTES = 314_572_800
 const DEFAULT_MAX_TOTAL_BYTES = 1_610_612_736
 
-function sceneFileName(order: number): string {
-  if (!Number.isInteger(order) || order < 1 || order > 6) {
+function sceneFileName(order: number, maxOrder: number): string {
+  if (!Number.isInteger(order) || order < 1 || order > maxOrder) {
     throw new StoryError('internal-error')
   }
 
@@ -47,12 +48,14 @@ export class NativeMediaDownloader implements MediaDownloader {
   private readonly timeoutMs: number
   private readonly maxClipBytes: number
   private readonly maxTotalBytes: number
+  private readonly maxOrder: number
 
   constructor(options: MediaDownloaderOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? fetch
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
     this.maxClipBytes = options.maxClipBytes ?? DEFAULT_MAX_CLIP_BYTES
     this.maxTotalBytes = options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES
+    this.maxOrder = options.maxOrder ?? 6
   }
 
   async download(
@@ -79,7 +82,7 @@ export class NativeMediaDownloader implements MediaDownloader {
         throw new StoryError('assembly-failed')
       }
 
-      const path = join(directory, sceneFileName(clip.order))
+      const path = join(directory, sceneFileName(clip.order, this.maxOrder))
       const bytes = await this.downloadOne(safeUrl, path, signal)
 
       totalBytes += bytes

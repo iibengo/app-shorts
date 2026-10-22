@@ -340,6 +340,20 @@ describe('PWA and dependency guards', () => {  it('keeps NetworkOnly for Story A
     expect(config).not.toMatch(/story.*CacheFirst|story.*StaleWhileRevalidate/is)
   })
 
+  it('ships the 008 production concurrency, assembly and visual cost values', () => {
+    const config = read('nuxt.config.ts')
+    const env = read('.env.example')
+
+    expect(config).toContain('keyframeConcurrency: 6')
+    expect(config).toContain('videoConcurrency: 4')
+    expect(config).toContain('assemblyTimeoutMs: 420_000')
+    expect(config).toContain('costVisualUsd: 0.012')
+    expect(env).toContain('NUXT_STORY_KEYFRAME_CONCURRENCY=6')
+    expect(env).toContain('NUXT_STORY_VIDEO_CONCURRENCY=4')
+    expect(env).toContain('NUXT_STORY_ASSEMBLY_TIMEOUT_MS=420000')
+    expect(env).toContain('NUXT_STORY_COST_VISUAL_USD=0.012')
+  })
+
   it('adds no provider SDK, HTTP client or FFmpeg wrapper dependency', () => {
     const pkg = JSON.parse(read('package.json')) as {
       dependencies?: Record<string, string>

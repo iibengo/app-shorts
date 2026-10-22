@@ -6,6 +6,7 @@ import type {
   StoryJob,
   StoryJobError,
   StoryReferenceUploadRequest,
+  StoryShotUpdateRequest,
   StoryUploadTicket,
 } from '~/models/story'
 
@@ -23,8 +24,15 @@ export interface StoryApi {
     sceneId: string,
     input: StoryBeatUpdateRequest,
   ): Promise<StoryJob>
+  regenerateShot(
+    storyId: string,
+    shotId: string,
+    input: StoryShotUpdateRequest,
+  ): Promise<StoryJob>
   approve(storyId: string): Promise<StoryJob>
   retryVideo(storyId: string, sceneId: string): Promise<StoryJob>
+  retryShot(storyId: string, shotId: string): Promise<StoryJob>
+  recoverShot(storyId: string, shotId: string): Promise<StoryJob>
   assemble(storyId: string): Promise<StoryJob>
   retryQc(storyId: string): Promise<StoryJob>
   approveQc(storyId: string): Promise<StoryJob>
@@ -269,12 +277,35 @@ export function useStoryApi(): StoryApi {
     )
   }
 
+  async function regenerateShot(
+    storyId: string,
+    shotId: string,
+    input: StoryShotUpdateRequest,
+  ): Promise<StoryJob> {
+    return postJson<StoryJob>(
+      `/api/story/${encodeURIComponent(storyId)}/shots/${encodeURIComponent(shotId)}/keyframe`,
+      input,
+    )
+  }
+
   async function postEmpty<T>(url: string): Promise<T> {
     try {
       return await $fetch<T>(url, { method: 'POST' })
     } catch (error) {
       throw toStoryApiClientError(error)
     }
+  }
+
+  async function retryShot(storyId: string, shotId: string): Promise<StoryJob> {
+    return postEmpty<StoryJob>(
+      `/api/story/${encodeURIComponent(storyId)}/shots/${encodeURIComponent(shotId)}/retry`,
+    )
+  }
+
+  async function recoverShot(storyId: string, shotId: string): Promise<StoryJob> {
+    return postEmpty<StoryJob>(
+      `/api/story/${encodeURIComponent(storyId)}/shots/${encodeURIComponent(shotId)}/recover`,
+    )
   }
 
   async function approve(storyId: string): Promise<StoryJob> {
@@ -318,8 +349,11 @@ export function useStoryApi(): StoryApi {
     createUploadTicket,
     uploadReference,
     updateKeyframe,
+    regenerateShot,
     approve,
     retryVideo,
+    retryShot,
+    recoverShot,
     assemble,
     retryQc,
     approveQc,

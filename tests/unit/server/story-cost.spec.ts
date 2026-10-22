@@ -40,12 +40,13 @@ describe('story cost estimates', () => {
       maxStoryCostUsd: 8,
       directorCostUsd: 0.01,
       narrativeCostUsd: 0.01,
-      visualCostUsd: 0.005,
+      visualCostUsd: 0.012,
       directorRepairCostUsd: 0.01,
       keyframeCostUsd: 0.05,
       keyframeReferenceCostUsd: 0.08,
       videoFastCostUsd: 0.35,
       videoQualityCostUsd: 0.7,
+      videoQualityShortCostUsd: 0.35,
       qcUnitCostUsd: 0.02,
       dailyBudgetUsd: 50,
     })
@@ -53,14 +54,14 @@ describe('story cost estimates', () => {
   })
 
   it.each([
-    ['fast', 4, false, 1.625],
-    ['fast', 5, false, 2.025],
-    ['fast', 6, false, 2.425],
-    ['fast', 6, true, 2.605],
-    ['quality', 4, false, 3.025],
-    ['quality', 5, false, 3.775],
-    ['quality', 6, false, 4.525],
-    ['quality', 6, true, 4.705],
+    ['fast', 4, false, 1.632],
+    ['fast', 5, false, 2.032],
+    ['fast', 6, false, 2.432],
+    ['fast', 6, true, 2.612],
+    ['quality', 4, false, 3.032],
+    ['quality', 5, false, 3.782],
+    ['quality', 6, false, 4.532],
+    ['quality', 6, true, 4.712],
   ] as const)(
     'estimates the base %s story with %i scenes and reference=%s',
     (preset, sceneCount, hasReference, expected) => {
@@ -75,7 +76,7 @@ describe('story cost estimates', () => {
       videoAttempts: 2,
     })
 
-    expect(guard().estimate(story)).toBe(4.025)
+    expect(guard().estimate(story)).toBe(4.032)
   })
 
   it('uses the reference keyframe unit when a reference exists', () => {
@@ -86,7 +87,7 @@ describe('story cost estimates', () => {
       videoAttempts: 2,
     })
 
-    expect(guard().estimate(story)).toBe(4.325)
+    expect(guard().estimate(story)).toBe(4.332)
   })
 
   it('uses the quality video unit for quality stories', () => {
@@ -97,26 +98,26 @@ describe('story cost estimates', () => {
       videoAttempts: 2,
     })
 
-    expect(guard().estimate(story)).toBe(6.025)
+    expect(guard().estimate(story)).toBe(6.032)
   })
 
   it('adds one keyframe unit for the next attempt', () => {
     const story = storyWith({ sceneCount: 5, keyframeAttempts: 1, videoAttempts: 0 })
 
-    expect(guard().estimate(story)).toBe(0.275)
-    expect(guard().estimateAfterKeyframeAttempt(story)).toBe(0.325)
+    expect(guard().estimate(story)).toBe(0.282)
+    expect(guard().estimateAfterKeyframeAttempt(story)).toBe(0.332)
   })
 
   it('adds one video unit for the next attempt', () => {
     const story = storyWith({ sceneCount: 5, keyframeAttempts: 1, videoAttempts: 0 })
 
-    expect(guard().estimateAfterVideoAttempt(story)).toBe(0.625)
+    expect(guard().estimateAfterVideoAttempt(story)).toBe(0.632)
   })
 
   it('projects the vision cost per scene for the QC', () => {
     const story = storyWith({ sceneCount: 5, keyframeAttempts: 1, videoAttempts: 0 })
 
-    expect(guard().estimateAfterQc(story)).toBe(0.375)
+    expect(guard().estimateAfterQc(story)).toBe(0.382)
   })
 
   it('accumulates vision calls across QC retries and forgets cancelled stories', () => {
@@ -127,17 +128,17 @@ describe('story cost estimates', () => {
 
     const first = costGuard.estimate(story)
 
-    expect(first).toBe(0.375)
-    expect(costGuard.estimateAfterQc(story)).toBe(0.475)
+    expect(first).toBe(0.382)
+    expect(costGuard.estimateAfterQc(story)).toBe(0.482)
 
     costGuard.recordQcEvaluations(story.id, 5)
 
-    expect(costGuard.estimate(story)).toBe(0.475)
+    expect(costGuard.estimate(story)).toBe(0.482)
     expect(costGuard.estimate(story)).toBeLessThan(8)
 
     costGuard.forgetStory(story.id)
 
-    expect(costGuard.estimate(story)).toBe(0.275)
+    expect(costGuard.estimate(story)).toBe(0.282)
   })
 
   it('projects the approval cost from the pending videos only', () => {
@@ -165,7 +166,7 @@ describe('story cost estimates', () => {
 
     expect(custom.estimateNewStory('fast', 4, false)).toBe(0.000001)
     expect(new NativeStoryCostGuard({ ...DEFAULT_STORY_COST_CONFIG, videoFastCostUsd: 0.1 })
-      .estimateNewStory('fast', 10, false)).toBe(1.525)
+      .estimateNewStory('fast', 10, false)).toBe(1.532)
   })
 })
 
@@ -197,7 +198,7 @@ describe('story budget cap', () => {
       videoAttempts: 2,
     })
 
-    expect(guard().estimate(story)).toBe(9.025)
+    expect(guard().estimate(story)).toBe(9.032)
     expect(() => guard().assertWithinBudget(guard().estimate(story))).toThrow(StoryError)
   })
 
@@ -206,7 +207,7 @@ describe('story budget cap', () => {
 
     expect(() => custom.assertWithinBudget(5)).not.toThrow()
     expect(() => custom.assertWithinBudget(5.01)).toThrow(StoryError)
-    expect(custom.estimateNewStory('fast', 5, false)).toBe(2.025)
+    expect(custom.estimateNewStory('fast', 5, false)).toBe(2.032)
   })
 
   it('does not call the provider when the projected attempt exceeds the cap', () => {

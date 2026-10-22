@@ -47,7 +47,7 @@ function setup() {
       path: '/api/story',
       runtime,
       body: typeof payload === 'object' && payload !== null
-        ? { mode: 'faithful', ...payload }
+        ? { mode: 'faithful', legacy: true, ...payload }
         : payload,
       ...(options.idempotencyKey === undefined
         ? {}

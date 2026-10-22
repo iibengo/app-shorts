@@ -4,6 +4,10 @@ interface ReconcilerGlobal {
   storyReconcilerTimer?: ReturnType<typeof setInterval>
 }
 
+interface Reconciler {
+  runOnce(): Promise<void>
+}
+
 export default defineNitroPlugin((nitroApp) => {
   if (process.env.NODE_ENV === 'test') {
     return
@@ -16,9 +20,12 @@ export default defineNitroPlugin((nitroApp) => {
   const runtime = createStoryRuntime(
     useRuntimeConfig() as unknown as Parameters<typeof createStoryRuntime>[0],
   )
-  const reconciler = runtime.reconciler
+  const reconcilers: Reconciler[] = []
 
-  if (!reconciler || !runtime.reconcilerEnabled) {
+  if (runtime.reconciler) reconcilers.push(runtime.reconciler)
+  if (runtime.reelReconciler) reconcilers.push(runtime.reelReconciler)
+
+  if (reconcilers.length === 0 || !runtime.reconcilerEnabled) {
     return
   }
 
@@ -35,8 +42,7 @@ export default defineNitroPlugin((nitroApp) => {
 
     running = true
 
-    void reconciler
-      .runOnce()
+    void Promise.allSettled(reconcilers.map((reconciler) => reconciler.runOnce()))
       .catch(() => undefined)
       .finally(() => {
         running = false

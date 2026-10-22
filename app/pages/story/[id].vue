@@ -13,11 +13,16 @@ import StoryQCProgress from '~/components/story/StoryQCProgress.vue'
 import StoryQCReview from '~/components/story/StoryQCReview.vue'
 import StoryAssemblyProgress from '~/components/story/StoryAssemblyProgress.vue'
 import StoryResult from '~/components/story/StoryResult.vue'
+import StoryShotProgress from '~/components/story/StoryShotProgress.vue'
+import StoryShotQC from '~/components/story/StoryShotQC.vue'
+import StoryShotResult from '~/components/story/StoryShotResult.vue'
+import StoryShotReview from '~/components/story/StoryShotReview.vue'
 import AppButton from '~/components/ui/AppButton.vue'
 import { STORY_COPY } from '~/data/story'
-import type { StoryBeatUpdateRequest } from '~/models/story'
+import type { StoryBeatUpdateRequest, StoryShotUpdateRequest } from '~/models/story'
 import { useStory } from '~/composables/useStory'
 import { useStoryApi } from '~/composables/useStoryApi'
+import { storySlowThresholdMs } from '~/utils/story'
 
 useHead({
   htmlAttrs: {
@@ -51,8 +56,11 @@ const {
   isOnline,
   elapsedSeconds,
   regenerateScene,
+  regenerateShot,
   approve,
   retryScene,
+  retryShot,
+  recoverShot,
   retryAssembly,
   retryQc,
   approveQc,
@@ -66,6 +74,9 @@ const orderedScenes = computed(() => (
   story.value
     ? story.value.scenes.slice().sort((a, b) => a.order - b.order)
     : []
+))
+const isReelStory = computed(() => (
+  story.value?.scenes.some((scene) => scene.shots.length > 0) ?? false
 ))
 
 const showLoading = computed(() => (
@@ -81,7 +92,13 @@ const failedVideoScenes = computed(() => (
     (scene) => scene.status === 'VIDEO_FAILED' && scene.videoAttempts < 2,
   )
 ))
-const isSlow = computed(() => elapsedSeconds.value >= 600)
+const isSlow = computed(() => {
+  const current = story.value
+
+  if (!current) return false
+
+  return elapsedSeconds.value * 1_000 >= storySlowThresholdMs(current)
+})
 
 async function handleRegenerate(
   sceneId: string,
@@ -100,6 +117,39 @@ async function handleRegenerate(
   document
     .querySelector<HTMLElement>('[data-testid="story-review-heading"]')
     ?.focus()
+}
+
+async function handleRegenerateShot(
+  shotId: string,
+  input: StoryShotUpdateRequest,
+): Promise<void> {
+  const job = await regenerateShot(shotId, input)
+
+  if (!job) {
+    await focusError()
+    return
+  }
+
+  await nextTick()
+  document
+    .querySelector<HTMLElement>('[data-testid="story-review-heading"]')
+    ?.focus()
+}
+
+async function handleRetryShot(shotId: string): Promise<void> {
+  const job = await retryShot(shotId)
+
+  if (!job) {
+    await focusError()
+  }
+}
+
+async function handleRecoverShot(shotId: string): Promise<void> {
+  const job = await recoverShot(shotId)
+
+  if (!job) {
+    await focusError()
+  }
 }
 
 async function handleApprove(): Promise<void> {
@@ -285,9 +335,27 @@ watch(
         </AppButton>
       </section>
 
+      <StoryShotProgress
+        v-else-if="state.status === 'keyframes' && story && isReelStory"
+        :story="story"
+        phase="keyframes"
+        :elapsed-seconds="elapsedSeconds"
+        :is-slow="isSlow"
+        @cancel="handleCancel"
+        @regenerateShot="(shotId, prompt, duration) => handleRegenerateShot(shotId, { visualPrompt: prompt, durationSeconds: duration, regenerate: true })"
+      />
+
       <StoryPlanProgress
         v-else-if="state.status === 'keyframes'"
         status="keyframes"
+        @cancel="handleCancel"
+      />
+
+      <StoryShotReview
+        v-else-if="state.status === 'review' && story && isReelStory"
+        :story="story"
+        @regenerate-shot="handleRegenerateShot"
+        @approve="handleApprove"
         @cancel="handleCancel"
       />
 
@@ -299,6 +367,16 @@ watch(
         @cancel="handleCancel"
       />
 
+      <StoryShotProgress
+        v-else-if="state.status === 'videos' && story && isReelStory"
+        :story="story"
+        phase="videos"
+        :elapsed-seconds="elapsedSeconds"
+        :is-slow="isSlow"
+        @cancel="handleCancel"
+        @retryShot="handleRetryShot"
+      />
+
       <StoryVideoProgress
         v-else-if="state.status === 'videos' && story"
         :story="story"
@@ -308,8 +386,28 @@ watch(
         @retry="handleRetryVideo"
       />
 
+      <StoryShotProgress
+        v-else-if="state.status === 'qc' && story && isReelStory"
+        :story="story"
+        phase="videos"
+        :elapsed-seconds="elapsedSeconds"
+        :is-slow="isSlow"
+        @cancel="handleCancel"
+      />
+
       <StoryQCProgress
         v-else-if="state.status === 'qc'"
+      />
+
+      <StoryShotQC
+        v-else-if="state.status === 'waiting-qc' && story && isReelStory"
+        :story="story"
+        @retryQc="handleRetryQc"
+        @retryShot="handleRetryShot"
+        @recoverShot="handleRecoverShot"
+        @approve="handleApproveQc"
+        @cancel="handleCancel"
+        @startOver="handleStartOver"
       />
 
       <StoryQCReview
@@ -323,9 +421,23 @@ watch(
         @start-over="handleStartOver"
       />
 
+      <StoryShotProgress
+        v-else-if="state.status === 'assembling' && story && isReelStory"
+        :story="story"
+        phase="assembling"
+        :elapsed-seconds="elapsedSeconds"
+        :is-slow="isSlow"
+      />
+
       <StoryAssemblyProgress
         v-else-if="state.status === 'assembling'"
         :elapsed-seconds="elapsedSeconds"
+      />
+
+      <StoryShotResult
+        v-else-if="state.status === 'ready' && story && isReelStory"
+        :story="story"
+        @restart="handleStartOver"
       />
 
       <StoryResult

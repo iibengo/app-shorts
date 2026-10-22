@@ -217,6 +217,39 @@ describe('qc-frames: extraction', () => {
     })).rejects.toMatchObject({ code: 'ffmpeg-not-configured' })
   })
 
+  it('marks a non-first download failure as blocking technical streams', async () => {
+    const harness = runner()
+    const { mediaStorage } = storage()
+    let calls = 0
+    const failingDownloader: MediaDownloader = {
+      async download(clips, directory) {
+        calls += 1
+        if (calls === 2) throw new Error('download failed')
+
+        const first = clips[0]!
+        const path = join(directory, `scene-${first.order}.mp4`)
+        await writeFile(path, 'clip')
+
+        return [{ order: first.order, path }]
+      },
+    }
+    const extractorUnderTest = new NativeStoryFrameExtractor({
+      downloader: failingDownloader,
+      runner: harness.runner,
+      mediaStorage,
+      ffmpegPath: 'ffmpeg',
+      ffprobePath: 'ffprobe',
+    })
+
+    const strips = await extractorUnderTest.extract({
+      storyId: 'story-1',
+      clips: CLIPS,
+    })
+
+    expect(strips[1]?.technical).toContain('technical-streams')
+    expect(strips[1]?.framesUrl).toBeNull()
+  })
+
   it('returns frames-unavailable without a global failure when only the upload fails', async () => {
     const harness = runner()
     const failingStorage = {

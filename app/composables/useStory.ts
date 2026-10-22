@@ -14,6 +14,7 @@ import type {
   StoryGenerationState,
   StoryJob,
   StoryJobError,
+  StoryShotUpdateRequest,
   StoryStatus,
 } from '~/models/story'
 import {
@@ -49,8 +50,14 @@ export interface UseStoryReturn {
     sceneId: string,
     input: StoryBeatUpdateRequest,
   ) => Promise<StoryJob | null>
+  regenerateShot: (
+    shotId: string,
+    input: StoryShotUpdateRequest,
+  ) => Promise<StoryJob | null>
   approve: () => Promise<StoryJob | null>
   retryScene: (sceneId: string) => Promise<StoryJob | null>
+  retryShot: (shotId: string) => Promise<StoryJob | null>
+  recoverShot: (shotId: string) => Promise<StoryJob | null>
   retryAssembly: () => Promise<StoryJob | null>
   retryQc: () => Promise<StoryJob | null>
   approveQc: () => Promise<StoryJob | null>
@@ -407,12 +414,33 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     return runCommand((id) => api.updateKeyframe(id, sceneId, input))
   }
 
+  async function regenerateShot(
+    shotId: string,
+    input: StoryShotUpdateRequest,
+  ): Promise<StoryJob | null> {
+    if (!currentId) return null
+
+    return runCommand((id) => api.regenerateShot(id, shotId, input))
+  }
+
   async function approve(): Promise<StoryJob | null> {
     return runCommand((id) => api.approve(id))
   }
 
   async function retryScene(sceneId: string): Promise<StoryJob | null> {
     return runCommand((id) => api.retryVideo(id, sceneId))
+  }
+
+  async function retryShot(shotId: string): Promise<StoryJob | null> {
+    if (!currentId) return null
+
+    return runCommand((id) => api.retryShot(id, shotId))
+  }
+
+  async function recoverShot(shotId: string): Promise<StoryJob | null> {
+    if (!currentId) return null
+
+    return runCommand((id) => api.recoverShot(id, shotId))
   }
 
   async function retryAssembly(): Promise<StoryJob | null> {
@@ -553,8 +581,11 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     createStory,
     loadStory,
     regenerateScene,
+    regenerateShot,
     approve,
     retryScene,
+    retryShot,
+    recoverShot,
     retryAssembly,
     retryQc,
     approveQc,

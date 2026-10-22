@@ -113,7 +113,7 @@ describe('QC retry cost cap', () => {
       status: 'WAITING_QC',
       qc: { status: 'NEEDS_REVIEW' },
     })
-    expect(costGuard.estimate(repository.find(story.id)!)).toBe(2.125)
+    expect(costGuard.estimate(repository.find(story.id)!)).toBe(2.132)
 
     const service = createStoryService({
       repository,
@@ -169,6 +169,6 @@ describe('QC retry cost cap', () => {
       },
     })
     expect(costGuard.estimate(waiting)).toBeLessThanOrEqual(CAP_USD)
-    expect(costGuard.estimate(waiting)).toBe(2.125)
+    expect(costGuard.estimate(waiting)).toBe(2.132)
   })
 })

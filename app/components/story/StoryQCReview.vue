@@ -6,6 +6,7 @@ import type {
   Story,
   StoryQCSceneResult,
   StoryScene,
+  StoryShot,
 } from '~/models/story'
 import {
   canRecoverQcScene,
@@ -24,6 +25,8 @@ const emit = defineEmits<{
   retry: []
   recover: [sceneId: string]
   retryVideo: [sceneId: string]
+  recoverShot: [shotId: string]
+  retryShot: [shotId: string]
   approve: []
   cancel: []
   startOver: []
@@ -40,20 +43,49 @@ const scenesById = computed(() => {
 
   return map
 })
+const isReel = computed(() => props.story.shotCount > 0)
+const shotsById = computed(() => {
+  const map = new Map<string, StoryShot>()
+
+  for (const scene of props.story.scenes) {
+    for (const shot of scene.shots) map.set(shot.id, shot)
+  }
+
+  return map
+})
+const allShots = computed(() => props.story.scenes.flatMap((scene) => scene.shots))
 const rows = computed<readonly {
   readonly result: StoryQCSceneResult
   readonly scene: StoryScene | null
+  readonly shot: StoryShot | null
 }[]>(() => {
   const current = qc.value
 
   if (!current) return []
 
-  return current.scenes
+  const legacy = current as unknown as { readonly scenes?: readonly StoryQCSceneResult[] }
+
+  if (legacy.scenes) {
+    return legacy.scenes
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .map((result) => ({
+        result,
+        scene: scenesById.value.get(result.sceneId) ?? null,
+        shot: null,
+      }))
+  }
+
+  return current.shots
     .slice()
-    .sort((a, b) => a.order - b.order)
+    .sort((a, b) => a.shotOrder - b.shotOrder)
     .map((result) => ({
-      result,
+      result: {
+        ...result,
+        order: result.shotOrder,
+      },
       scene: scenesById.value.get(result.sceneId) ?? null,
+      shot: shotsById.value.get(result.shotId) ?? null,
     }))
 })
 
@@ -81,18 +113,27 @@ const verdict = computed(() => {
 
   return STORY_COPY.qcVerdictNone
 })
-const hasBrokenClip = computed(() =>
-  props.story.scenes.some((scene) => scene.status === 'VIDEO_FAILED'),
-)
-const allScenesHaveVideo = computed(() =>
-  props.story.scenes.every((scene) => scene.videoUrl !== null),
-)
-const exhaustedRetries = computed(() =>
-  props.story.scenes.some((scene) =>
-    (scene.status === 'VIDEO_FAILED' && scene.videoAttempts >= 2)
-    || (scene.status === 'VIDEO_READY' && scene.keyframeAttempts >= 2),
-  ),
-)
+const hasBrokenClip = computed(() => (
+  isReel.value
+    ? allShots.value.some((shot) => shot.status === 'VIDEO_FAILED')
+    : props.story.scenes.some((scene) => scene.status === 'VIDEO_FAILED')
+))
+const allScenesHaveVideo = computed(() => (
+  isReel.value
+    ? allShots.value.length > 0 && allShots.value.every((shot) => shot.videoUrl !== null)
+    : props.story.scenes.every((scene) => scene.videoUrl !== null)
+))
+const exhaustedRetries = computed(() => (
+  isReel.value
+    ? allShots.value.some((shot) =>
+      (shot.status === 'VIDEO_FAILED' && shot.videoAttempts >= 2)
+      || (shot.status === 'VIDEO_READY' && shot.keyframeAttempts >= 2),
+    )
+    : props.story.scenes.some((scene) =>
+      (scene.status === 'VIDEO_FAILED' && scene.videoAttempts >= 2)
+      || (scene.status === 'VIDEO_READY' && scene.keyframeAttempts >= 2),
+    )
+))
 const overrideDisabled = computed(() =>
   !confirmed.value || !qc.value || !allScenesHaveVideo.value || hasBrokenClip.value,
 )
@@ -151,21 +192,24 @@ defineExpose({ heading })
 
     <ul class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       <li
-        v-for="{ result, scene } in rows"
-        :key="result.sceneId"
+        v-for="({ result, scene }, index) in rows"
+        :key="`${result.sceneId}-${result.order}-${index}`"
         data-testid="story-qc-scene"
         :data-scene-order="result.order"
         class="rounded-2xl border border-white/10 bg-brand-surface p-3 forced-colors:border forced-colors:border-[ButtonText]"
       >
         <h3 class="text-base font-semibold tracking-tight text-brand-text">
-          {{ storySceneTitle(result.order, story.sceneCount) }}
+          <template v-if="isReel">Plano {{ result.order }} de {{ story.shotCount }}</template>
+          <template v-else>{{ storySceneTitle(result.order, story.sceneCount ?? 0) }}</template>
         </h3>
 
         <img
           v-if="result.framesUrl"
           data-testid="story-qc-frames"
           :src="result.framesUrl"
-          :alt="STORY_COPY.qcFramesAlt.replace('{n}', String(result.order))"
+          :alt="isReel
+            ? `Fotogramas del plano ${result.order}: inicio, medio y final`
+            : STORY_COPY.qcFramesAlt.replace('{n}', String(result.order))"
           loading="lazy"
           class="mt-3 aspect-[27/16] w-full rounded-xl border border-white/10 bg-black object-cover"
         >
@@ -195,7 +239,38 @@ defineExpose({ heading })
           </li>
         </ul>
 
-        <div v-if="scene" class="mt-3 flex flex-col gap-2">
+        <div v-if="isReel && shot" class="mt-3 flex flex-col gap-2">
+          <AppButton
+            v-if="shot.status === 'VIDEO_FAILED' && shot.videoAttempts < 2"
+            type="button"
+            data-testid="story-qc-shot-retry"
+            variant="secondary"
+            class="min-h-11 w-full text-sm"
+            @click="emit('retryShot', shot.id)"
+          >
+            {{ STORY_COPY.qcRecoverVideo }}
+          </AppButton>
+
+          <AppButton
+            v-else-if="shot.status === 'VIDEO_READY' && shot.keyframeAttempts < 2"
+            type="button"
+            data-testid="story-qc-shot-recover"
+            variant="secondary"
+            class="min-h-11 w-full text-sm"
+            @click="emit('recoverShot', shot.id)"
+          >
+            {{ STORY_COPY.qcRecover }}
+          </AppButton>
+
+          <p
+            v-else-if="shot.status === 'VIDEO_FAILED' || shot.keyframeAttempts >= 2"
+            class="text-xs leading-relaxed text-brand-muted"
+          >
+            {{ STORY_COPY.qcRetryLimit }}
+          </p>
+        </div>
+
+        <div v-else-if="scene" class="mt-3 flex flex-col gap-2">
           <AppButton
             v-if="canRetryQcVideo(scene)"
             type="button"

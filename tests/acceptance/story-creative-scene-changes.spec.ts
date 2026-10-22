@@ -57,6 +57,7 @@ function changingPlan(): StoryPlan {
 function body() {
   return {
     premise: PREMISE,
+    legacy: true,
     sceneCount: 5,
     preset: 'fast',
     mode: 'creative',

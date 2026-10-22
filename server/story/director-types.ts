@@ -1,8 +1,16 @@
 import type {
   StoryBible,
   StoryCameraShot,
+  StoryCostMode,
+  StoryDurationSeconds,
   StoryMode,
+  StoryNarrativeScene,
   StoryNarrativeTone,
+  StoryPlatform,
+  StoryPreset,
+  StoryShotDurationSeconds,
+  StoryShotFraming,
+  StoryPlan,
   StorySceneRole,
   StoryStoryFunction,
   StoryTimeOfDay,
@@ -32,8 +40,62 @@ export interface CanonDraft {
   readonly storyBible: StoryBible
 }
 
+export interface NarrativeSceneDraft extends StoryNarrativeScene {}
+
 export interface NarrativeDraft extends CanonDraft {
-  readonly beats: readonly NarrativeBeat[]
+  readonly scenes: readonly NarrativeSceneDraft[]
+}
+
+export interface DurationPlan {
+  readonly costMode: StoryCostMode
+  readonly platform: StoryPlatform
+  readonly targetDurationSeconds: StoryDurationSeconds
+  readonly maxDurationSeconds: StoryDurationSeconds
+  readonly rhythm: 'tiktok' | 'slow'
+  readonly sceneCount: { readonly min: number; readonly max: number }
+  readonly shotCount: { readonly min: number; readonly max: number }
+  readonly shotsPerSceneMax: 4
+  readonly exactShotCount: number | null
+  readonly capUsd: number
+  readonly maxVideoAttempts: 2
+  readonly attemptsReset: boolean
+  readonly qualityAllowed: boolean
+  readonly slowThresholdMs: number
+}
+
+export interface ShotDraft {
+  readonly indexInScene: number
+  readonly durationSeconds: StoryShotDurationSeconds
+  readonly camera: StoryCameraShot
+  readonly framing: StoryShotFraming
+  readonly subject: string
+  readonly action: string
+  readonly visualPrompt: string
+  readonly transition: StoryTransition
+  readonly locationId: string
+}
+
+export interface ShotListDraft {
+  readonly scenes: readonly {
+    readonly order: number
+    readonly shots: readonly ShotDraft[]
+  }[]
+}
+
+export interface AssembledShot extends ShotDraft {
+  readonly sceneId: string
+  readonly sceneOrder: number
+  readonly order: number
+}
+
+export interface ShotPlanScene {
+  readonly order: number
+  readonly shots: readonly AssembledShot[]
+}
+
+export interface ShotPlan {
+  readonly scenes: readonly ShotPlanScene[]
+  readonly plannedDurationSeconds: number
 }
 
 export interface StoryboardBeat {
@@ -55,7 +117,7 @@ export type DirectorPass = 'narrative' | 'visual'
 export interface DirectorLogEvent {
   readonly event: string
   readonly pass: DirectorPass
-  readonly stage?: 'canon' | 'beats'
+  readonly stage?: 'canon' | 'beats' | 'scenes' | 'shots'
   readonly attempt: 1 | 2
   readonly finishReason: DirectorFinishReason
   readonly errorCode?: string
@@ -73,12 +135,40 @@ export interface DirectorContext {
 export interface StoryNarrativeDirector {
   createNarrative(input: {
     readonly premise: string
-    readonly sceneCount: number
     readonly mode: StoryMode
+    readonly durationPlan: DurationPlan
     readonly referenceUrl: string | null
     readonly context?: DirectorContext
     readonly signal?: AbortSignal
   }): Promise<NarrativeDraft>
+}
+
+export interface ReelPlan {
+  readonly plan: StoryPlan
+  readonly shotPlan: ShotPlan
+}
+
+export interface ReelPlanDirector {
+  createPlan(input: {
+    readonly premise: string
+    readonly mode: StoryMode
+    readonly preset?: StoryPreset
+    readonly durationPlan: DurationPlan
+    readonly referenceUrl: string | null
+    readonly context?: DirectorContext
+    readonly signal?: AbortSignal
+  }): Promise<ReelPlan>
+}
+
+export interface StoryShotDirector {
+  createShotList(input: {
+    readonly premise: string
+    readonly mode: StoryMode
+    readonly preset?: StoryPreset
+    readonly narrative: NarrativeDraft
+    readonly durationPlan: DurationPlan
+    readonly signal?: AbortSignal
+  }): Promise<ShotListDraft>
 }
 
 export interface StoryVisualDirector {

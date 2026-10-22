@@ -148,7 +148,7 @@ Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reu
 - Prisma 7 + PostgreSQL preparados: `prisma/schema.prisma` con `Story`/`Scene`, Docker local y migración inicial aplicada.
 - Spec 006 implementada: Story Bible, continuidad en prompts, QC de fotogramas y estados `QC`/`WAITING_QC`.
 - Spec 007 implementada: modos `faithful`/`creative`, canon con localizaciones y `source`, dos pasadas de DeepSeek y QC por escena.
-- Suite automatizada: **1913 tests en verde** (13 skips opt-in, 133 archivos); los 613 tests de 004 siguen intactos.
+- Suite automatizada: **1926 tests en verde** (13 skips opt-in, 138 archivos); los 613 tests de 004 siguen intactos.
 - Build Node/Nitro correcto.
 - Smoke real de Fal opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
 - Pendiente de QA manual de accesibilidad/navegador y validación de CORS/lifecycle reales en el entorno de despliegue.

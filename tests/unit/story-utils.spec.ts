@@ -22,6 +22,7 @@ import {
   storyEntitySourceLabel,
   storyError,
   storyModeLabel,
+  storySlowThresholdMs,
   storyModelIdForPreset,
   storyPollAfterMs,
   storyPosterUrl,
@@ -369,5 +370,15 @@ describe('story mode and canon helpers (007)', () => {
     expect(storySceneChangesLocation(CREATIVE_PLAN, 4)).toBe(false)
     expect(storySceneChangesLocation(CREATIVE_PLAN, 99)).toBe(false)
     expect(storySceneChangesLocation(null, 3)).toBe(false)
+  })
+})
+
+
+describe('story slow thresholds', () => {
+  it('uses the profile threshold instead of a global 600 s', () => {
+    expect(storySlowThresholdMs({ costMode: 'standard', targetDurationSeconds: 30 }))
+      .toBe(750_000)
+    expect(storySlowThresholdMs({ costMode: 'budget', targetDurationSeconds: 15 }))
+      .toBe(378_000)
   })
 })

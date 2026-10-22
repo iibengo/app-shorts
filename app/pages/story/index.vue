@@ -10,21 +10,29 @@ import StoryModePicker from '~/components/story/StoryModePicker.vue'
 import StoryPlanProgress from '~/components/story/StoryPlanProgress.vue'
 import StoryPresetPicker from '~/components/story/StoryPresetPicker.vue'
 import StoryReferencePicker from '~/components/story/StoryReferencePicker.vue'
-import StorySceneCountPicker from '~/components/story/StorySceneCountPicker.vue'
+import StoryCostModePicker from '~/components/story/StoryCostModePicker.vue'
+import StoryCostSummary from '~/components/story/StoryCostSummary.vue'
+import StoryDurationPicker from '~/components/story/StoryDurationPicker.vue'
+import StoryPlatformPicker from '~/components/story/StoryPlatformPicker.vue'
 import StoryStepper from '~/components/story/StoryStepper.vue'
 import StoryErrorAlert from '~/components/story/StoryErrorAlert.vue'
 import AppButton from '~/components/ui/AppButton.vue'
 import {
   STORY_COPY,
+  STORY_COST_PROFILES,
+  STORY_DEFAULT_COST_MODE,
+  STORY_DEFAULT_DURATION,
   STORY_DEFAULT_MODE,
+  STORY_DEFAULT_PLATFORM,
   STORY_DEFAULT_PRESET,
-  STORY_DEFAULT_SCENE_COUNT,
 } from '~/data/story'
 import type {
+  StoryCostMode,
+  StoryDurationSeconds,
   StoryJobError,
   StoryMode,
+  StoryPlatform,
   StoryPreset,
-  StorySceneCount,
 } from '~/models/story'
 import { useStory } from '~/composables/useStory'
 import { useStoryApi } from '~/composables/useStoryApi'
@@ -71,7 +79,9 @@ const {
 
 const premise = ref('')
 const mode = ref<StoryMode>(STORY_DEFAULT_MODE)
-const sceneCount = ref<StorySceneCount>(STORY_DEFAULT_SCENE_COUNT)
+const platform = ref<StoryPlatform>(STORY_DEFAULT_PLATFORM)
+const costMode = ref<StoryCostMode>(STORY_DEFAULT_COST_MODE)
+const targetDurationSeconds = ref<StoryDurationSeconds>(STORY_DEFAULT_DURATION)
 const preset = ref<StoryPreset>(STORY_DEFAULT_PRESET)
 const form = ref<{ focusPremise: () => void } | null>(null)
 const premiseIssue = ref<StoryJobError | null>(null)
@@ -108,7 +118,10 @@ async function handleSubmit(): Promise<void> {
 
   const story = await createStory({
     premise: normalizeStoryText(premise.value),
-    sceneCount: sceneCount.value,
+    platform: platform.value,
+    costMode: costMode.value,
+    targetDurationSeconds: targetDurationSeconds.value,
+    maxDurationSeconds: targetDurationSeconds.value,
     preset: preset.value,
     mode: mode.value,
     referenceUrl: reference.value?.fileUrl ?? null,
@@ -124,6 +137,19 @@ async function handleSubmit(): Promise<void> {
   form.value?.focusPremise()
 }
 
+function handleCostModeUpdate(value: StoryCostMode): void {
+  costMode.value = value
+  const durations = STORY_COST_PROFILES
+    .filter((profile) => profile.costMode === value)
+    .map((profile) => profile.durationSeconds)
+
+  if (!durations.includes(targetDurationSeconds.value)) {
+    targetDurationSeconds.value = durations.includes(30)
+      ? 30
+      : durations[0] ?? 15
+  }
+}
+
 function handlePremiseUpdate(value: string): void {
   premise.value = value
 
@@ -136,7 +162,9 @@ function handleReset(): void {
   clearError()
   premise.value = ''
   mode.value = STORY_DEFAULT_MODE
-  sceneCount.value = STORY_DEFAULT_SCENE_COUNT
+  platform.value = STORY_DEFAULT_PLATFORM
+  costMode.value = STORY_DEFAULT_COST_MODE
+  targetDurationSeconds.value = STORY_DEFAULT_DURATION
   preset.value = STORY_DEFAULT_PRESET
   premiseIssue.value = null
   removeReference()
@@ -226,10 +254,32 @@ function handleReset(): void {
           />
         </template>
 
-        <template #sceneCount>
-          <StorySceneCountPicker
-            :scene-count="sceneCount"
-            @update:sceneCount="sceneCount = $event"
+        <template #platform>
+          <StoryPlatformPicker
+            :platform="platform"
+            @update:platform="platform = $event"
+          />
+        </template>
+
+        <template #costMode>
+          <StoryCostModePicker
+            :cost-mode="costMode"
+            @update:costMode="handleCostModeUpdate"
+          />
+        </template>
+
+        <template #duration>
+          <StoryDurationPicker
+            :cost-mode="costMode"
+            :target-duration-seconds="targetDurationSeconds"
+            @update:targetDurationSeconds="targetDurationSeconds = $event"
+          />
+        </template>
+
+        <template #costSummary>
+          <StoryCostSummary
+            :cost-mode="costMode"
+            :target-duration-seconds="targetDurationSeconds"
           />
         </template>
 

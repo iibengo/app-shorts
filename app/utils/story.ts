@@ -1,5 +1,6 @@
 import {
   STORY_CAMERA_LABELS,
+  STORY_COST_PROFILES,
   STORY_MODE_LABELS,
   STORY_TONE_LABELS,
   STORY_MAX_IMAGE_BYTES,
@@ -203,6 +204,16 @@ export function isStoryTerminal(status: StoryStatus): boolean {
   return STORY_TERMINAL_STATUSES.includes(status)
 }
 
+export function storySlowThresholdMs(story: {
+  readonly costMode: string
+  readonly targetDurationSeconds: number
+}): number {
+  return STORY_COST_PROFILES.find((profile) =>
+    profile.costMode === story.costMode
+    && profile.durationSeconds === story.targetDurationSeconds)?.slowThresholdMs
+    ?? 600_000
+}
+
 export function storyStepForStatus(status: StoryStatus): StoryStepId {
   if (status === 'GENERATING_KEYFRAMES') return 'images'
   if (status === 'WAITING_APPROVAL') return 'images'
@@ -347,14 +358,45 @@ export function storySceneLocationName(
   return storySceneLocation(bible, beat)?.name ?? null
 }
 
+interface LegacyPlanShape {
+  readonly beats?: readonly StoryBeat[]
+  readonly scenes?: StoryPlan['scenes']
+}
+
+function beatsForPlan(plan: StoryPlan | null): readonly StoryBeat[] {
+  if (!plan) return []
+
+  const source = plan as unknown as LegacyPlanShape
+
+  if (Array.isArray(source.beats)) return source.beats
+  if (!Array.isArray(source.scenes)) return []
+
+  return source.scenes.map((scene) => ({
+    order: scene.order,
+    sceneRole: scene.sceneRole,
+    locationId: scene.locationId,
+    timeOfDay: scene.timeOfDay,
+    weather: scene.weather,
+    characters: scene.characters,
+    props: scene.props,
+    action: scene.action,
+    narration: scene.narration,
+    storyFunction: scene.storyFunction,
+    gag: scene.gag,
+    visualPrompt: scene.action,
+    camera: 'wide',
+    continuityFromPrevious: scene.continuityFromPrevious,
+    transition: 'cut',
+  }))
+}
+
 export function storySceneChangesLocation(
   plan: StoryPlan | null,
   order: number,
 ): boolean {
-  if (!plan) return false
-
-  const current = plan.beats.find((beat) => beat.order === order)
-  const previous = plan.beats.find((beat) => beat.order === order - 1)
+  const beats = beatsForPlan(plan)
+  const current = beats.find((beat) => beat.order === order)
+  const previous = beats.find((beat) => beat.order === order - 1)
 
   if (!current || !previous) return false
 
@@ -365,7 +407,7 @@ export function storyBeatForScene(
   plan: StoryPlan | null,
   order: number,
 ): StoryBeat | null {
-  return plan?.beats.find((beat) => beat.order === order) ?? null
+  return beatsForPlan(plan).find((beat) => beat.order === order) ?? null
 }
 
 export function storyCharacterLabel(bible: StoryBible, id: string): string | null {

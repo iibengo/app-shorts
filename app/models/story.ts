@@ -27,6 +27,29 @@ export type StoryPreset = 'fast' | 'quality'
 
 export type StoryMode = 'faithful' | 'creative'
 
+export type StoryPlatform = 'tiktok' | 'reels'
+
+/** Modo de producción. No confundir con StoryMode. */
+export type StoryCostMode = 'budget' | 'standard' | 'production'
+
+export type StoryDurationSeconds = 15 | 30 | 45 | 60 | 90
+
+export type StoryShotDurationSeconds = 2 | 3 | 4 | 5 | 6
+
+export type StoryShotFraming =
+  | 'establishing'
+  | 'wide'
+  | 'medium'
+  | 'close-up'
+  | 'extreme-close-up'
+  | 'detail'
+  | 'reaction'
+  | 'over-the-shoulder'
+  | 'two-shot'
+  | 'insert'
+
+export type StoryShotStatus = SceneStatus
+
 export type StoryNarrativeTone =
   | 'humor'
   | 'aventura'
@@ -48,8 +71,9 @@ export type StoryStoryFunction =
 
 export type StoryModelId = 'minimax-hailuo-02' | 'kling-2.5-turbo-pro'
 
-export type StorySceneCount = 4 | 5 | 6
+export type StorySceneCount = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
 
+/** Compatibilidad con la normalización legacy de 007. */
 export type StorySceneDurationSeconds = 6
 
 export type StoryAspectRatio = '9:16'
@@ -131,7 +155,8 @@ export interface StoryBible {
   readonly continuityRules: readonly string[]
 }
 
-export interface StoryBeat {
+/** Narrativa. Sin puesta en escena. */
+export interface StoryNarrativeScene {
   readonly order: number
   readonly sceneRole: StorySceneRole
   readonly locationId: string
@@ -143,10 +168,9 @@ export interface StoryBeat {
   readonly narration: string
   readonly storyFunction: StoryStoryFunction
   readonly gag: string | null
-  readonly visualPrompt: string
-  readonly camera: StoryCameraShot
   readonly continuityFromPrevious: string | null
-  readonly transition: StoryTransition
+  /** Presupuesto narrativo orientativo; los planos son la autoridad de duración. */
+  readonly durationHintSeconds?: number
 }
 
 export interface StoryPlan {
@@ -155,7 +179,48 @@ export interface StoryPlan {
   readonly tone: StoryTone
   /** `null` solo en planes legacy sin normalizar. */
   readonly storyBible: StoryBible | null
-  readonly beats: readonly StoryBeat[]
+  readonly scenes: readonly StoryNarrativeScene[]
+}
+
+/** Unidad de generación. Una fila de `Shot`. */
+export interface StoryShot {
+  readonly id: string
+  readonly sceneId: string
+  readonly sceneOrder: number
+  readonly order: number
+  readonly indexInScene: number
+  readonly durationSeconds: StoryShotDurationSeconds
+  readonly camera: StoryCameraShot
+  readonly framing: StoryShotFraming
+  readonly subject: string
+  readonly action: string
+  readonly visualPrompt: string
+  readonly transition: StoryTransition
+  readonly locationId: string
+  readonly status: StoryShotStatus
+  readonly keyframeUrl: string | null
+  readonly keyframeAttempts: number
+  readonly videoUrl: string | null
+  readonly videoAttempts: number
+  readonly error: StoryJobError | null
+}
+
+/** Escena del DTO: narrativa (planJson) + agregado (Scene) + planos (Shot). */
+export interface StoryScene {
+  readonly id: string
+  readonly order: number
+  readonly narration: string
+  readonly sceneRole: StorySceneRole
+  readonly locationId: string
+  readonly timeOfDay: StoryTimeOfDay
+  readonly weather: StoryWeather
+  readonly characters: readonly string[]
+  readonly props: readonly string[]
+  readonly storyFunction: StoryStoryFunction
+  readonly gag: string | null
+  readonly status: SceneStatus
+  readonly plannedDurationSeconds: number
+  readonly shots: readonly StoryShot[]
 }
 
 export type StoryQCStatus = 'PASSED' | 'NEEDS_REVIEW' | 'FAILED' | 'UNAVAILABLE'
@@ -189,6 +254,7 @@ export type StoryQCIssueCode =
   | 'text-or-watermark'
   | 'visual-artifact'
   | 'frames-unavailable'
+  | 'similar-shots'
   | 'technical-duration'
   | 'technical-streams'
   | 'technical-aspect'
@@ -199,6 +265,8 @@ export interface StoryQCIssue {
   readonly severity: StoryQCSeverity
   readonly sceneId: string
   readonly order: number
+  readonly shotId: string
+  readonly shotOrder: number
   readonly frame: StoryQCFrame
 }
 
@@ -217,14 +285,29 @@ export interface StoryQCObserved {
   readonly artifacts: boolean
 }
 
-export interface StoryQCSceneResult {
+export interface StoryQCShotResult {
+  readonly shotId: string
   readonly sceneId: string
-  readonly order: number
+  readonly sceneOrder: number
+  readonly shotOrder: number
+  readonly indexInScene: number
   readonly framesUrl: string | null
   readonly technical: 'pass' | 'fail'
   readonly observed: StoryQCObserved | null
   readonly confidence: number | null
   readonly issues: readonly StoryQCIssue[]
+}
+
+export interface StoryQCVarietyPair {
+  readonly previousShotId: string
+  readonly shotId: string
+  readonly distance: number
+  readonly similar: boolean
+}
+
+export interface StoryQCVariety {
+  readonly checkedAt: string
+  readonly pairs: readonly StoryQCVarietyPair[]
 }
 
 export interface StoryQCOverride {
@@ -238,8 +321,9 @@ export interface StoryQC {
   readonly evaluator: StoryQCEvaluator
   readonly checkedAt: string
   readonly confidence: number | null
-  readonly scenes: readonly StoryQCSceneResult[]
+  readonly shots: readonly StoryQCShotResult[]
   readonly issues: readonly StoryQCIssue[]
+  readonly variety: StoryQCVariety | null
   readonly override: StoryQCOverride | null
 }
 
@@ -251,6 +335,10 @@ export type StoryErrorCode =
   | 'invalid-scene-count'
   | 'invalid-preset'
   | 'invalid-mode'
+  | 'invalid-platform'
+  | 'invalid-duration'
+  | 'invalid-cost-mode'
+  | 'invalid-shot-duration'
   | 'invalid-reference'
   | 'reference-empty'
   | 'reference-too-large'
@@ -264,6 +352,7 @@ export type StoryErrorCode =
   | 'story-not-found'
   | 'story-expired'
   | 'beat-not-found'
+  | 'shot-not-found'
   | 'story-not-ready'
   | 'scene-not-ready'
   | 'keyframe-limit-reached'
@@ -309,19 +398,6 @@ export interface StoryApiError {
   }
 }
 
-export interface StoryScene {
-  readonly id: string
-  readonly order: number
-  readonly visualPrompt: string
-  readonly narration: string
-  readonly status: SceneStatus
-  readonly keyframeUrl: string | null
-  readonly keyframeAttempts: number
-  readonly videoUrl: string | null
-  readonly videoAttempts: number
-  readonly error: StoryJobError | null
-}
-
 export interface Story {
   readonly id: string
   readonly status: StoryStatus
@@ -332,10 +408,16 @@ export interface Story {
   readonly referenceExpiresAt: string | null
   readonly preset: StoryPreset
   readonly mode: StoryMode
+  readonly platform: StoryPlatform
+  readonly costMode: StoryCostMode
   readonly modelId: StoryModelId
+  readonly targetDurationSeconds: StoryDurationSeconds
+  readonly maxDurationSeconds: StoryDurationSeconds
+  readonly plannedDurationSeconds: number
+  readonly shotCount: number
+  readonly finalDurationSeconds: number | null
+  /** Derived from `plan.scenes.length`. */
   readonly sceneCount: StorySceneCount
-  readonly durationSeconds: StorySceneDurationSeconds
-  readonly totalDurationSeconds: number
   readonly aspectRatio: StoryAspectRatio
   readonly plan: StoryPlan | null
   readonly scenes: readonly StoryScene[]
@@ -354,15 +436,26 @@ export interface Story {
 
 export interface StoryCreateRequest {
   readonly premise: string
-  readonly sceneCount: StorySceneCount
+  readonly platform: StoryPlatform
+  readonly costMode: StoryCostMode
+  readonly targetDurationSeconds: StoryDurationSeconds
+  readonly maxDurationSeconds: StoryDurationSeconds
   readonly preset: StoryPreset
+  /** Obligatorio desde 007. */
   readonly mode: StoryMode
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: string | null
 }
 
+export interface StoryShotUpdateRequest {
+  readonly visualPrompt?: string
+  readonly durationSeconds?: StoryShotDurationSeconds
+  readonly regenerate?: boolean
+}
+
+/** Compatibilidad: la ruta por escena ya no edita un prompt único. */
 export interface StoryBeatUpdateRequest {
-  readonly visualPrompt: string
+  readonly visualPrompt?: string
   readonly narration?: string
   readonly regenerate?: boolean
 }

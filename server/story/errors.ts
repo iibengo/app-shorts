@@ -50,6 +50,31 @@ const DEFINITIONS: Readonly<Record<StoryErrorCode, StoryErrorDefinition>> = {
     message: 'El modo de la historia no es válido.',
     retryable: false,
   },
+  'invalid-platform': {
+    status: 400,
+    message: 'La plataforma no es válida.',
+    retryable: false,
+  },
+  'invalid-duration': {
+    status: 400,
+    message: 'La duración no es válida. Elige 15, 30, 45, 60 o 90 segundos.',
+    retryable: false,
+  },
+  'invalid-cost-mode': {
+    status: 400,
+    message: 'El modo de producción no es válido para esta duración o preset.',
+    retryable: false,
+  },
+  'invalid-shot-duration': {
+    status: 400,
+    message: 'La duración del plano no es válida o supera la duración máxima de la historia.',
+    retryable: false,
+  },
+  'shot-not-found': {
+    status: 404,
+    message: 'El plano no existe en esta historia.',
+    retryable: false,
+  },
   'invalid-reference': {
     status: 400,
     message: 'La imagen de referencia no es válida.',

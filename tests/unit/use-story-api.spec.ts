@@ -23,7 +23,10 @@ let globalFetch: ReturnType<typeof vi.fn>
 
 const CREATE: StoryCreateRequest = {
   premise: 'Una repostera descubre que sus postres pueden predecir el futuro.',
-  sceneCount: 5,
+  platform: 'tiktok',
+  costMode: 'standard',
+  targetDurationSeconds: 30,
+  maxDurationSeconds: 30,
   preset: 'fast',
   mode: 'faithful',
   referenceUrl: null,
@@ -157,6 +160,19 @@ describe('useStoryApi requests', () => {
     await useStoryApi().updateKeyframe('story-1', 'scene/2', { visualPrompt: 'Un prompt' })
     const keyframe = lastFetchCall()
 
+    await useStoryApi().regenerateShot('story-1', 'shot/2', {
+      visualPrompt: 'Un plano nuevo con longitud suficiente.',
+      durationSeconds: 4,
+      regenerate: true,
+    })
+    const shotKeyframe = lastFetchCall()
+
+    await useStoryApi().retryShot('story-1', 'shot/3')
+    const shotRetry = lastFetchCall()
+
+    await useStoryApi().recoverShot('story-1', 'shot/4')
+    const shotRecover = lastFetchCall()
+
     await useStoryApi().approve('story-1')
     const approve = lastFetchCall()
 
@@ -179,6 +195,17 @@ describe('useStoryApi requests', () => {
     const cancel = lastFetchCall()
 
     expect(keyframe.url).toBe('/api/story/story-1/beats/scene%2F2/keyframe')
+    expect(shotKeyframe.url).toBe('/api/story/story-1/shots/shot%2F2/keyframe')
+    expect(shotKeyframe.options).toMatchObject({
+      method: 'POST',
+      body: {
+        visualPrompt: 'Un plano nuevo con longitud suficiente.',
+        durationSeconds: 4,
+        regenerate: true,
+      },
+    })
+    expect(shotRetry.url).toBe('/api/story/story-1/shots/shot%2F3/retry')
+    expect(shotRecover.url).toBe('/api/story/story-1/shots/shot%2F4/recover')
     expect(keyframe.options).toMatchObject({
       method: 'POST',
       body: { visualPrompt: 'Un prompt' },

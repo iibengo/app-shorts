@@ -335,3 +335,108 @@ export const STORY_COPY = {
     'Crea una historia de 4 a 6 escenas con IA: revisa las imágenes, genera los vídeos y recibe un vídeo vertical de hasta 36 segundos.',
   metaDetailTitle: 'Tu historia — AI Shorts',
 } as const
+
+// --- Spec 008: perfiles de producción y planos ---
+
+export const STORY_PLATFORMS = ['tiktok', 'reels'] as const
+export const STORY_DEFAULT_PLATFORM = 'tiktok'
+export const STORY_PLATFORM_LABELS = {
+  tiktok: 'TikTok',
+  reels: 'Reels',
+} as const
+
+export const STORY_COST_MODES = ['budget', 'standard', 'production'] as const
+export const STORY_DEFAULT_COST_MODE = 'standard'
+export const STORY_COST_MODE_LABELS = {
+  budget: 'Presupuesto',
+  standard: 'Estándar',
+  production: 'Producción',
+} as const
+export const STORY_COST_MODE_DESCRIPTIONS = {
+  budget: 'El perfil más barato. Micro-relato completo con Rápido y un cap duro que depende de la duración.',
+  standard: 'Reel de 15–60 s con cobertura equilibrada y un coste contenido.',
+  production: 'Cobertura máxima para 90 s, con 26–30 planos. Es la opción más cara.',
+} as const
+
+export const STORY_DURATIONS = [15, 30, 45, 60, 90] as const
+export const STORY_DEFAULT_DURATION = 30
+export const STORY_DURATION_LABELS = {
+  15: '15 s',
+  30: '30 s',
+  45: '45 s',
+  60: '60 s',
+  90: '90 s',
+} as const
+
+export interface StoryCostProfileOption {
+  readonly costMode: 'budget' | 'standard' | 'production'
+  readonly durationSeconds: 15 | 30 | 45 | 60 | 90
+  readonly plannedMin: number
+  readonly plannedMax: number
+  readonly sceneMin: number
+  readonly sceneMax: number
+  readonly shotMin: number
+  readonly shotMax: number
+  readonly exactShotCount: number | null
+  readonly shotDurationMin: 2 | 3 | 4 | 5 | 6
+  readonly shotDurationMax: 2 | 3 | 4 | 5 | 6
+  readonly preset: 'fast' | 'both'
+  readonly rhythm: 'tiktok' | 'slow'
+  readonly capUsd: number
+  readonly maxVideoAttempts: 2
+  readonly attemptsReset: boolean
+  readonly qualityAllowed: boolean
+  readonly timeMinMinutes: number
+  readonly timeMaxMinutes: number
+  readonly slowThresholdMs: number
+}
+
+export const STORY_COST_PROFILES: readonly StoryCostProfileOption[] = [
+  { costMode: 'budget', durationSeconds: 15, plannedMin: 12, plannedMax: 15, sceneMin: 2, sceneMax: 3, shotMin: 4, shotMax: 5, exactShotCount: null, shotDurationMin: 2, shotDurationMax: 5, preset: 'fast', rhythm: 'tiktok', capUsd: 2.5, maxVideoAttempts: 2, attemptsReset: false, qualityAllowed: false, timeMinMinutes: 3, timeMaxMinutes: 5, slowThresholdMs: 378_000 },
+  { costMode: 'standard', durationSeconds: 15, plannedMin: 14, plannedMax: 15, sceneMin: 2, sceneMax: 3, shotMin: 4, shotMax: 6, exactShotCount: null, shotDurationMin: 2, shotDurationMax: 6, preset: 'both', rhythm: 'tiktok', capUsd: 5, maxVideoAttempts: 2, attemptsReset: true, qualityAllowed: true, timeMinMinutes: 4, timeMaxMinutes: 6, slowThresholdMs: 450_000 },
+  { costMode: 'standard', durationSeconds: 30, plannedMin: 29, plannedMax: 30, sceneMin: 3, sceneMax: 5, shotMin: 9, shotMax: 12, exactShotCount: null, shotDurationMin: 2, shotDurationMax: 6, preset: 'both', rhythm: 'tiktok', capUsd: 7, maxVideoAttempts: 2, attemptsReset: true, qualityAllowed: true, timeMinMinutes: 5, timeMaxMinutes: 10, slowThresholdMs: 750_000 },
+  { costMode: 'standard', durationSeconds: 45, plannedMin: 44, plannedMax: 45, sceneMin: 4, sceneMax: 6, shotMin: 14, shotMax: 16, exactShotCount: null, shotDurationMin: 2, shotDurationMax: 6, preset: 'both', rhythm: 'tiktok', capUsd: 9, maxVideoAttempts: 2, attemptsReset: true, qualityAllowed: true, timeMinMinutes: 7, timeMaxMinutes: 12, slowThresholdMs: 900_000 },
+  { costMode: 'standard', durationSeconds: 60, plannedMin: 59, plannedMax: 60, sceneMin: 5, sceneMax: 8, shotMin: 18, shotMax: 22, exactShotCount: null, shotDurationMin: 2, shotDurationMax: 6, preset: 'both', rhythm: 'tiktok', capUsd: 11, maxVideoAttempts: 2, attemptsReset: true, qualityAllowed: true, timeMinMinutes: 10, timeMaxMinutes: 16, slowThresholdMs: 1_200_000 },
+  { costMode: 'budget', durationSeconds: 90, plannedMin: 90, plannedMax: 90, sceneMin: 5, sceneMax: 8, shotMin: 15, shotMax: 15, exactShotCount: 15, shotDurationMin: 6, shotDurationMax: 6, preset: 'fast', rhythm: 'slow', capUsd: 7, maxVideoAttempts: 2, attemptsReset: false, qualityAllowed: false, timeMinMinutes: 12, timeMaxMinutes: 18, slowThresholdMs: 1_350_000 },
+  { costMode: 'production', durationSeconds: 90, plannedMin: 89, plannedMax: 90, sceneMin: 7, sceneMax: 10, shotMin: 26, shotMax: 30, exactShotCount: null, shotDurationMin: 2, shotDurationMax: 6, preset: 'both', rhythm: 'tiktok', capUsd: 15, maxVideoAttempts: 2, attemptsReset: true, qualityAllowed: true, timeMinMinutes: 17, timeMaxMinutes: 25, slowThresholdMs: 1_878_000 },
+] as const
+
+export const STORY_SHOT_FRAMING_LABELS: Readonly<Record<string, string>> = {
+  establishing: 'Establecimiento',
+  wide: 'Plano general',
+  medium: 'Plano medio',
+  'close-up': 'Primer plano',
+  'extreme-close-up': 'Primerísimo plano',
+  detail: 'Detalle',
+  reaction: 'Reacción',
+  'over-the-shoulder': 'Sobre el hombro',
+  'two-shot': 'Plano de dos',
+  insert: 'Insert',
+}
+
+export const STORY_MAX_SHOT_PROMPT_LENGTH = 400
+
+export const STORY_COST_MODE_COPY = {
+  legend: 'Modo de producción',
+  help: 'El modo y la duración fijan el coste y el número de planos.',
+  budgetWarning: 'El modo Presupuesto tiene un límite de {cap} USD. Si se agota antes de terminar, la historia se detiene.',
+  advanced: 'Avanzado',
+  warning90: '90 s es una opción avanzada. Puede tardar 17–25 minutos y consume más créditos.',
+  styleHelp: 'El estilo visual depende de tu referencia y del prompt, no del modo de coste.',
+  budgetPreset: 'El modo Presupuesto usa Rápido.',
+  budgetReference: 'Con imagen de referencia se generan 4 planos; sin ella, hasta 5.',
+  durationHelp: 'Solo se muestran las duraciones válidas para el modo.',
+  platformHelp: 'Formato vertical 9:16. TikTok y Reels comparten formato y duración en esta versión.',
+  intro: 'Escribe una premisa. La IA reparte la historia en escenas y planos, con un gancho en el primer segundo y cambios de plano para mantener la atención. Tú decides cuándo generar los vídeos.',
+  reviewTitle: 'Revisa los planos',
+  plannedDuration: 'Duración planificada',
+  shotRegenerate: 'Regenerar plano',
+  shotRegenerating: 'Regenerando plano…',
+  shotReady: 'Plano listo.',
+  sceneRegenerate: 'Regenerar escena',
+  sceneRegenerating: 'Regenerando la escena…',
+  varietyWarning: 'Dos planos seguidos se parecen mucho. Puedes regenerar el segundo.',
+  legacyShot: 'Plano heredado',
+  similar: 'similar-shots',
+  budgetExhausted: 'Esta historia ha alcanzado su límite de coste. Empieza una nueva o elige una duración menor.',
+} as const

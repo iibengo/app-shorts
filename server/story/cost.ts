@@ -11,6 +11,8 @@ export interface StoryCostConfig {
   readonly keyframeReferenceCostUsd: number
   readonly videoFastCostUsd: number
   readonly videoQualityCostUsd: number
+  /** 008: Kling quality clip is 5 s, not the legacy 10 s unit. */
+  readonly videoQualityShortCostUsd: number
   readonly qcUnitCostUsd: number
   readonly dailyBudgetUsd: number
 }
@@ -41,6 +43,7 @@ export interface StoryCostConfigOptions {
   readonly keyframeReferenceCostUsd?: number
   readonly videoFastCostUsd?: number
   readonly videoQualityCostUsd?: number
+  readonly videoQualityShortCostUsd?: number
   readonly qcUnitCostUsd?: number
   readonly dailyBudgetUsd?: number
 }
@@ -49,12 +52,13 @@ export const DEFAULT_STORY_COST_CONFIG: StoryCostConfig = {
   maxStoryCostUsd: 8,
   directorCostUsd: 0.01,
   narrativeCostUsd: 0.01,
-  visualCostUsd: 0.005,
+  visualCostUsd: 0.012,
   directorRepairCostUsd: 0.01,
   keyframeCostUsd: 0.05,
   keyframeReferenceCostUsd: 0.08,
   videoFastCostUsd: 0.35,
   videoQualityCostUsd: 0.7,
+  videoQualityShortCostUsd: 0.35,
   qcUnitCostUsd: 0.02,
   dailyBudgetUsd: 50,
 }
@@ -200,6 +204,9 @@ export function createStoryCostGuard(
       options.videoFastCostUsd ?? DEFAULT_STORY_COST_CONFIG.videoFastCostUsd,
     videoQualityCostUsd:
       options.videoQualityCostUsd ?? DEFAULT_STORY_COST_CONFIG.videoQualityCostUsd,
+    videoQualityShortCostUsd:
+      options.videoQualityShortCostUsd
+      ?? DEFAULT_STORY_COST_CONFIG.videoQualityShortCostUsd,
     qcUnitCostUsd:
       options.qcUnitCostUsd ?? DEFAULT_STORY_COST_CONFIG.qcUnitCostUsd,
     dailyBudgetUsd:

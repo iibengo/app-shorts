@@ -222,7 +222,7 @@ describe('GET /api/story/[id] ownership and expiry', () => {
     const story = makeStoryRecord({
       status: 'WAITING_APPROVAL',
       scenes: keyframeScenes(),
-      expiresAt: new Date(Date.now() - 1_000),
+      expiresAt: new Date(TEST_NOW - 1_000),
     })
     const { get } = setup(story)
 

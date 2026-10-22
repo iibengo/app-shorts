@@ -350,6 +350,12 @@ export class PrismaStoryRepository implements StoryRepository {
         referenceExpiresAt: input.referenceExpiresAt,
         preset: input.preset,
         mode: input.mode,
+        platform: 'tiktok',
+        costMode: 'standard',
+        targetDurationSeconds: input.sceneCount * 6,
+        maxDurationSeconds: input.sceneCount * 6,
+        plannedDurationSeconds: input.sceneCount * 6,
+        shotCount: input.sceneCount,
         sceneCount: input.sceneCount,
         durationSeconds: input.durationSeconds,
         aspectRatio: input.aspectRatio,
@@ -411,6 +417,11 @@ export class PrismaStoryRepository implements StoryRepository {
       where: {
         status: { in: [...CLAIMABLE_STORY_STATUSES] },
         OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
+        // 008 stories only carry narrative `scenes` in planJson and are owned
+        // by the shot reconciler. Legacy 007 plans always carry `beats`.
+        planJson: { path: ['beats'], not: Prisma.DbNull },
+        // Rows with backfilled shots are owned by the 008 shot worker.
+        shots: { none: {} },
       },
       include: { scenes: { orderBy: { order: 'asc' } } },
       orderBy: { updatedAt: 'asc' },

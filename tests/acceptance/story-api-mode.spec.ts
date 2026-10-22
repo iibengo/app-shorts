@@ -13,6 +13,7 @@ const PREMISE = 'Una repostera descubre que sus postres pueden predecir el futur
 function body(overrides: Record<string, unknown> = {}) {
   return {
     premise: PREMISE,
+    legacy: true,
     sceneCount: 5,
     preset: 'fast',
     mode: 'faithful',

@@ -117,20 +117,14 @@ describe('GET /story SSR acceptance', () => {
     expect(html).toContain("El guion se ciñe a lo que escribiste.")
   })
 
-  it('renders the scene radiogroup with 5 scenes selected by default', () => {
-    expect(html).toContain('data-testid="story-scene-count"')
-    expect(html).toContain('role="radiogroup"')
-    expect(html).toContain('aria-labelledby="story-scene-count-legend"')
-    expect(html).toContain('Escenas')
-    expect(html).toContain('data-testid="story-scene-count-4"')
-    expect(html).toContain('data-testid="story-scene-count-5"')
-    expect(html).toContain('data-testid="story-scene-count-6"')
-    expect(html).toMatch(/data-testid="story-scene-count-5"[^>]*\bchecked\b/)
-    expect(html).not.toMatch(/data-testid="story-scene-count-4"[^>]*\bchecked\b/)
-    expect(html).toContain('4 escenas')
-    expect(html).toContain('5 escenas')
-    expect(html).toContain('6 escenas')
-    expect(html).toContain('Cada escena dura 6 segundos.')
+  it('renders the 008 platform, cost and duration selectors', () => {
+    expect(html).toContain('data-testid="story-platform-group"')
+    expect(html).toContain('data-testid="story-cost-mode-group"')
+    expect(html).toContain('data-testid="story-duration-group"')
+    expect(html).toContain('data-testid="story-platform-tiktok"')
+    expect(html).toContain('data-testid="story-cost-mode-standard"')
+    expect(html).toMatch(/data-testid="story-duration-30"[^>]*\bchecked\b/)
+    expect(html).not.toContain('data-testid="story-scene-count"')
   })
 
   it('renders the quality radiogroup with Rápido selected by default', () => {

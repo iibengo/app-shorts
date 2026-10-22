@@ -7,6 +7,17 @@ datasource db {
   provider = "postgresql"
 }
 
+enum StoryPlatform {
+  tiktok
+  reels
+}
+
+enum StoryCostMode {
+  budget
+  standard
+  production
+}
+
 enum StoryMode {
   faithful
   creative
@@ -50,6 +61,13 @@ model Story {
   referenceExpiresAt  DateTime?
   preset              String
   mode                StoryMode  @default(faithful)
+  platform            StoryPlatform @default(tiktok)
+  costMode            StoryCostMode @default(standard)
+  targetDurationSeconds  Int
+  maxDurationSeconds     Int
+  plannedDurationSeconds Int
+  shotCount              Int
+  finalDurationSeconds   Int?
   sceneCount          Int
   durationSeconds     Int
   aspectRatio         String      @default("9:16")
@@ -70,6 +88,7 @@ model Story {
   completedAt         DateTime?
   expiresAt           DateTime
   scenes              Scene[]
+  shots               Shot[]
 
   @@unique([sessionId, idempotencyKey])
   @@index([sessionId])
@@ -82,7 +101,7 @@ model Scene {
   id                  String      @id @default(cuid())
   storyId             String
   order               Int
-  visualPrompt        String      @db.Text
+  visualPrompt        String?     @db.Text
   narration           String      @db.Text
   status              SceneStatus
   keyframeUrl         String?     @db.Text
@@ -102,7 +121,51 @@ model Scene {
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   story               Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  shots               Shot[]
 
   @@unique([storyId, order])
   @@index([storyId, status])
+}
+
+
+model Shot {
+  id                  String      @id @default(cuid())
+  storyId             String
+  sceneId             String
+  sceneOrder          Int
+  order               Int
+  indexInScene        Int
+  durationSeconds     Int
+  camera              String
+  framing             String
+  subject             String      @db.Text
+  action              String      @db.Text
+  visualPrompt        String      @db.Text
+  transition          String      @default("cut")
+  locationId          String
+  status              SceneStatus
+  keyframeUrl         String?     @db.Text
+  keyframeRequestId   String?
+  keyframeStatusUrl   String?     @db.Text
+  keyframeResponseUrl String?     @db.Text
+  keyframeCancelUrl   String?     @db.Text
+  keyframeError       String?     @db.Text
+  videoUrl            String?     @db.Text
+  videoRequestId      String?
+  videoStatusUrl      String?     @db.Text
+  videoResponseUrl    String?     @db.Text
+  videoCancelUrl      String?     @db.Text
+  videoError          String?     @db.Text
+  keyframeAttempts    Int         @default(0)
+  videoAttempts       Int         @default(0)
+  version             Int         @default(1)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  story               Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  scene               Scene       @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, order])
+  @@unique([sceneId, indexInScene])
+  @@index([storyId, status])
+  @@index([sceneId, order])
 }

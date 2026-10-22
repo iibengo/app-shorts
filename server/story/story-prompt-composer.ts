@@ -19,6 +19,8 @@ export interface KeyframePromptInput {
   readonly bible: StoryBible | null
   readonly beat: StoryBeat
   readonly hasReference: boolean
+  /** 008 passes 4.000 to bound the final keyframe prompt deterministically. */
+  readonly maxLength?: number
 }
 
 export interface VideoPromptInput {
@@ -187,7 +189,7 @@ function compactText(value: string, maxLength: number): string {
   const slice = normalized.slice(0, Math.max(0, maxLength - 1))
   const lastSpace = slice.lastIndexOf(' ')
 
-  if (lastSpace <= 0) return normalized
+  if (lastSpace <= 0) return `${slice}…`
 
   return `${slice.slice(0, lastSpace).trimEnd()}…`
 }
@@ -378,24 +380,22 @@ export function storyVideoLegacyPrompt(visualPrompt: string): string {
 }
 
 export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePrompt {
-  if (input.bible === null) {
-    return {
-      prompt: input.hasReference
-        ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
-        : storyKeyframeFluxPrompt(input.beat.visualPrompt),
-    }
+  const prompt = input.bible === null
+    ? input.hasReference
+      ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
+      : storyKeyframeFluxPrompt(input.beat.visualPrompt)
+    : [
+        composeGlobalBlock(input.bible),
+        composeSceneBlock(input.bible, input.beat),
+        `${KEYFRAME_STAGE_BLOCK} Localización: ${sceneLocation(input.bible, input.beat).name}. Hora: ${storyTimeOfDayLabel(input.beat.timeOfDay)}. Clima: ${storyWeatherLabel(input.beat.weather)}.`,
+        `Avoid: ${composeNegative(input.bible, input.beat)}`,
+      ].join(' ')
+
+  if (input.maxLength !== undefined && prompt.length > input.maxLength) {
+    throw new StoryError('invalid-visual-prompt')
   }
 
-  const location = sceneLocation(input.bible, input.beat)
-
-  return {
-    prompt: [
-      composeGlobalBlock(input.bible),
-      composeSceneBlock(input.bible, input.beat),
-      `${KEYFRAME_STAGE_BLOCK} Localización: ${location.name}. Hora: ${storyTimeOfDayLabel(input.beat.timeOfDay)}. Clima: ${storyWeatherLabel(input.beat.weather)}.`,
-      `Avoid: ${composeNegative(input.bible, input.beat)}`,
-    ].join(' '),
-  }
+  return { prompt }
 }
 
 function joinVideoPrompt(

@@ -6,6 +6,7 @@ import {
   assertStorySameOrigin,
   getStoryReadContext,
 } from '~~/server/story/session'
+import { toReelStoryDto } from '~~/server/story/reel-service'
 import { toStoryDto } from '~~/server/story/story-service'
 import { getStoryRuntime } from '~~/server/story/runtime'
 
@@ -16,26 +17,36 @@ export default defineEventHandler(async (event): Promise<Story | void> => {
     assertStorySameOrigin(event)
 
     const id = getRouterParam(event, 'id')
-
-    if (!id) {
-      throw new StoryError('story-not-found')
-    }
+    if (!id) throw new StoryError('story-not-found')
 
     const runtime = getStoryRuntime(event)
-
-    if (!runtime.hasDatabase || !runtime.service) {
-      throw new StoryError('database-unavailable')
-    }
+    if (!runtime.hasDatabase) throw new StoryError('database-unavailable')
 
     const context = getStoryReadContext(event, runtime.ipSalt)
+    if (!context.sessionId) throw new StoryError('story-not-found')
 
-    if (!context.sessionId) {
-      throw new StoryError('story-not-found')
+    if (runtime.reelService) {
+      try {
+        const reel = await runtime.reelService.inspect(id, context.sessionId)
+
+        if (reel.contract === '008') {
+          runtime.rateLimiter.consumeCommand(context.sessionId)
+          runtime.rateLimiter.consumeCancel(id)
+          const story = await runtime.reelService.cancel(id, context.sessionId)
+
+          return toReelStoryDto(story, runtime.pollAfterMs, Date.now())
+        }
+      } catch (error) {
+        if (!(error instanceof StoryError) || error.code !== 'story-not-found') {
+          throw error
+        }
+      }
     }
+
+    if (!runtime.service) throw new StoryError('database-unavailable')
 
     runtime.rateLimiter.consumeCommand(context.sessionId)
     runtime.rateLimiter.consumeCancel(id)
-
     const story = await runtime.service.cancel(id, context.sessionId)
 
     return toStoryDto(story, runtime.pollAfterMs, Date.now())

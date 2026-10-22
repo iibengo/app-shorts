@@ -22,7 +22,13 @@ const heading = ref<HTMLHeadingElement | null>(null)
 
 const poster = computed(() => storyPosterUrl(props.story.scenes))
 const preset = computed(() => getStoryPreset(props.story.preset))
-const duration = computed(() => formatStoryDuration(props.story.totalDurationSeconds))
+const isReel = computed(() => props.story.shotCount > 0)
+const duration = computed(() => formatStoryDuration(
+  props.story.finalDurationSeconds
+  ?? props.story.plannedDurationSeconds
+  ?? props.story.totalDurationSeconds
+  ?? 0,
+))
 const reference = computed(() => storyReferenceLabel(props.story.referenceUrl))
 const manualReview = computed(() => props.story.qc?.override?.approved === true)
 
@@ -66,7 +72,8 @@ onMounted(() => {
       <div>
         <dt class="text-brand-muted">{{ STORY_COPY.resultScenes }}</dt>
         <dd data-testid="story-result-scenes" class="text-brand-text">
-          {{ story.sceneCount }} escenas
+          <template v-if="isReel">{{ story.shotCount }} planos</template>
+          <template v-else>{{ story.sceneCount }} escenas</template>
         </dd>
       </div>
 

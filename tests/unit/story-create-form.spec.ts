@@ -119,25 +119,30 @@ describe('StoryCreateForm', () => {
     expect(document.activeElement).toBe(wrapper.get('[data-testid="story-premise"]').element)
   })
 
-  it('renders the scene, preset and reference slots', async () => {
+  it('renders the 008 and reference slots', async () => {
     const wrapper = await mountSuspended(StoryCreateForm, {
       attachTo: document.body,
       props: { premise: '', issue: null, submitDisabled: true },
       slots: {
         mode: '<div data-testid="slot-mode">modo</div>',
-        sceneCount: '<div data-testid="slot-scene-count">escenas</div>',
+        platform: '<div data-testid="slot-platform">plataforma</div>',
+        costMode: '<div data-testid="slot-cost-mode">coste</div>',
+        duration: '<div data-testid="slot-duration">duración</div>',
         preset: '<div data-testid="slot-preset">preset</div>',
         reference: '<div data-testid="slot-reference">referencia</div>',
       },
     })
 
-    expect(wrapper.find('[data-testid="slot-mode"]').exists()).toBe(true)
     expect(
       wrapper.findAll('[data-testid^="slot-"]').map((slot) => slot.attributes('data-testid')),
-    ).toEqual(['slot-mode', 'slot-scene-count', 'slot-preset', 'slot-reference'])
-    expect(wrapper.find('[data-testid="slot-scene-count"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="slot-preset"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="slot-reference"]').exists()).toBe(true)
+    ).toEqual([
+      'slot-mode',
+      'slot-platform',
+      'slot-cost-mode',
+      'slot-duration',
+      'slot-preset',
+      'slot-reference',
+    ])
   })
 
   it('exposes no free model, endpoint, duration or advanced field', async () => {

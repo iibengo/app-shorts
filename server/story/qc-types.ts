@@ -37,6 +37,8 @@ export interface QCFrameStrip {
   readonly technical: readonly StoryQCIssueCode[]
   /** Allowlisted CDN URL of the uploaded contact strip, or `null` on failure. */
   readonly framesUrl: string | null
+  /** Local dHash of the representative frame, used only by 008 QC. */
+  readonly dHash?: string
 }
 
 export type QCEvaluation =
@@ -57,6 +59,10 @@ export interface StoryFrameExtractor {
   extract(input: {
     readonly storyId: string
     readonly clips: readonly { readonly sceneId: string; readonly order: number; readonly url: string }[]
+    readonly frameCount?: 2 | 3
+    readonly hash?: boolean
+    /** 008 provider clip duration: 6 s fast, 5 s quality. */
+    readonly expectedDurationSeconds?: 5 | 6
     readonly signal?: AbortSignal
   }): Promise<readonly QCFrameStrip[]>
 }

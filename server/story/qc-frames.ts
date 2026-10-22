@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdtemp, rm, unlink } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { StoryQCErrorCode, StoryQCIssueCode } from '~/models/story'
@@ -102,9 +102,59 @@ export function frameTimestamps(durationSeconds: number): readonly [number, numb
   ]
 }
 
+/** 008: two frames at 20 % and 80 %; one central frame for 2 s shots. */
+export function shotFrameTimestamps(durationSeconds: number): readonly number[] {
+  if (durationSeconds <= 2.5) {
+    return [round2(durationSeconds / 2)]
+  }
+
+  return [round2(durationSeconds * 0.2), round2(durationSeconds * 0.8)]
+}
+
+export function dHashFromGray(buffer: Uint8Array): string | null {
+  if (buffer.length < 72) return null
+
+  let bits = ''
+
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 8; x += 1) {
+      const left = buffer[y * 9 + x] ?? 0
+      const right = buffer[y * 9 + x + 1] ?? 0
+      bits += left > right ? '1' : '0'
+    }
+  }
+
+  let hex = ''
+
+  for (let index = 0; index < bits.length; index += 4) {
+    hex += Number.parseInt(bits.slice(index, index + 4), 2).toString(16)
+  }
+
+  return hex
+}
+
+export function hammingDistance(left: string, right: string): number {
+  const length = Math.min(left.length, right.length)
+  let distance = 0
+
+  for (let index = 0; index < length; index += 1) {
+    const a = Number.parseInt(left[index] ?? '0', 16)
+    const b = Number.parseInt(right[index] ?? '0', 16)
+    let xor = a ^ b
+
+    while (xor > 0) {
+      distance += xor & 1
+      xor >>= 1
+    }
+  }
+
+  return distance + Math.abs(left.length - right.length) * 4
+}
+
 export function verifyClipTechnical(input: {
   readonly streams: readonly ProbeStream[]
   readonly durationSeconds: number
+  readonly expectedDurationSeconds?: 5 | 6
 }): readonly StoryQCIssueCode[] {
   const issues: StoryQCIssueCode[] = []
   const streams = input.streams ?? []
@@ -121,7 +171,17 @@ export function verifyClipTechnical(input: {
     issues.push('technical-streams')
   }
 
-  if (!Number.isFinite(input.durationSeconds) || input.durationSeconds < MIN_CLIP_DURATION_SECONDS) {
+  if (input.expectedDurationSeconds !== undefined) {
+    if (
+      !Number.isFinite(input.durationSeconds)
+      || Math.abs(input.durationSeconds - input.expectedDurationSeconds) > 0.5
+    ) {
+      issues.push('technical-duration')
+    }
+  } else if (
+    !Number.isFinite(input.durationSeconds)
+    || input.durationSeconds < MIN_CLIP_DURATION_SECONDS
+  ) {
     issues.push('technical-duration')
   }
 
@@ -177,7 +237,7 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
       let produced = 0
       const ordered = input.clips.slice().sort((a, b) => a.order - b.order)
 
-      for (const [index, clip] of ordered.entries()) {
+      for (const clip of ordered) {
         if (signal?.aborted) {
           throw new QCFramesGlobalError('qc-frames-failed')
         }
@@ -193,16 +253,12 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
             )
             filePath = downloaded[0]?.path ?? null
           } catch {
-            if (index === 0) {
-              throw new QCFramesGlobalError('qc-frames-failed')
-            }
-
             strips.push({
               sceneId: clip.sceneId,
               order: clip.order,
               filePath: '',
               durationSeconds: 0,
-              technical: [],
+              technical: ['technical-streams'],
               framesUrl: null,
             })
             continue
@@ -221,7 +277,12 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
           }
 
           const probe = await this.probe(filePath, directory, signal)
-          const technical = verifyClipTechnical(probe)
+          const technical = verifyClipTechnical({
+            ...probe,
+            ...(input.expectedDurationSeconds === undefined
+              ? {}
+              : { expectedDurationSeconds: input.expectedDurationSeconds }),
+          })
 
           if (technical.length > 0) {
             strips.push({
@@ -236,12 +297,23 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
           }
 
           technicallyPassing += 1
-
+          const timestamps = input.frameCount === 2
+            ? shotFrameTimestamps(probe.durationSeconds)
+            : frameTimestamps(probe.durationSeconds)
+          const dHash = input.hash === true
+            ? await this.extractDHash(
+                filePath,
+                directory,
+                timestamps[0] ?? 0,
+                clip.order,
+                signal,
+              )
+            : undefined
           const strip = await this.extractStrip(
             clip,
             filePath,
             directory,
-            probe.durationSeconds,
+            timestamps,
             signal,
           )
 
@@ -265,6 +337,7 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
             durationSeconds: probe.durationSeconds,
             technical: [],
             framesUrl: strip.framesUrl,
+            ...(dHash === undefined || dHash === null ? {} : { dHash }),
           })
         } catch (error) {
           if (error instanceof QCFramesGlobalError) {
@@ -280,7 +353,7 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
             order: clip.order,
             filePath: filePath ?? '',
             durationSeconds: 0,
-            technical: [],
+            technical: ['technical-streams'],
             framesUrl: null,
           })
         } finally {
@@ -342,25 +415,71 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
     }
   }
 
+  private async extractDHash(
+    clipPath: string,
+    directory: string,
+    timestamp: number,
+    order: number,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    const hashPath = join(directory, `scene-hash-${order}.raw`)
+
+    try {
+      const result = await this.runner.run({
+        binary: this.ffmpegPath,
+        args: [
+          '-nostdin',
+          '-y',
+          '-ss',
+          String(timestamp),
+          '-i',
+          clipPath,
+          '-vf',
+          'scale=9:8,format=gray',
+          '-frames:v',
+          '1',
+          '-f',
+          'rawvideo',
+          hashPath,
+        ],
+        cwd: directory,
+        timeoutMs: EXTRACTION_TIMEOUT_MS,
+        ...(signal === undefined ? {} : { signal }),
+      })
+
+      if (result.code !== 0) return null
+
+      return dHashFromGray(await readFile(hashPath))
+    } catch {
+      return null
+    }
+  }
+
   private async extractStrip(
     clip: { readonly sceneId: string; readonly order: number },
     clipPath: string,
     directory: string,
-    durationSeconds: number,
+    timestamps: readonly number[],
     signal?: AbortSignal,
   ): Promise<{ readonly filePath: string; readonly framesUrl: string | null } | null> {
-    const timestamps = frameTimestamps(durationSeconds)
     const stripPath = join(directory, `scene-qc-${clip.order}.jpg`)
     const scale = (index: number): string =>
       `[${index}:v]scale=${SCENE_FRAME_WIDTH}:${SCENE_FRAME_HEIGHT}:`
       + `force_original_aspect_ratio=increase,`
       + `crop=${SCENE_FRAME_WIDTH}:${SCENE_FRAME_HEIGHT},setsar=1[v${index}]`
-    const filter = [
-      scale(0),
-      scale(1),
-      scale(2),
-      '[v0][v1][v2]hstack=inputs=3[out]',
-    ].join(';')
+    const filter = timestamps.length === 1
+      ? `${scale(0)};[v0]null[out]`
+      : [
+          ...timestamps.map((_value, index) => scale(index)),
+          `${timestamps.map((_value, index) => `[v${index}]`).join('')}`
+            + `hstack=inputs=${timestamps.length}[out]`,
+        ].join(';')
+    const inputs = timestamps.flatMap((timestamp) => [
+      '-ss',
+      String(timestamp),
+      '-i',
+      clipPath,
+    ])
 
     let result
 
@@ -370,18 +489,7 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
         args: [
           '-nostdin',
           '-y',
-          '-ss',
-          String(timestamps[0]),
-          '-i',
-          clipPath,
-          '-ss',
-          String(timestamps[1]),
-          '-i',
-          clipPath,
-          '-ss',
-          String(timestamps[2]),
-          '-i',
-          clipPath,
+          ...inputs,
           '-filter_complex',
           filter,
           '-map',

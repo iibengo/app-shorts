@@ -345,7 +345,7 @@ describe('StoryQCService: QC switch and cost accounting', () => {
 
     expect(first.qc.status).toBe('PASSED')
     expect(firstEvaluation.calls).toHaveLength(5)
-    expect(costGuard.estimate(story)).toBe(2.125)
+    expect(costGuard.estimate(story)).toBe(2.132)
 
     const retried = {
       ...story,

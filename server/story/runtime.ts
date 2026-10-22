@@ -15,14 +15,14 @@ import { createStoryAssembler, hasFfmpegBinary } from './assembly-service'
 import type { StoryAssembler } from './assembly-service'
 import { createMediaDownloader } from './media-downloader'
 import { createFfmpegRunner } from './ffmpeg-runner'
-import type { StoryCostGuard } from './cost'
+import type { StoryCostConfig, StoryCostGuard } from './cost'
 import { createStoryCostGuard } from './cost'
 import { createBriefingNarrativeDirector } from './briefing-director'
 import { createStoryDirector } from './director'
 import { createDeepSeekClient, DEFAULT_DEEPSEEK_BASE_URL } from './deepseek-client'
 import { createStoryNarrativeDirector } from './narrative-director'
 import { createStoryVisualDirector } from './visual-director'
-import type { StoryDirector } from './director-types'
+import type { ReelPlanDirector, StoryDirector } from './director-types'
 import { createKeyframeOrchestrator } from './keyframe-orchestrator'
 import type { KeyframeOrchestrator } from './keyframe-orchestrator'
 import { createVideoOrchestrator } from './video-orchestrator'
@@ -36,6 +36,25 @@ import {
 import type { StoryReconciler } from './reconciler'
 import { createPrismaStoryRepository } from './prisma-story-repository'
 import type { StoryRepository } from './repository'
+import { createPrismaReelStoryRepository } from './reel-repository'
+import type { ReelStoryRepository } from './reel-repository'
+import { createReelStoryDirector } from './reel-director'
+import { createReelNarrativeDirector } from './reel-narrative-director'
+import { createReelShotDirector } from './reel-shot-director'
+import { createReelStoryService } from './reel-service'
+import type { ReelStoryService } from './reel-service'
+import { createReelCostGuard } from './reel-cost'
+import type { ReelCostGuard } from './reel-cost'
+import { createReelStoryReconciler } from './reel-reconciler'
+import type { ReelStoryReconciler } from './reel-reconciler'
+import { createShotAssembler } from './shot-assembly-service'
+import type { ShotAssembler } from './shot-assembly-service'
+import { createShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
+import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
+import { createShotQCService } from './shot-qc-service'
+import type { ShotQCService } from './shot-qc-service'
+import { createShotVideoOrchestrator } from './shot-video-orchestrator'
+import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
 import { createStoryService, hashStoryBody, canonicalStoryBody } from './story-service'
 import type { StoryService } from './story-service'
 import { createStoryQCService } from './qc-service'
@@ -53,11 +72,13 @@ interface RuntimeStoryConfig {
   readonly costKeyframeReferenceUsd?: number
   readonly costVideoFastUsd?: number
   readonly costVideoQualityUsd?: number
+  readonly costVideoQualityShortUsd?: number
   readonly dailyBudgetUsd?: number
   readonly ttlMs?: number
   readonly reconcilerEnabled?: boolean
   readonly reconcilerIntervalMs?: number
   readonly leaseMs?: number
+  readonly assemblyLeaseMs?: number
   readonly keyframeConcurrency?: number
   readonly videoConcurrency?: number
   readonly pollAfterMs?: number
@@ -73,6 +94,8 @@ interface RuntimeStoryConfig {
   readonly beatsTimeoutMs?: number
   readonly visualTimeoutMs?: number
   readonly directorTotalTimeoutMs?: number
+  readonly reelShotTimeoutMs?: number
+  readonly reelDirectorTotalTimeoutMs?: number
   readonly deepseekBaseUrl?: string
   readonly falQueueBaseUrl?: string
   readonly falRunBaseUrl?: string
@@ -123,6 +146,17 @@ export interface StoryRuntime {
   readonly director: StoryDirector | null
   readonly repository: StoryRepository | null
   readonly service: StoryService | null
+  readonly reelRepository: ReelStoryRepository | null
+  readonly reelDirector: ReelPlanDirector | null
+  readonly reelService: ReelStoryService | null
+  readonly reelCostGuard: ReelCostGuard
+  readonly reelKeyframes: ShotKeyframeOrchestrator | null
+  readonly reelVideos: ShotVideoOrchestrator | null
+  readonly reelAssembler: ShotAssembler | null
+  readonly reelQcService: ShotQCService | null
+  readonly reelReconciler: ReelStoryReconciler | null
+  readonly reelShotTimeoutMs: number
+  readonly reelDirectorTotalTimeoutMs: number
   readonly keyframes: KeyframeOrchestrator | null
   readonly videos: VideoOrchestrator | null
   readonly assembler: StoryAssembler | null
@@ -154,7 +188,7 @@ interface StoryLogEvent {
   readonly errorCode?: string
   readonly reason?: string
   readonly pass?: 'narrative' | 'visual'
-  readonly stage?: 'canon' | 'beats'
+  readonly stage?: 'canon' | 'beats' | 'scenes' | 'shots'
   readonly attempt?: 1 | 2
   readonly finishReason?: string
   readonly mode?: string
@@ -297,23 +331,31 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
       dailyBudgetUsd: decimalValue(story.dailyBudgetUsd, 50),
     },
   })
-  const costGuard = createStoryCostGuard({
+  const costConfig: StoryCostConfig = {
     maxStoryCostUsd: decimalValue(story.maxCostUsd, 8),
     directorCostUsd: decimalValue(story.costDirectorUsd, 0.01),
     narrativeCostUsd: decimalValue(story.costNarrativeUsd, 0.01),
-    visualCostUsd: decimalValue(story.costVisualUsd, 0.005),
+    visualCostUsd: decimalValue(story.costVisualUsd, 0.012),
     directorRepairCostUsd: decimalValue(story.costDirectorRepairUsd, 0.01),
     keyframeCostUsd: decimalValue(story.costKeyframeUsd, 0.05),
     keyframeReferenceCostUsd: decimalValue(story.costKeyframeReferenceUsd, 0.08),
     videoFastCostUsd: decimalValue(story.costVideoFastUsd, 0.35),
     videoQualityCostUsd: decimalValue(story.costVideoQualityUsd, 0.7),
+    videoQualityShortCostUsd: decimalValue(story.costVideoQualityShortUsd, 0.35),
     qcUnitCostUsd: costQcUsd,
     dailyBudgetUsd: decimalValue(story.dailyBudgetUsd, 50),
-  })
+  }
+  const costGuard = createStoryCostGuard(costConfig)
+  const reelCostGuard = createReelCostGuard({ costs: costConfig })
   const canonTimeoutMs = numberValue(story.canonTimeoutMs, 60_000)
   const beatsTimeoutMs = numberValue(story.beatsTimeoutMs, 60_000)
   const visualTimeoutMs = numberValue(story.visualTimeoutMs, 40_000)
   const directorTotalTimeoutMs = numberValue(story.directorTotalTimeoutMs, 180_000)
+  const reelShotTimeoutMs = numberValue(story.reelShotTimeoutMs, 75_000)
+  const reelDirectorTotalTimeoutMs = numberValue(
+    story.reelDirectorTotalTimeoutMs,
+    300_000,
+  )
   const deepseekClient = hasDeepSeekKey
     ? createDeepSeekClient({
         apiKey: deepseekKey,
@@ -342,16 +384,41 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         totalTimeoutMs: directorTotalTimeoutMs,
       })
     : null
+  const reelNarrative = deepseekClient
+    ? createReelNarrativeDirector({
+        client: deepseekClient,
+        onEvent: logStoryEvent,
+        canonTimeoutMs,
+        scenesTimeoutMs: beatsTimeoutMs,
+      })
+    : null
+  const reelShots = deepseekClient
+    ? createReelShotDirector({
+        client: deepseekClient,
+        onEvent: logStoryEvent,
+        timeoutMs: reelShotTimeoutMs,
+      })
+    : null
+  const reelDirector = reelNarrative && reelShots
+    ? createReelStoryDirector({
+        narrative: reelNarrative,
+        shots: reelShots,
+        totalTimeoutMs: reelDirectorTotalTimeoutMs,
+      })
+    : null
   const repository = databaseAvailable ? createPrismaStoryRepository() : null
+  const reelRepository = databaseAvailable ? createPrismaReelStoryRepository() : null
   const keyframes = hasFalKey ? createKeyframeOrchestrator(queue) : null
   const videos = hasFalKey ? createVideoOrchestrator(queue) : null
+  const reelKeyframes = hasFalKey ? createShotKeyframeOrchestrator(queue) : null
+  const reelVideos = hasFalKey ? createShotVideoOrchestrator(queue) : null
   const mediaStorage = hasFalKey
     ? createMediaStorage({ client, storageBaseUrl })
     : null
   const ffmpegPath = process.env.FFMPEG_PATH?.trim() || 'ffmpeg'
   const ffprobePath = process.env.FFPROBE_PATH?.trim() || 'ffprobe'
   const hasFfmpeg = hasFfmpegBinary(ffmpegPath) && hasFfmpegBinary(ffprobePath)
-  const assemblyTimeoutMs = numberValue(story.assemblyTimeoutMs, 180_000)
+  const assemblyTimeoutMs = numberValue(story.assemblyTimeoutMs, 420_000)
   const assembler = mediaStorage
     ? createStoryAssembler(
         {
@@ -390,6 +457,47 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         },
       })
     : null
+  const reelDownloader = createMediaDownloader({ maxOrder: 99 })
+  const reelAssembler = mediaStorage
+    ? createShotAssembler(
+        {
+          downloader: reelDownloader,
+          runner: createFfmpegRunner(),
+          mediaStorage,
+          ffmpegPath,
+          ffprobePath,
+        },
+        {
+          totalTimeoutMs: numberValue(story.assemblyTimeoutMs, 420_000),
+        },
+      )
+    : null
+  const reelQcService = mediaStorage
+    ? createShotQCService({
+        frameExtractor: createStoryFrameExtractor({
+          downloader: reelDownloader,
+          runner: createFfmpegRunner(),
+          mediaStorage,
+          ffmpegPath,
+          ffprobePath,
+        }),
+        evaluator: createStoryQCEvaluator(
+          deepseekClient
+            ? {
+                client: deepseekClient,
+                timeoutMs: QC_EVALUATOR_TIMEOUT_MS,
+              }
+            : null,
+        ),
+        costGuard: reelCostGuard,
+        onEvent: logStoryEvent,
+        config: {
+          enabled: qcEnabled,
+          minConfidence: qcMinConfidence,
+          timeoutMs: numberValue(story.qcTimeoutMs, 600_000),
+        },
+      })
+    : null
   const service = repository
     ? createStoryService({
         repository,
@@ -399,6 +507,18 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         rateLimiter,
         costGuard,
         onEvent: logStoryEvent,
+        config: { pollAfterMs, storyTtlMs },
+      })
+    : null
+  const reelService = reelRepository
+    ? createReelStoryService({
+        repository: reelRepository,
+        director: reelDirector,
+        keyframes: reelKeyframes,
+        videos: reelVideos,
+        costGuard: reelCostGuard,
+        qcEnabled,
+        rateLimiter,
         config: { pollAfterMs, storyTtlMs },
       })
     : null
@@ -442,6 +562,27 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         },
       })
     : null
+  const reelReconciler = reelRepository && reelKeyframes && reelVideos && reelAssembler
+    ? createReelStoryReconciler({
+        repository: reelRepository,
+        keyframes: reelKeyframes,
+        videos: reelVideos,
+        assembler: reelAssembler,
+        qcService: reelQcService,
+        costGuard: reelCostGuard,
+        qcEnabled,
+        onEvent: logStoryEvent,
+        config: {
+          leaseMs: numberValue(story.leaseMs, 60_000),
+          assemblyLeaseMs: numberValue(story.assemblyLeaseMs, 480_000),
+          qcLeaseMs: numberValue(story.qcLeaseMs, 720_000),
+          tickBudgetMs: 45_000,
+          keyframeConcurrency: numberValue(story.keyframeConcurrency, 6),
+          videoConcurrency: numberValue(story.videoConcurrency, 4),
+          claimLimit: 5,
+        },
+      })
+    : null
 
   return {
     hasFalKey,
@@ -461,6 +602,17 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     director,
     repository,
     service,
+    reelRepository,
+    reelDirector,
+    reelService,
+    reelCostGuard,
+    reelKeyframes,
+    reelVideos,
+    reelAssembler,
+    reelQcService,
+    reelReconciler,
+    reelShotTimeoutMs,
+    reelDirectorTotalTimeoutMs,
     keyframes,
     videos,
     assembler,
@@ -473,10 +625,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     visualTimeoutMs,
     directorTotalTimeoutMs,
     hasFfmpeg,
-    videoConcurrency: numberValue(
-      story.videoConcurrency,
-      DEFAULT_STORY_RECONCILER_CONFIG.videoConcurrency,
-    ),
+    videoConcurrency: numberValue(story.videoConcurrency, 4),
     assemblyTimeoutMs,
     reconciler,
     uploadIdempotency: new Map<string, StoryUploadIdempotencyEntry>(),

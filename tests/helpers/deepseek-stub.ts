@@ -39,6 +39,8 @@ export interface DeepSeekStubState {
   delayMs: number
   /** Queued assistant contents. Objects are serialized as JSON strings. */
   contents: unknown[]
+  /** Optional finish_reason queue aligned with contents. Defaults to stop. */
+  finishReasons: string[]
 }
 
 export interface DeepSeekStub {
@@ -79,6 +81,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
     errorPayload: { error: { message: 'stub failure' } },
     delayMs: 0,
     contents: [canon5, beats5, storyboard5],
+    finishReasons: [],
   }
 
   const server: Server = createServer(async (incoming, response) => {
@@ -114,6 +117,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
     const content = state.contents.length > 0
       ? state.contents.shift()
       : plan5
+    const finishReason = state.finishReasons.shift() ?? 'stop'
 
     response.writeHead(200, { 'content-type': 'application/json' })
     response.end(JSON.stringify({
@@ -123,7 +127,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
         {
           index: 0,
           message: { role: 'assistant', content: contentOf(content) },
-          finish_reason: 'stop',
+          finish_reason: finishReason,
         },
       ],
     }))
@@ -147,6 +151,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
       state.errorPayload = { error: { message: 'stub failure' } }
       state.delayMs = 0
       state.contents = [canon5, beats5, storyboard5]
+      state.finishReasons = []
     },
     async close() {
       await new Promise<void>((resolve) => server.close(() => resolve()))
