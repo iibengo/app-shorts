@@ -16,7 +16,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:validate": "prisma validate",
-    "typecheck": "nuxi typecheck"
+    "typecheck": "nuxi typecheck",
+    "eval:director": "vitest run tests/eval/director-eval.spec.ts"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",

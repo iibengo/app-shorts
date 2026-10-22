@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "premises": [
+    {
+      "id": "p01",
+      "premise": "Un repartidor descubre que el paquete que lleva contiene un gato que habla.",
+      "mode": "faithful",
+      "costMode": "budget",
+      "durationSeconds": 15,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p02",
+      "premise": "Una abuela teje una bufanda que predice el tiempo.",
+      "mode": "creative",
+      "costMode": "budget",
+      "durationSeconds": 15,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p03",
+      "premise": "Un oficinista encuentra una puerta que lleva a su propio escritorio de ayer.",
+      "mode": "creative",
+      "costMode": "standard",
+      "durationSeconds": 30,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p04",
+      "premise": "Un perro aprende a pedir café solo en la cafetería de siempre.",
+      "mode": "creative",
+      "costMode": "budget",
+      "durationSeconds": 15,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p05",
+      "premise": "Dos vecinos compiten por la mejor calabaza de Halloween.",
+      "mode": "faithful",
+      "costMode": "standard",
+      "durationSeconds": 30,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p06",
+      "premise": "Una panadera descubre que su masa reacciona a las mentiras.",
+      "mode": "creative",
+      "costMode": "budget",
+      "durationSeconds": 15,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p07",
+      "premise": "Un astronauta pierde su sombra en la luna y la busca por el cráter.",
+      "mode": "creative",
+      "costMode": "standard",
+      "durationSeconds": 45,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p08",
+      "premise": "Un músico callejero atrae a los pájaros con una canción prohibida.",
+      "mode": "creative",
+      "costMode": "budget",
+      "durationSeconds": 15,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p09",
+      "premise": "Una niña cambia los muebles de sitio y su casa cambia de ciudad.",
+      "mode": "creative",
+      "costMode": "standard",
+      "durationSeconds": 30,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p10",
+      "premise": "Un robot de cocina se enamora de la receta que no puede cocinar.",
+      "mode": "creative",
+      "costMode": "budget",
+      "durationSeconds": 15,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p11",
+      "premise": "Un farero descubre un barco que aparece cada noche en el mismo sitio.",
+      "mode": "faithful",
+      "costMode": "standard",
+      "durationSeconds": 45,
+      "preset": "fast",
+      "hasReference": false
+    },
+    {
+      "id": "p12",
+      "premise": "Dos hermanos heredan una tienda de relojes que van al revés.",
+      "mode": "creative",
+      "costMode": "standard",
+      "durationSeconds": 30,
+      "preset": "fast",
+      "hasReference": false
+    }
+  ]
+}
