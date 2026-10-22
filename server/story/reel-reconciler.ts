@@ -25,7 +25,13 @@ export interface ReelReconcilerConfig {
   readonly keyframeConcurrency: number
   readonly videoConcurrency: number
   readonly claimLimit: number
+  readonly keyframeMaxIdleMs?: number
+  readonly videoMaxIdleMs?: number
 }
+
+/** A provider job that shows no state change for this long is considered dead. */
+export const DEFAULT_KEYFRAME_MAX_IDLE_MS = 600_000
+export const DEFAULT_VIDEO_MAX_IDLE_MS = 1_200_000
 
 export const DEFAULT_REEL_RECONCILER_CONFIG: ReelReconcilerConfig = {
   leaseMs: 60_000,
@@ -35,6 +41,8 @@ export const DEFAULT_REEL_RECONCILER_CONFIG: ReelReconcilerConfig = {
   keyframeConcurrency: 6,
   videoConcurrency: 4,
   claimLimit: 5,
+  keyframeMaxIdleMs: DEFAULT_KEYFRAME_MAX_IDLE_MS,
+  videoMaxIdleMs: DEFAULT_VIDEO_MAX_IDLE_MS,
 }
 
 export interface ReelReconcilerOptions {
@@ -69,6 +77,8 @@ export class ReelStoryReconciler {
   private readonly owner: string
   private readonly now: () => number
   private readonly onEvent: ReelReconcilerOptions['onEvent']
+  private readonly keyframeMaxIdleMs: number
+  private readonly videoMaxIdleMs: number
   private assemblyInFlight = false
   private qcInFlight = false
 
@@ -84,6 +94,8 @@ export class ReelStoryReconciler {
     this.owner = options.owner ?? `reel-reconciler-${randomBytes(6).toString('hex')}`
     this.now = options.now ?? Date.now
     this.onEvent = options.onEvent
+    this.keyframeMaxIdleMs = options.config.keyframeMaxIdleMs ?? DEFAULT_KEYFRAME_MAX_IDLE_MS
+    this.videoMaxIdleMs = options.config.videoMaxIdleMs ?? DEFAULT_VIDEO_MAX_IDLE_MS
   }
 
   async runOnce(): Promise<void> {
@@ -280,6 +292,11 @@ export class ReelStoryReconciler {
     story: ReelStoryRecord,
     shot: ReelShotRecord,
   ): Promise<void> {
+    if (await this.idleExceeded(story.id, shot.id, this.keyframeMaxIdleMs)) {
+      await this.cancelIdleJob(story, shot, 'keyframe')
+      return
+    }
+
     try {
       const result = await this.keyframes.poll(shot)
 
@@ -320,19 +337,31 @@ export class ReelStoryReconciler {
         order: shot.order,
       })
     } catch (error) {
-      const code = toStoryError(error).code
+      const storyError = toStoryError(error)
+
+      if (storyError.retryable) {
+        this.onEvent?.({
+          event: 'reel.keyframe.retrying',
+          storyId: story.id,
+          shotId: shot.id,
+          order: shot.order,
+          errorCode: storyError.code,
+        })
+        return
+      }
+
       await this.repository.updateShot(
         story.id,
         shot.id,
         { statuses: ['KEYFRAME_QUEUED', 'KEYFRAME_RUNNING'] },
-        { status: 'KEYFRAME_FAILED', keyframeError: code },
+        { status: 'KEYFRAME_FAILED', keyframeError: storyError.code },
       )
       this.onEvent?.({
         event: 'reel.keyframe.failed',
         storyId: story.id,
         shotId: shot.id,
         order: shot.order,
-        errorCode: code,
+        errorCode: storyError.code,
       })
     }
   }
@@ -474,6 +503,11 @@ export class ReelStoryReconciler {
     story: ReelStoryRecord,
     shot: ReelShotRecord,
   ): Promise<void> {
+    if (await this.idleExceeded(story.id, shot.id, this.videoMaxIdleMs)) {
+      await this.cancelIdleJob(story, shot, 'video')
+      return
+    }
+
     try {
       const result = await this.videos.poll(shot)
 
@@ -514,19 +548,31 @@ export class ReelStoryReconciler {
         order: shot.order,
       })
     } catch (error) {
-      const code = toStoryError(error).code
+      const storyError = toStoryError(error)
+
+      if (storyError.retryable) {
+        this.onEvent?.({
+          event: 'reel.video.retrying',
+          storyId: story.id,
+          shotId: shot.id,
+          order: shot.order,
+          errorCode: storyError.code,
+        })
+        return
+      }
+
       await this.repository.updateShot(
         story.id,
         shot.id,
         { statuses: ['VIDEO_QUEUED', 'VIDEO_RUNNING'] },
-        { status: 'VIDEO_FAILED', videoError: code },
+        { status: 'VIDEO_FAILED', videoError: storyError.code },
       )
       this.onEvent?.({
         event: 'reel.video.failed',
         storyId: story.id,
         shotId: shot.id,
         order: shot.order,
-        errorCode: code,
+        errorCode: storyError.code,
       })
     }
   }
@@ -755,6 +801,49 @@ export class ReelStoryReconciler {
     } finally {
       this.assemblyInFlight = false
     }
+  }
+
+  /**
+   * Milliseconds since the shot row last changed state. Used to bound a
+   * provider job that never reports a terminal state.
+   */
+  private async idleExceeded(
+    storyId: string,
+    shotId: string,
+    maxIdleMs: number,
+  ): Promise<boolean> {
+    const idleMs = await this.repository.shotIdleMs(storyId, shotId, this.now())
+
+    return idleMs !== null && idleMs > maxIdleMs
+  }
+
+  /**
+   * The job stopped progressing: cancel it best-effort so Fal stops billing and
+   * fail the shot with a stable code instead of leaving the story generating.
+   */
+  private async cancelIdleJob(
+    story: ReelStoryRecord,
+    shot: ReelShotRecord,
+    stage: 'keyframe' | 'video',
+  ): Promise<void> {
+    try {
+      if (stage === 'keyframe') {
+        await this.keyframes.cancel(shot)
+      } else {
+        await this.videos.cancel(shot)
+      }
+    } catch {
+      // Best effort: the provider may have already dropped the job.
+    }
+
+    await this.failShotAndStory(story, shot, 'provider-timeout', stage)
+    this.onEvent?.({
+      event: stage === 'keyframe' ? 'reel.keyframe.failed' : 'reel.video.failed',
+      storyId: story.id,
+      shotId: shot.id,
+      order: shot.order,
+      errorCode: 'provider-timeout',
+    })
   }
 
   private async failShotAndStory(

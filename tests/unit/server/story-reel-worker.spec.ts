@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ReelShotRecord } from '../../../server/story/reel-repository'
+import type { StoryErrorCode } from '~/models/story'
+import { StoryError } from '../../../server/story/errors'
 import type {
   ShotAssembler,
   ShotAssemblyInput,
@@ -37,8 +39,14 @@ class FakeShotKeyframes implements ShotKeyframeOrchestrator {
   readonly submitted: string[] = []
   readonly cancelled: string[] = []
   failPoll = false
+  failPollCode: StoryErrorCode | null = null
+  failCancel = false
+  failSubmit = false
+  stuck = false
 
   async submit(shot: ReelShotRecord): Promise<ShotProviderSubmission> {
+    if (this.failSubmit) throw new StoryError('provider-busy')
+
     this.submitted.push(shot.id)
     return {
       requestId: `kf-${shot.order}`,
@@ -50,6 +58,8 @@ class FakeShotKeyframes implements ShotKeyframeOrchestrator {
 
   async poll(shot: ReelShotRecord) {
     if (this.failPoll) throw new Error('provider-error')
+    if (this.failPollCode !== null) throw new StoryError(this.failPollCode)
+    if (this.stuck) return { state: 'IN_PROGRESS' as const }
 
     return {
       state: 'COMPLETED' as const,
@@ -58,6 +68,8 @@ class FakeShotKeyframes implements ShotKeyframeOrchestrator {
   }
 
   async cancel(shot: ReelShotRecord): Promise<void> {
+    if (this.failCancel) throw new StoryError('provider-error')
+
     this.cancelled.push(shot.id)
   }
 }
@@ -65,6 +77,9 @@ class FakeShotKeyframes implements ShotKeyframeOrchestrator {
 class FakeShotVideos implements ShotVideoOrchestrator {
   readonly submitted: string[] = []
   readonly cancelled: string[] = []
+  failPollCode: StoryErrorCode | null = null
+  failCancel = false
+  stuck = false
 
   async submit(shot: ReelShotRecord): Promise<ShotVideoProviderSubmission> {
     this.submitted.push(shot.id)
@@ -77,6 +92,9 @@ class FakeShotVideos implements ShotVideoOrchestrator {
   }
 
   async poll(shot: ReelShotRecord) {
+    if (this.failPollCode !== null) throw new StoryError(this.failPollCode)
+    if (this.stuck) return { state: 'IN_PROGRESS' as const }
+
     return {
       state: 'COMPLETED' as const,
       videoUrl: `https://v3.fal.media/files/test/video-${shot.order}.mp4`,
@@ -84,6 +102,8 @@ class FakeShotVideos implements ShotVideoOrchestrator {
   }
 
   async cancel(shot: ReelShotRecord): Promise<void> {
+    if (this.failCancel) throw new StoryError('provider-error')
+
     this.cancelled.push(shot.id)
   }
 }
@@ -297,6 +317,151 @@ describe('shot reconciler', () => {
     expect(story?.status).toBe('FAILED')
     expect(story?.errorCode).toBe('keyframe-failed')
     expect(story?.shots.some((shot) => shot.status === 'KEYFRAME_FAILED')).toBe(true)
+  })
+
+  it('keeps the shot and the story alive when a keyframe poll fails transiently', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+
+    ctx.keyframes.failPollCode = 'provider-busy'
+    await ctx.reconciler.runOnce()
+
+    let story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('GENERATING_KEYFRAMES')
+    expect(story?.shots.every((shot) => shot.status === 'KEYFRAME_QUEUED')).toBe(true)
+    expect(story?.shots.some((shot) => shot.status === 'KEYFRAME_FAILED')).toBe(false)
+
+    ctx.keyframes.failPollCode = null
+    await ctx.reconciler.runOnce()
+
+    story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('WAITING_APPROVAL')
+    expect(story?.shots.every((shot) => shot.status === 'KEYFRAME_READY')).toBe(true)
+  })
+
+  it('fails the shot when a keyframe poll returns a terminal code', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+
+    ctx.keyframes.failPollCode = 'content-blocked'
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('FAILED')
+    expect(story?.errorCode).toBe('keyframe-failed')
+    expect(story?.shots.every((shot) => shot.keyframeError === 'content-blocked')).toBe(true)
+    expect(ctx.keyframes.cancelled).toHaveLength(0)
+  })
+
+  it('cancels and fails a keyframe job that stops changing state', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+
+    ctx.repository.shotIdleMsValue = 11 * 60_000
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('FAILED')
+    expect(story?.errorCode).toBe('provider-timeout')
+    expect(ctx.keyframes.cancelled).toHaveLength(1)
+    expect(story?.shots.filter((shot) => shot.status === 'KEYFRAME_FAILED')).toHaveLength(1)
+    expect(story?.shots.find((shot) => shot.status === 'KEYFRAME_FAILED')?.keyframeError)
+      .toBe('provider-timeout')
+  })
+
+  it('cancels a keyframe job stuck in progress without any error', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+
+    ctx.keyframes.stuck = true
+    await ctx.reconciler.runOnce()
+    expect((await ctx.repository.findById(ctx.story.id))?.status).toBe('GENERATING_KEYFRAMES')
+
+    ctx.repository.shotIdleMsValue = 11 * 60_000
+    await ctx.reconciler.runOnce()
+
+    expect(ctx.keyframes.cancelled).toHaveLength(1)
+    expect((await ctx.repository.findById(ctx.story.id))?.errorCode).toBe('provider-timeout')
+  })
+
+  it('fails the shot even when cancelling the idle job fails', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+
+    ctx.repository.shotIdleMsValue = 11 * 60_000
+    ctx.keyframes.failCancel = true
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('FAILED')
+    expect(story?.errorCode).toBe('provider-timeout')
+    expect(ctx.keyframes.cancelled).toHaveLength(0)
+  })
+
+  it('does not retry a submit that may already have reached the provider', async () => {
+    const ctx = await setup()
+    ctx.keyframes.failSubmit = true
+
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('FAILED')
+    expect(story?.errorCode).toBe('keyframe-failed')
+    expect(story?.shots.every((shot) => shot.status === 'KEYFRAME_FAILED')).toBe(true)
+    expect(ctx.keyframes.submitted).toHaveLength(0)
+  })
+
+  it('keeps the shot alive when a video poll fails transiently and recovers', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+    await ctx.service.approve(ctx.story.id, 'reel-worker-session')
+    await ctx.reconciler.runOnce()
+
+    ctx.videos.failPollCode = 'provider-timeout'
+    await ctx.reconciler.runOnce()
+
+    let story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('GENERATING_VIDEOS')
+    expect(story?.shots.some((shot) => shot.status === 'VIDEO_FAILED')).toBe(false)
+
+    ctx.videos.failPollCode = null
+    await ctx.reconciler.runOnce()
+
+    story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('VIDEOS_READY')
+  })
+
+  it('fails the shot when a video poll returns a terminal code', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+    await ctx.service.approve(ctx.story.id, 'reel-worker-session')
+    await ctx.reconciler.runOnce()
+
+    ctx.videos.failPollCode = 'provider-rejected'
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('FAILED')
+    expect(story?.errorCode).toBe('video-failed')
+    expect(story?.shots.every((shot) => shot.videoError === 'provider-rejected')).toBe(true)
+  })
+
+  it('cancels and fails an idle video job', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+    await ctx.service.approve(ctx.story.id, 'reel-worker-session')
+    await ctx.reconciler.runOnce()
+
+    ctx.repository.shotIdleMsValue = 21 * 60_000
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(ctx.videos.cancelled).toHaveLength(1)
+    expect(story?.status).toBe('FAILED')
+    expect(story?.errorCode).toBe('provider-timeout')
   })
 
   it.each([

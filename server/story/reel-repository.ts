@@ -229,6 +229,7 @@ export interface ReelStoryRepository {
     shotIds: readonly string[],
   ): Promise<boolean>
   countActiveProviderJobs(stage: 'keyframe' | 'video'): Promise<number>
+  shotIdleMs(storyId: string, shotId: string, now: number): Promise<number | null>
   cancel(id: string, sessionId: string, now: Date): Promise<boolean>
 }
 
@@ -835,6 +836,15 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
             videoRequestId: { not: null },
           },
     })
+  }
+
+  async shotIdleMs(storyId: string, shotId: string, now: number): Promise<number | null> {
+    const row = await this.client.shot.findFirst({
+      where: { id: shotId, storyId },
+      select: { updatedAt: true },
+    })
+
+    return row === null ? null : Math.max(0, now - row.updatedAt.getTime())
   }
 
   async cancel(id: string, sessionId: string, now: Date): Promise<boolean> {

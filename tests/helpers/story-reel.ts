@@ -215,6 +215,8 @@ function sceneStatuses(shots: readonly { readonly status: SceneStatus }[]): Scen
 export class FakeReelStoryRepository implements ReelStoryRepository {
   readonly records: ReelStoryRecord[] = []
   failQcRetry = false
+  /** Milliseconds reported by shotIdleMs; tests raise it to simulate a dead job. */
+  shotIdleMsValue = 0
   private counter = 0
 
   async createStory(input: CreateReelStoryInput): Promise<ReelStoryRecord> {
@@ -562,6 +564,14 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
           : shot.videoRequestId !== null)).length,
       0,
     )
+  }
+
+  async shotIdleMs(storyId: string, shotId: string, now: number): Promise<number | null> {
+    void now
+    const exists = this.records.some((record) =>
+      record.id === storyId && record.shots.some((shot) => shot.id === shotId))
+
+    return exists ? this.shotIdleMsValue : null
   }
 
   async cancel(id: string, sessionId: string, now: Date): Promise<boolean> {
