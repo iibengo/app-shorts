@@ -1,6 +1,7 @@
 ---
 description: Implements code using Nuxt 4, Vue 3, and Tailwind CSS adhering strictly to Clean Code and modular architecture
 mode: subagent
+model: deepseek/deepseek-flash
 permissions:
   - action: subagent
     resource: "*"

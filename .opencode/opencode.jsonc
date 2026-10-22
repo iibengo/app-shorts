@@ -9,7 +9,7 @@
     "ionias": {
       "description": "Central orchestrator managing the SDD workflow, checkpoints and cross-agent context",
       "mode": "primary",
-      "model": "anthropic/claude-opus-5-5"
+      "model": "anthropic/claude-sonnet-5-5"
     },
     "architect": {
       "description": "Generates formal specs under specs/ using the project constitution and prior patterns",

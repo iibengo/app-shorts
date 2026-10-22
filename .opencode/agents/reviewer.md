@@ -1,6 +1,7 @@
 ---
 description: Read-only reviewer for spec compliance, security, regressions and missing tests
 mode: subagent
+model: deepseek/deepseek-flash
 permissions:
   - action: edit
     resource: "*"

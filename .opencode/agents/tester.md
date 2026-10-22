@@ -1,6 +1,7 @@
 ---
 description: Validates implementation, runs unit/route/component tests and fixes regressions
 mode: subagent
+model: deepseek/deepseek-flash
 permissions:
   - action: edit
     resource: "specs/**"

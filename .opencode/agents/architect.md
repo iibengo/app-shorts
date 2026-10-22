@@ -1,6 +1,7 @@
 ---
 description: Generates technical specifications and SDD workflows
 mode: subagent
+model: deepseek/deepseek-flash
 permissions:
   - action: edit
     resource: "*"
