@@ -5,6 +5,10 @@ agent: reviewer
 
 Review $ARGUMENTS against the approved spec, `.specify/memory/constitution.md` and `AGENTS.md`.
 
+Current working tree (generated when the command runs; untracked files appear only in the status list, read them directly):
+
+!`git status --short && git diff HEAD --stat && git diff HEAD -- . ':(exclude)package-lock.json'`
+
 Load `sdd-spec-guardrails` and any relevant project skill (`fal-deepseek-pipeline`, `prisma-leases`, `ffmpeg-media`, `story-test-harness`).
 
 Report findings by severity with file/line references:
