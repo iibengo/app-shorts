@@ -83,7 +83,7 @@ describe('NativeStoryDirector request contract', () => {
     expect(body.response_format).toEqual({ type: 'json_object' })
     expect(body.temperature).toBe(DIRECTOR_TEMPERATURE)
     expect(body.max_tokens).toBe(DIRECTOR_MAX_TOKENS)
-    expect(body.max_tokens).toBeLessThanOrEqual(4_000)
+    expect(body.max_tokens).toBeLessThanOrEqual(8_000)
     expect(body.stream).toBe(false)
     expect(body.messages).toHaveLength(2)
     expect(body.messages[0]?.role).toBe('system')

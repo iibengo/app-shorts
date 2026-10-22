@@ -141,6 +141,7 @@ interface StoryLogEvent {
   readonly storyId?: string
   readonly sceneOrder?: number
   readonly errorCode?: string
+  readonly reason?: string
 }
 
 function logStoryEvent(event: StoryLogEvent): void {
@@ -293,6 +294,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
           apiKey: deepseekKey,
           baseUrl: stringValue(story.deepseekBaseUrl, DEFAULT_DEEPSEEK_BASE_URL),
           timeoutMs: numberValue(story.directorTimeoutMs, 45_000),
+          onEvent: logStoryEvent,
         }),
       )
     : null

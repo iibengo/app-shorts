@@ -172,6 +172,47 @@ describe('POST /api/story/[id]/qc/retry', () => {
     }
   })
 
+  it('revalidates existing technical failures without regenerating videos', async () => {
+    const scenes = makeScenes(5, {
+      status: 'VIDEO_FAILED',
+      keyframeAttempts: 1,
+      videoAttempts: 1,
+      videoError: 'provider-invalid-output',
+      videoUrl: 'https://v3.fal.media/files/test/clip.mp4',
+    })
+    const story = waitingStory({ scenes })
+    const { retry, repository } = setup(story)
+    const response = await retry()
+
+    expect(response.status).toBe(202)
+    expect((response.body as { status: string }).status).toBe('VIDEOS_READY')
+
+    const updated = repository.find(story.id)!
+
+    expect(updated.status).toBe('VIDEOS_READY')
+    expect(updated.qc).toBeNull()
+    expect(updated.scenes.every((scene) => scene.status === 'VIDEO_READY')).toBe(true)
+    expect(updated.scenes.every((scene) => scene.videoUrl !== null)).toBe(true)
+    expect(updated.scenes.every((scene) => scene.videoAttempts === 1)).toBe(true)
+  })
+
+  it('rejects revalidation when a failed scene has no videoUrl', async () => {
+    const scenes = makeScenes(5, {
+      status: 'VIDEO_FAILED',
+      keyframeAttempts: 1,
+      videoAttempts: 1,
+      videoError: 'provider-invalid-output',
+      videoUrl: 'https://v3.fal.media/files/test/clip.mp4',
+    })
+    scenes[2] = { ...scenes[2]!, videoUrl: null }
+    const story = waitingStory({ scenes })
+    const { retry } = setup(story)
+    const response = await retry()
+
+    expect(response.status).toBe(409)
+    expect(errorCode(response)).toBe('story-not-ready')
+  })
+
   it('rejects a non waiting state and limits retries', async () => {
     const { retry } = setup(waitingStory({ status: 'WAITING_APPROVAL' }))
 

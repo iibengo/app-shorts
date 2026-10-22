@@ -6,6 +6,10 @@ import {
   composeKeyframe,
   composeNegative,
   composeVideo,
+  composeVideoGlobalBlock,
+  STORY_PROMPT_MAX_LENGTH,
+  STORY_VIDEO_PROMPT_MAX_LENGTH,
+  VIDEO_STAGE_BLOCK,
   storyBeatForScene,
   storyKeyframeFluxPrompt,
   storyKeyframeKontextPrompt,
@@ -23,9 +27,10 @@ function beats() {
 }
 
 describe('story-prompt-composer: global block', () => {
-  it('is byte-identical for every scene and stage', () => {
+  it('uses the full global block for keyframes and a stable compact block for video', () => {
     const global = composeGlobalBlock(BIBLE)
     const scenes = beats()
+    const videoGlobal = composeVideoGlobalBlock(BIBLE, scenes[0]!)
 
     for (const beat of scenes) {
       const keyframe = composeKeyframe({ bible: BIBLE, beat, hasReference: false })
@@ -35,9 +40,11 @@ describe('story-prompt-composer: global block', () => {
 
       expect(keyframe.prompt.startsWith(global)).toBe(true)
       expect(kontext.prompt.startsWith(global)).toBe(true)
-      expect(fast.prompt.startsWith(global)).toBe(true)
-      expect(quality.prompt.startsWith(global)).toBe(true)
+      expect(fast.prompt.startsWith(composeVideoGlobalBlock(BIBLE, beat))).toBe(true)
+      expect(quality.prompt.startsWith(composeVideoGlobalBlock(BIBLE, beat))).toBe(true)
     }
+
+    expect(videoGlobal).toContain('CONTINUIDAD DE VÍDEO')
   })
 
   it('keeps the global block under the 2600 character budget', () => {
@@ -78,6 +85,111 @@ describe('story-prompt-composer: global block', () => {
     const second = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
 
     expect(first).toEqual(second)
+  })
+})
+
+describe('story-prompt-composer: compact video budget', () => {
+  function longBible(): StoryBible {
+    return {
+      ...BIBLE,
+      style: 'x'.repeat(160),
+      location: {
+        name: 'Parque de Springfield',
+        description: 'Sendero de tierra, césped verde, árboles frondosos y una rampa roja. '.repeat(2).slice(0, 160),
+      },
+      characters: [
+        {
+          id: 'bart',
+          name: 'Bart',
+          description: 'Niño de piel amarilla y pelo puntiagudo. '.repeat(3).slice(0, 100),
+          wardrobe: 'Camiseta naranja, shorts azules y zapatillas azules. '.repeat(2).slice(0, 80),
+        },
+        {
+          id: 'milhouse',
+          name: 'Milhouse',
+          description: 'Amigo de Bart con gafas grandes y ropa de colores. '.repeat(3).slice(0, 100),
+          wardrobe: 'Camisa azul, pantalón corto beige y zapatillas rojas. '.repeat(2).slice(0, 80),
+        },
+        {
+          id: 'lisa',
+          name: 'Lisa',
+          description: 'Hermana de Bart con vestido rojo y collar blanco. '.repeat(3).slice(0, 100),
+          wardrobe: 'Vestido rojo, collar blanco y zapatos negros. '.repeat(2).slice(0, 80),
+        },
+      ],
+      props: [
+        {
+          id: 'skateboard',
+          name: 'Patinete azul',
+          description: 'Patinete azul con manillar negro y ruedas rojas. '.repeat(2).slice(0, 90),
+        },
+        {
+          id: 'helmet',
+          name: 'Casco',
+          description: 'Casco de protección azul con correas negras. '.repeat(2).slice(0, 90),
+        },
+        {
+          id: 'backpack',
+          name: 'Mochila',
+          description: 'Mochila escolar roja con cremallera amarilla. '.repeat(2).slice(0, 90),
+        },
+      ],
+      forbidden: Array.from({ length: 8 }, (_value, index) =>
+        `elemento prohibido ${index}`),
+      continuityRules: Array.from({ length: 3 }, (_value, index) =>
+        `Regla ${index}: mantén el vestuario, el patinete, el fondo y el clima.`),
+    }
+  }
+
+  function longBeat(): StoryPlan['beats'][number] {
+    return {
+      order: 2,
+      sceneRole: 'development',
+      visualPrompt: 'Bart acelera por el sendero del parque con su patinete azul mientras Milhouse lo sigue corriendo. '.repeat(5).slice(0, 600),
+      narration: 'Bart acelera por el parque con su patinete azul mientras Milhouse lo sigue.',
+      characters: ['bart', 'milhouse'],
+      props: ['skateboard', 'helmet', 'backpack'],
+      camera: 'tracking',
+      continuityFromPrevious: 'El patinete azul, el casco y la mochila siguen en el mismo sendero de tierra. '.repeat(2).slice(0, 200),
+      transition: 'cut',
+    }
+  }
+
+  it('keeps the composed video prompt within 2000 characters with a long bible', () => {
+    const bible = longBible()
+    const beat = longBeat()
+
+    for (const preset of ['fast', 'quality'] as const) {
+      const composed = composeVideo({ bible, beat, preset })
+
+      expect(composed.prompt.length).toBeLessThanOrEqual(STORY_VIDEO_PROMPT_MAX_LENGTH)
+      expect(composed.prompt).toContain(beat.visualPrompt)
+      expect(composed.prompt).toContain(VIDEO_STAGE_BLOCK)
+      expect(composed.prompt).not.toContain(beat.narration)
+    }
+  })
+
+  it('keeps the keyframe on the full global block with the 4000 budget', () => {
+    const bible = longBible()
+    const beat = longBeat()
+    const keyframe = composeKeyframe({ bible, beat, hasReference: false })
+
+    expect(keyframe.prompt.startsWith(composeGlobalBlock(bible))).toBe(true)
+    expect(keyframe.prompt.length).toBeLessThanOrEqual(STORY_PROMPT_MAX_LENGTH)
+  })
+
+  it('falls back to the short Avoid list without breaking words', () => {
+    const bible = longBible()
+    const beat = longBeat()
+    const fast = composeVideo({ bible, beat, preset: 'fast' })
+    const quality = composeVideo({ bible, beat, preset: 'quality' })
+
+    expect(fast.prompt).toContain('Avoid:')
+    expect(fast.prompt).not.toContain('Avoid: ' + fast.negativePrompt)
+    expect(quality.prompt).not.toContain('Avoid:')
+    expect(quality.negativePrompt.length).toBeGreaterThan(0)
+    expect(fast.prompt).toContain(beat.visualPrompt)
+    expect(fast.prompt).toContain(VIDEO_STAGE_BLOCK)
   })
 })
 

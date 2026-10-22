@@ -155,7 +155,7 @@ export const STORY_QC_ISSUE_COPY: Readonly<Record<StoryQCIssueCode, string>> = {
   'frames-unavailable': 'No se pudieron extraer los fotogramas de esta escena.',
   'technical-duration': 'El clip no dura 6 segundos.',
   'technical-streams': 'El clip tiene audio o pistas no permitidas.',
-  'technical-aspect': 'El clip no es vertical 9:16.',
+  'technical-aspect': 'El clip no tiene un formato vertical compatible con 9:16.',
   'technical-resolution': 'La resolución del clip es demasiado baja.',
 }
 

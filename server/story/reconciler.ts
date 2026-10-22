@@ -695,13 +695,17 @@ export class StoryReconciler {
       return
     }
 
-    const fresh = await this.repository.findById(story.id)
+    let fresh = await this.repository.findById(story.id)
 
     if (!fresh || fresh.leaseOwner !== this.owner) {
       return
     }
 
-    if (!fresh.scenes.every((scene) => scene.status === 'VIDEO_READY')) {
+    const hasRevalidatableClip = (scene: SceneRecord): boolean =>
+      scene.videoUrl !== null
+      && (scene.status === 'VIDEO_READY' || scene.status === 'VIDEO_FAILED')
+
+    if (!fresh.scenes.every(hasRevalidatableClip)) {
       await this.failStory(fresh, 'video-failed', ['VIDEOS_READY', 'QC'])
 
       return
@@ -714,6 +718,27 @@ export class StoryReconciler {
     }
 
     const qcService = this.qcService
+
+    if (fresh.scenes.some((scene) => scene.status === 'VIDEO_FAILED')) {
+      for (const scene of fresh.scenes) {
+        if (scene.status !== 'VIDEO_FAILED') continue
+
+        await this.repository.updateScene(
+          fresh.id,
+          scene.id,
+          { statuses: ['VIDEO_FAILED'] },
+          { status: 'VIDEO_READY', videoError: null },
+        )
+      }
+
+      const reloaded = await this.repository.findById(fresh.id)
+
+      if (!reloaded || reloaded.leaseOwner !== this.owner) {
+        return
+      }
+
+      fresh = reloaded
+    }
 
     if (fresh.status === 'VIDEOS_READY') {
       const started = await this.repository.updateStory(

@@ -80,7 +80,22 @@ No hay ninguna otra modificación en archivos compartidos. 006 vive en `server/s
 | **005 Out of Scope**: «semilla» | Sin control de semilla. | Se mantiene y se explicita: 006 **no** usa `seed` (FR-230). |
 | **005 Assumptions**: DeepSeek Vision + `json_object` | Gate abierto de 005. | Se convierte en el gate **G1** de 006 con un fallback honesto: QC manual (FR-248). |
 
+### Enmienda 2026-10-22 — tolerancia de aspect y revalidación de QC
+
+Esta enmienda prevalece sobre las cláusulas anteriores que entren en conflicto. No cambia el contrato de la Story Bible.
+
+| Cláusula | Texto anterior (resumen) | Enmienda |
+|---|---|---|
+| **FR-241** | Relación de aspecto 9:16 con tolerancia ±3 %. | Tolerancia **±6 %** sobre 9:16. `768×1422` (ratio 0,5399) es válido porque el ensamblador normaliza con `scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280`. Siguen siendo `technical-aspect` blocking los clips claramente no verticales, como `1920×1080` o `1080×1080`. |
+| **FR-245 / Copy Deck** | `technical-aspect`: «El clip no es vertical 9:16.» | Copy: «El clip no tiene un formato vertical compatible con 9:16.» |
+| **FR-253 / FR-274** | `qc/retry` solo desde `WAITING_QC` con todas las escenas `VIDEO_READY`. | También se acepta `WAITING_QC` cuando las escenas `VIDEO_FAILED` conservan `videoUrl` y `videoError = 'provider-invalid-output'`. La transición devuelve esas escenas a `VIDEO_READY`, conserva `videoUrl`, no incrementa `videoAttempts`, no llama a Fal y limpia `qcJson`, `qcCheckedAt`, `errorCode` y `errorMessage`. Si falta `videoUrl`, sigue siendo 409 `story-not-ready`. |
+| **FR-252 / reconciliador QC** | `processQc` exige todas las escenas `VIDEO_READY`. | Acepta `VIDEO_READY` o `VIDEO_FAILED` con `videoUrl` no nulo para revalidar clips existentes. Normaliza las escenas `VIDEO_FAILED` a `VIDEO_READY` antes de ejecutar el QC, sin incrementar intentos ni llamar a Fal. Una escena sin `videoUrl` sigue fallando la historia con `video-failed`. |
+
+**Motivo:** MiniMax devuelve clips verticales de 768×1422 que el montaje puede normalizar. Rechazarlos bloqueaba la historia en `WAITING_QC` y obligaba a regenerar vídeos válidos.
+
 ### Fuera de alcance de 006
+
+
 
 - Cambiar el número de escenas (4–6, por defecto 5), los 6 s por escena, el 9:16 o la ausencia de audio, texto y transiciones.
 - Progresión temporal o climática dentro de una historia (día → noche). La hora y el clima son **constantes** por historia; una historia que necesite progresión requiere otra spec.
@@ -114,11 +129,11 @@ Una persona escribe una premisa y pulsa `Crear historia`. DeepSeek devuelve un p
 
 ### User Story 2 - Keyframes y vídeos reciben el mismo bloque global de continuidad (Priority: P1)
 
-Cuando el reconciliador envía un keyframe o un vídeo, el prompt empieza por un bloque global idéntico para todas las escenas y las dos etapas, derivado de la Story Bible. Después va el bloque de escena, después el bloque de etapa y, al final, el negativo. Kling recibe el negativo en `negative_prompt`; MiniMax y FLUX lo reciben como `Avoid: …` dentro del prompt positivo. La narración nunca entra en el prompt.
+Cuando el reconciliador envía un keyframe o un vídeo, el prompt empieza por un bloque de continuidad derivado de la Story Bible. El keyframe usa el bloque global completo, idéntico para todas las escenas. El vídeo usa un bloque compacto determinista, con la misma biblia resumida, porque MiniMax rechaza prompts de más de 2 000 caracteres. Después va el bloque de escena, después el bloque de etapa y, al final, el negativo. Kling recibe el negativo en `negative_prompt`; MiniMax y FLUX lo reciben como `Avoid: …` dentro del prompt positivo. La narración nunca entra en el prompt.
 
 **Why priority**: los modelos no deducen la continuidad; hay que repetirla de forma idéntica en cada llamada.
 
-**Independent Test**: Con una biblia fija, componer los prompts de 5 escenas para FLUX dev, Kontext, MiniMax y Kling; comprobar que el bloque global es byte-idéntico en los 20 prompts, que el negativo aparece una sola vez y en la forma correcta por modelo, y que `narration` no aparece en ninguno.
+**Independent Test**: Con una biblia fija, componer los prompts de 5 escenas para FLUX dev, Kontext, MiniMax y Kling; comprobar que el bloque global de keyframe es byte-idéntico en los 10 prompts de keyframe, que el prompt de vídeo es determinista y mide ≤ 2 000 caracteres, que el negativo aparece una sola vez y en la forma correcta por modelo, y que `narration` no aparece en ninguno.
 
 **Acceptance Scenarios**:
 
@@ -298,7 +313,7 @@ La migración añade dos estados y dos columnas sin romper las filas existentes 
 - **FR-214**: `characters` MUST ser una lista no vacía de 1–3 ids presentes en la biblia, sin duplicados, y MUST contener siempre `leadCharacterId`. `props` MUST ser una lista de 0–3 ids presentes en la biblia, sin duplicados, y MUST contener `signaturePropId` cuando no es `null`. Cada personaje de la biblia MUST aparecer en al menos un beat.
 - **FR-215**: `continuityFromPrevious` MUST ser `null` en el beat 1 y una cadena de 20–200 caracteres en el resto. `transition` MUST ser `'cut'`. `camera` MUST pertenecer a `'wide' | 'medium' | 'close-up' | 'low-angle' | 'high-angle' | 'tracking' | 'over-the-shoulder' | 'detail'`.
 - **FR-216**: `visualPrompt` MUST mantener 20–600 caracteres y `narration` 10–280, sin HTML, sin Markdown, sin controles y sin URLs. Todos los textos nuevos MUST normalizarse con NFC y `trim`.
-- **FR-217**: El bloque global compuesto por `StoryPromptComposer` para una biblia válida MUST medir **≤ 2 600 caracteres**, y el prompt final de keyframe o vídeo MUST medir **≤ 4 000 caracteres**. Un plan que supere cualquiera de los dos límites MUST considerarse inválido y consumir el único reintento de reparación; el compositor MUST NOT truncar contenido normativo para forzar el límite.
+- **FR-217**: El bloque global compuesto por `StoryPromptComposer` para una biblia válida MUST medir **≤ 2 600 caracteres**. El prompt final de keyframe MUST medir **≤ 4 000 caracteres** y el de vídeo **≤ 2 000 caracteres**, porque MiniMax rechaza `prompt` con `422 string_too_long` por encima de 2 000. Un plan que supere cualquiera de estos límites MUST considerarse inválido y consumir el único reintento de reparación; el compositor MUST NOT truncar contenido normativo para forzar el límite, salvo el bloque compacto de vídeo definido en FR-223. **Enmienda 2026-10-22:** límite real de MiniMax confirmado en producción.
 - **FR-218**: El sistema MUST NOT persistir la biblia fuera de `Story.planJson` y MUST NOT añadir columnas a `Scene`. El prompt compuesto y el negativo MUST NOT persistirse.
 - **FR-219**: `timeOfDay` y `weather` MUST ser **constantes por historia**. Los beats MUST NOT declarar hora ni clima propios. La progresión temporal dentro de una historia queda fuera de alcance (FR-204 y Out of Scope).
 
@@ -312,7 +327,7 @@ La migración añade dos estados y dos columnas sin romper las filas existentes 
   - `composeGlobalBlock(bible): string`
   - `composeNegative(bible, beat): string`
   Determinismo: la misma entrada MUST producir siempre la misma salida.
-- **FR-223**: Todo prompt MUST seguir este orden exacto: (1) bloque global de continuidad, (2) bloque de escena, (3) bloque de etapa, (4) `Avoid:` cuando el modelo no acepta negativo. El bloque global MUST ser **byte-idéntico** para todas las escenas y para keyframe y vídeo de la misma historia.
+- **FR-223**: Todo prompt MUST seguir este orden exacto: (1) bloque de continuidad, (2) bloque de escena, (3) bloque de etapa, (4) `Avoid:` cuando el modelo no acepta negativo. El **keyframe** usa `composeGlobalBlock` completo, byte-idéntico para todas las escenas. El **vídeo** usa `composeVideoGlobalBlock`, un bloque compacto derivado determinísticamente de la misma biblia (protagonista, vestuario, prop característico, localización, hora/clima, personajes y props presentes), para respetar el límite de 2 000 caracteres de MiniMax. Ambos bloques conservan el orden y la acción exacta de la escena. **Enmienda 2026-10-22:** MiniMax rechaza prompts de más de 2 000 caracteres; el bloque global completo no cabe en vídeo.
 - **FR-224**: El bloque de escena MUST usar los `name` y `wardrobe` exactos de la biblia para los ids del beat, `visualPrompt` verbatim y `continuityFromPrevious` en las escenas 2..N. MUST NOT contradecir la biblia ni introducir personajes, props, hora o clima nuevos.
 - **FR-225**: El bloque de etapa del keyframe MUST pedir un fotograma estático 9:16 con la hora y el clima de la biblia. El bloque de etapa del vídeo MUST incluir, en inglés, la instrucción de preservar identidad, vestuario, prop y fondo, no añadir personajes, no cambiar el vehículo, animar solo el keyframe y mantener la hora y el clima. El texto normativo exacto está en «Plantillas normativas de prompt»; este requisito y esa plantilla MUST permanecer alineados.
 - **FR-226**: `narration` MUST NOT aparecer en ningún prompt de keyframe, de vídeo ni de QC.
@@ -321,7 +336,7 @@ La migración añade dos estados y dos columnas sin romper las filas existentes 
 - **FR-229**: El prompt de vídeo MUST NOT cambiar el contrato de 004: el `VideoInput` de 004 sigue funcionando sin `negativePrompt` y el body resultante es idéntico al actual.
 - **FR-230**: 006 MUST NOT enviar `seed` ni ningún parámetro nuevo a FLUX, Kontext, MiniMax o Kling. La consistencia se persigue con biblia, referencia opcional, negativo y QC, no con semilla.
 - **FR-231**: Si `story.plan?.storyBible` es `null` (fila legacy), el compositor MUST devolver exactamente las plantillas de 005 y el QC MUST ejecutarse sin visión (FR-248).
-- **FR-232**: `max_tokens` del director MUST derivarse del número de escenas para acomodar la biblia: **4→2 600, 5→3 000, 6→3 400**, con tope **4 000**. `DIRECTOR_MAX_TOKENS` MUST seguir exportándose con el valor de 5 escenas (**3 000**). La reparación única MUST usar `min(4 000, base + 800)`. Como consecuencia, la aserción `max_tokens ≤ 2 000` de `tests/unit/server/story-director.spec.ts` MUST actualizarse a `≤ 4 000`; el resto de ese archivo se mantiene.
+- **FR-232**: `max_tokens` del director MUST derivarse del número de escenas para acomodar la biblia: **4→5 000, 5→6 000, 6→7 000**, con tope **8 000**. `DIRECTOR_MAX_TOKENS` MUST seguir exportándose con el valor de 5 escenas (**6 000**). La reparación única MUST usar `min(8 000, base + 800)` (**5 800 / 6 800 / 7 800**). La aserción `max_tokens ≤ 2 000` de `tests/unit/server/story-director.spec.ts` MUST actualizarse a `≤ 8 000`; el resto de ese archivo se mantiene. **Enmienda 2026-10-22:** los valores originales 2 600/3 000/3 400 y el tope 4 000 se truncaron con una historia real de 5 escenas y referencia; se elevan para que el JSON completo quepa.
 
 #### Validación server-side del plan
 
@@ -1457,7 +1472,7 @@ npm run build
 | Test | Cobertura mínima |
 |------|------------------|
 | `tests/unit/server/story-bible-validator.spec.ts` | Biblia completa válida; ids duplicados; `leadCharacterId` inexistente; `signaturePropId` inexistente; 0 y 4 personajes; 0 y 4 props; `forbidden` vacío y con 11; `forbidden` que contradice un personaje, prop, hora o clima; bloque global > 2 600 y prompt final > 4 000; longitudes; URLs; HTML/Markdown; determinismo; motivo sin contenido. |
-| `tests/unit/server/story-prompt-composer.spec.ts` | Bloque global byte-idéntico en 5 escenas × 2 etapas; orden de bloques; `narration` ausente; negativo Kling vs MiniMax/FLUX; deduplicación del negativo; límite de 4 000; bloque global ≤ 2 600; plantillas legacy exactas con `bible: null`; determinismo. |
+| `tests/unit/server/story-prompt-composer.spec.ts` | Bloque global de keyframe byte-idéntico en 5 escenas; bloque compacto de vídeo determinista ≤ 2 000; orden de bloques; `narration` ausente; negativo Kling vs MiniMax/FLUX; deduplicación del negativo; keyframe ≤ 4 000; bloque global ≤ 2 600; acción de escena conservada; plantillas legacy exactas con `bible: null`; determinismo. |
 | `tests/unit/server/story-qc-checker.spec.ts` | Cada código de problema; severidades; agregación `FAILED`/`NEEDS_REVIEW`/`UNAVAILABLE`/`PASSED`; confianza mínima; `evaluator: 'none'` nunca PASSED; warnings no bloquean. |
 | `tests/unit/server/story-qc-validator.spec.ts` | Payload válido; claves extra; tipos erróneos; `confidence` fuera de rango; ids desconocidos descartados; payload inválido dos veces → `UNAVAILABLE`. |
 | `tests/unit/server/story-qc-frames.spec.ts` | Argumentos exactos de ffprobe y ffmpeg; tres timestamps calculados desde la duración; `hstack`; `shell: false`; nombres generados; limpieza del temporal; fallo de extracción → `frames-unavailable`; binario ausente → `ffmpeg-not-configured`. |
@@ -1472,7 +1487,7 @@ npm run build
 | `tests/unit/server/story-plan-validator.spec.ts` | Claves exactas nuevas y delegación en `bible-validator`. |
 | `tests/unit/server/story-director-prompt.spec.ts` | Esquema con `storyBible` y beats de continuidad. |
 | `tests/unit/server/story-director.spec.ts` | Fixtures con biblia; `max_tokens` por escena con biblia. |
-| `tests/unit/server/story-director-tokens.spec.ts` | Nuevos valores 2 600/3 000/3 400 y tope 4 000. |
+| `tests/unit/server/story-director-tokens.spec.ts` | Nuevos valores 5 000/6 000/7 000, tope 8 000 y reparación 5 800/6 800/7 800. |
 | `tests/unit/server/story-director-context.spec.ts` y `story-director-brief-prompt.spec.ts` | El esquema cambia; la byte-identidad del brief se mantiene. |
 | `tests/unit/server/story-service.spec.ts` | `retryQc`, `approveQc`, `recoverScene`, `qc` en el DTO. |
 | `tests/unit/server/story-keyframe-orchestrator.spec.ts` | Compositor en lugar de plantilla local. |
@@ -1541,7 +1556,7 @@ Ninguno de estos gates bloquea el contrato de esta spec, pero cada uno bloquea s
 
 | Gate | Pregunta | Bloquea | Fallback si falla | Propietario |
 |------|----------|---------|-------------------|-------------|
-| **G1** | ¿`deepseek-flash` acepta `image_url` + `response_format: json_object` en la misma petición, con un strip de 1 080 × 640, y devuelve un JSON conforme? ¿Cuál es su `max_tokens` de salida real (≥ 4 096)? | Fase 2 (evaluador) y Fase 1 (`max_tokens` 3 400) | `evaluator: 'none'` permanente y QC manual (FR-248). Si el límite de salida es menor, se reduce el esquema por escena (FR-243 ya es por escena) o se parte la biblia; nunca se inventa un PASS. | Arquitecto + humano con créditos |
+| **G1** | ¿`deepseek-flash` acepta `image_url` + `response_format: json_object` en la misma petición, con un strip de 1 080 × 640, y devuelve un JSON conforme? ¿Cuál es su `max_tokens` de salida real (≥ 8 192)? | Fase 2 (evaluador) y Fase 1 (`max_tokens` 7 800) | `evaluator: 'none'` permanente y QC manual (FR-248). Si el límite de salida es menor, se reduce el esquema por escena (FR-243 ya es por escena) o se parte la biblia; nunca se inventa un PASS. | Arquitecto + humano con créditos |
 | **G2** | ¿Es fiable el QC? Medir sobre ≥ 20 clips reales de ≥ 3 historias: precisión de problemas blocking, tasa de falsos positivos, calibración de `confidence`, y **cero falsos PASS** en el caso reproducido de «Fuga en el parque». | Fase 4 (activar auto-montaje por defecto) | Subir el umbral, degradar códigos dudosos a `warning` o dejar `QC_ENABLED=false` con revisión manual. El criterio de salida es ≤ 1 falso blocking por historia de media. | Humano con créditos |
 | **G3** | ¿Acepta Kling 2.5 Turbo Pro un `negative_prompt` con la lista derivada? ¿MiniMax ignora de forma estable la frase `Avoid: …` sin degradar el resultado? | Fase 1 | Si Kling lo rechaza, se omite el campo y se refuerza el prompt positivo; si MiniMax empeora, se retira `Avoid:` para `fast` y el QC compensa. | Arquitecto |
 | **G4** | ¿`ALTER TYPE … ADD VALUE` convive con la transacción de Prisma migrate en PostgreSQL 17 local y en Supabase? ¿El pooler 6543 sigue funcionando con `qcJson`? | Fase 0 | Dividir la migración en dos archivos; migrar con `DIRECT_URL` y verificar el pooler en staging. | Arquitecto + operaciones |
@@ -1554,7 +1569,7 @@ Ninguno de estos gates bloquea el contrato de esta spec, pero cada uno bloquea s
 
 - `deepseek-flash` acepta `image_url` + `response_format: json_object`; es el gate G1 y ya era un gate abierto de 005.
 - El modelo de visión es el mismo `deepseek-flash`; no se añade proveedor de visión.
-- Los modelos de vídeo aceptan un prompt largo (hasta 4 000 caracteres en el body) y Kling acepta `negative_prompt`.
+- Los modelos de vídeo aceptan un prompt de hasta **2 000 caracteres** en el body (límite real de MiniMax confirmado) y Kling acepta `negative_prompt`.
 - FFmpeg/ffprobe están instalados y accesibles; sin ellos no hay QC ni montaje, y la historia falla con `ffmpeg-not-configured` (comportamiento de 005).
 - El strip se puede subir al CDN de Fal como `image/jpeg` con la misma primitiva que el MP4.
 - La hora y el clima constantes son suficientes para un micro-relato de 24–36 s; la progresión temporal queda fuera de alcance.
@@ -1601,7 +1616,7 @@ Las decisiones de producto están cerradas. Las siguientes son verificaciones:
 - `director-prompt.ts`, `director.ts` (`max_tokens`), `story-prompt-composer.ts`.
 - `keyframe-orchestrator.ts`, `video-orchestrator.ts`, `VideoInput.negativePrompt` y `KlingVideoAdapter`.
 - Fixtures con biblia; actualización de los tests de 005 afectados.
-- **Exit criteria**: bloque global idéntico en todos los prompts; negativo por modelo; 004 intacto; gate **G3**.
+- **Exit criteria**: bloque global de keyframe idéntico; prompt de vídeo compacto ≤ 2 000 y determinista; negativo por modelo; 004 intacto; gate **G3**.
 
 ### Fase 2 — Servicio de QC
 
@@ -1631,7 +1646,7 @@ Las decisiones de producto están cerradas. Las siguientes son verificaciones:
 ## Success Criteria *(mandatory)*
 
 - **SC-016 (Biblia)**: toda historia creada después de 006 tiene `plan.storyBible` válido con 1–3 personajes, 1–3 props, hora y clima constantes, y al menos una regla de continuidad.
-- **SC-017 (Propagación)**: el bloque global de continuidad es byte-idéntico en todos los prompts de una historia, precede al bloque de escena y la narración no aparece en ningún prompt.
+- **SC-017 (Propagación)**: el bloque global de keyframe es byte-idéntico en todos los keyframes de una historia; el bloque compacto de vídeo es determinista, conserva la acción y mide ≤ 2 000 caracteres; ambos preceden al bloque de escena y la narración no aparece en ningún prompt.
 - **SC-018 (Negativos)**: Kling recibe `negative_prompt`; MiniMax y FLUX reciben `Avoid: …`; el negativo incluye la base fija, `storyBible.forbidden` y el prop característico; no hay texto de negativo aportado por el cliente.
 - **SC-019 (Regresión del fallo original)**: con un plan fixture que reproduce «Fuga en el parque», el compositor incluye el patinete azul como prop obligatorio y prohíbe bicicleta, Homer, lluvia, tormenta y noche; el comparador de QC emite `missing-prop`, `wrong-prop`, `wrong-weather`, `wrong-time-of-day` y `extra-character` con severidad `blocking`.
 - **SC-020 (Gate de montaje)**: ninguna historia llega a `ASSEMBLING` sin `qc.status = PASSED` o `qc.override.approved = true`; está verificado con tests de rutas y del reconciliador.

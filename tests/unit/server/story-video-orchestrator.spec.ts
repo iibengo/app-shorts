@@ -89,6 +89,10 @@ describe('NativeVideoOrchestrator.submit', () => {
       responseUrl: 'https://queue.fal.run/requests/request-1',
       cancelUrl: 'https://queue.fal.run/requests/request-1/cancel',
     })
+
+    const input = submit.mock.calls[0]?.[1] as { readonly prompt: string }
+
+    expect(input.prompt.length).toBeLessThanOrEqual(2_000)
   })
 
   it('uses Kling with its native 10 second duration for the quality preset', async () => {

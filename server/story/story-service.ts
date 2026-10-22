@@ -652,9 +652,21 @@ export class StoryServiceImpl implements StoryService {
       throw new StoryError('story-not-ready')
     }
 
-    if (!story.scenes.every((scene) => scene.status === 'VIDEO_READY')) {
+    const revalidatable = story.scenes.every((scene) => {
+      if (scene.videoUrl === null) return false
+      if (scene.status === 'VIDEO_READY') return true
+
+      return scene.status === 'VIDEO_FAILED'
+        && scene.videoError === 'provider-invalid-output'
+    })
+
+    if (!revalidatable) {
       throw new StoryError('story-not-ready')
     }
+
+    const failedScenes = story.scenes.filter(
+      (scene) => scene.status === 'VIDEO_FAILED',
+    )
 
     this.rateLimiter.consumeCommand(sessionId)
     this.rateLimiter.consumeQcRetry(story.id)
@@ -673,6 +685,15 @@ export class StoryServiceImpl implements StoryService {
 
     if (updated === 0) {
       throw new StoryError('story-not-ready')
+    }
+
+    for (const scene of failedScenes) {
+      await this.repository.updateScene(
+        story.id,
+        scene.id,
+        { statuses: ['VIDEO_FAILED'] },
+        { status: 'VIDEO_READY', videoError: null },
+      )
     }
 
     this.onEvent({ event: 'story.qc.retry', storyId: story.id })

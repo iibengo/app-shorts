@@ -119,6 +119,23 @@ describe('qc-frames: timestamps and technical checks', () => {
     })).toEqual([])
   })
 
+  it('accepts a 768x1422 near-vertical clip because the assembler normalizes it', () => {
+    expect(verifyClipTechnical({
+      streams: [{ codec_type: 'video', codec_name: 'h264', width: 768, height: 1422 }],
+      durationSeconds: 5.875,
+    })).toEqual([])
+  })
+
+  it.each([
+    [1920, 1080],
+    [1080, 1080],
+  ])('rejects a clearly non-vertical %ix%i clip', (width, height) => {
+    expect(verifyClipTechnical({
+      streams: [{ codec_type: 'video', codec_name: 'h264', width, height }],
+      durationSeconds: 6,
+    })).toContain('technical-aspect')
+  })
+
   it.each([
     ['technical-duration', {
       durationSeconds: 5.4,

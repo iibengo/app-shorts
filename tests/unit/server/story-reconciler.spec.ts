@@ -922,6 +922,55 @@ describe('StoryReconciler QC phase', () => {
     expect(repository.find(story.id)?.status).toBe('QC')
   })
 
+  it('revalidates existing failed clips with a URL without calling Fal', async () => {
+    const base = videosReadyWithoutQc()
+    const scenes = base.scenes.map((scene) => ({
+      ...scene,
+      status: 'VIDEO_FAILED' as const,
+      videoError: 'provider-invalid-output' as const,
+      videoAttempts: 1,
+    }))
+    const story: StoryRecord = { ...base, status: 'QC', scenes }
+    const { qcService, calls } = fakeQcService(qcResult('FAILED'))
+    const { reconciler, repository, keyframes, videos } = setup({
+      seed: [story],
+      qcService,
+    })
+
+    await reconciler.runOnce()
+
+    expect(calls).toHaveLength(1)
+    expect(keyframes.submits).toHaveLength(0)
+    expect(videos.submits).toHaveLength(0)
+
+    const updated = repository.find(story.id)!
+
+    expect(updated.status).toBe('WAITING_QC')
+    expect(updated.scenes.every((scene) => scene.status === 'VIDEO_READY')).toBe(true)
+    expect(updated.scenes.every((scene) => scene.videoUrl !== null)).toBe(true)
+    expect(updated.scenes.every((scene) => scene.videoAttempts === 1)).toBe(true)
+  })
+
+  it('fails QC when a failed scene has no videoUrl to revalidate', async () => {
+    const base = videosReadyWithoutQc()
+    const scenes = base.scenes.map((scene) => ({
+      ...scene,
+      status: 'VIDEO_FAILED' as const,
+      videoError: 'provider-invalid-output' as const,
+    }))
+    scenes[2] = { ...scenes[2]!, videoUrl: null }
+    const story: StoryRecord = { ...base, status: 'QC', scenes }
+    const { qcService } = fakeQcService(qcResult('FAILED'))
+    const { reconciler, repository } = setup({ seed: [story], qcService })
+
+    await reconciler.runOnce()
+
+    expect(repository.find(story.id)).toMatchObject({
+      status: 'FAILED',
+      errorCode: 'video-failed',
+    })
+  })
+
   it('degrades a technically broken scene and leaves the story in WAITING_QC', async () => {
     const story = videosReadyWithoutQc()
     const result = qcResult('FAILED')

@@ -193,7 +193,7 @@ describe('StoryQCReview', () => {
     expect(wrapper.emitted('approve')).toHaveLength(1)
   })
 
-  it('never offers the override with a technically broken clip', async () => {
+  it('never offers the override with a technically broken clip but allows retry with its video', async () => {
     const story = waitingStory()
     story.scenes[2] = { ...story.scenes[2]!, status: 'VIDEO_FAILED' }
     const wrapper = await mountReview(story)
@@ -205,8 +205,22 @@ describe('StoryQCReview', () => {
       .toBeDefined()
     expect(wrapper.find('[data-testid="story-qc-recover-video"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="story-qc-retry"]').attributes('disabled'))
+      .toBeUndefined()
+    expect(wrapper.find('[data-testid="story-qc-retry-blocked"]').exists()).toBe(false)
+  })
+
+  it('blocks retry only when a scene has no video', async () => {
+    const story = waitingStory()
+    story.scenes[2] = {
+      ...story.scenes[2]!,
+      status: 'VIDEO_FAILED',
+      videoUrl: null,
+    }
+    const wrapper = await mountReview(story)
+
+    expect(wrapper.get('[data-testid="story-qc-retry"]').attributes('disabled'))
       .toBeDefined()
-    expect(normalize(wrapper.text())).toContain(
+    expect(normalize(wrapper.get('[data-testid="story-qc-retry-blocked"]').text())).toBe(
       'No se puede volver a revisar mientras una escena tenga el vídeo roto.',
     )
   })

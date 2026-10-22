@@ -84,9 +84,9 @@ const SCENE_BUDGETS: readonly {
   readonly plan: unknown
   readonly maxTokens: number
 }[] = [
-  { sceneCount: 4, plan: plan4, maxTokens: 2_600 },
-  { sceneCount: 5, plan: plan5, maxTokens: 3_000 },
-  { sceneCount: 6, plan: plan6, maxTokens: 3_400 },
+  { sceneCount: 4, plan: plan4, maxTokens: 5_000 },
+  { sceneCount: 5, plan: plan5, maxTokens: 6_000 },
+  { sceneCount: 6, plan: plan6, maxTokens: 7_000 },
 ]
 
 function emitRecorder(): {
@@ -131,22 +131,22 @@ function codeOf(error: unknown): string | undefined {
 
 describe('director output budget', () => {
   it('derives max_tokens from the scene count', () => {
-    expect(DIRECTOR_MAX_TOKENS).toBe(3_000)
-    expect(DIRECTOR_MAX_TOKENS_LIMIT).toBe(4_000)
+    expect(DIRECTOR_MAX_TOKENS).toBe(6_000)
+    expect(DIRECTOR_MAX_TOKENS_LIMIT).toBe(8_000)
 
-    expect(directorMaxTokens(4)).toBe(2_600)
-    expect(directorMaxTokens(5)).toBe(3_000)
-    expect(directorMaxTokens(6)).toBe(3_400)
-    expect(directorMaxTokens(3)).toBe(3_000)
-    expect(directorMaxTokens(9)).toBe(3_000)
+    expect(directorMaxTokens(4)).toBe(5_000)
+    expect(directorMaxTokens(5)).toBe(6_000)
+    expect(directorMaxTokens(6)).toBe(7_000)
+    expect(directorMaxTokens(3)).toBe(6_000)
+    expect(directorMaxTokens(9)).toBe(6_000)
     expect(directorMaxTokens(6)).toBeLessThanOrEqual(DIRECTOR_MAX_TOKENS_LIMIT)
   })
 
-  it('caps the repair at 4000 tokens', () => {
-    expect(directorRepairMaxTokens(2_600)).toBe(3_400)
-    expect(directorRepairMaxTokens(3_000)).toBe(3_800)
-    expect(directorRepairMaxTokens(3_400)).toBe(4_000)
-    expect(directorRepairMaxTokens(4_000)).toBe(4_000)
+  it('caps the repair at 8000 tokens', () => {
+    expect(directorRepairMaxTokens(5_000)).toBe(5_800)
+    expect(directorRepairMaxTokens(6_000)).toBe(6_800)
+    expect(directorRepairMaxTokens(7_000)).toBe(7_800)
+    expect(directorRepairMaxTokens(8_000)).toBe(8_000)
   })
 
   it.each(SCENE_BUDGETS)(
@@ -165,7 +165,7 @@ describe('director output budget', () => {
       expect(result.beats).toHaveLength(sceneCount)
       expect(requests).toHaveLength(1)
       expect(requests[0]?.body.max_tokens).toBe(maxTokens)
-      expect(requests[0]?.body.max_tokens).toBeLessThanOrEqual(4_000)
+      expect(requests[0]?.body.max_tokens).toBeLessThanOrEqual(8_000)
     },
   )
 })
@@ -214,6 +214,124 @@ describe('director finish_reason classification', () => {
   })
 })
 
+describe('director truncated empty completions', () => {
+  it('repairs a truncated empty first response with a larger concise retry', async () => {
+    const { director, requests } = directorWith([
+      { content: null, finishReason: 'length' },
+      { content: planContent(plan5), finishReason: 'stop' },
+    ])
+
+    const plan = await director.createPlan({
+      premise: PREMISE,
+      sceneCount: 5,
+      referenceUrl: null,
+    })
+
+    expect(plan.beats).toHaveLength(5)
+    expect(requests).toHaveLength(2)
+    expect(requests[0]?.body.max_tokens).toBe(6_000)
+    expect(requests[1]?.body.max_tokens).toBeGreaterThanOrEqual(6_800)
+    expect(requests[1]?.body.max_tokens).toBeLessThanOrEqual(8_000)
+
+    const repairMessages = requests[1]!.body.messages
+
+    expect(repairMessages.some((message) => message.role === 'assistant')).toBe(false)
+
+    const repairText = repairMessages
+      .filter((message) => message.role === 'user')
+      .map((message) => (typeof message.content === 'string' ? message.content : ''))
+      .join('\n')
+
+    expect(repairText).toContain('truncó')
+    expect(repairText).toContain('conciso')
+    expect(repairText).toContain('exactamente 5 beats')
+    expect(repairText).toContain('dentro del presupuesto de salida de 6800 tokens')
+    expect(repairText).toContain('descripciones de una sola frase')
+    expect(repairText).toContain('Esquema:')
+  })
+
+  it('fails with director-invalid-output after two truncated empty responses without a third request', async () => {
+    const { events, onEvent } = emitRecorder()
+    const { director, requests } = directorWith(
+      [
+        { content: null, finishReason: 'length' },
+        { content: null, finishReason: 'length' },
+      ],
+      onEvent,
+    )
+
+    const error = await captureError(() => director.createPlan({
+      premise: PREMISE,
+      sceneCount: 5,
+      referenceUrl: null,
+    }))
+
+    expect(codeOf(error)).toBe('director-invalid-output')
+    expect((error as StoryError).status).toBe(502)
+    expect(requests).toHaveLength(2)
+    expect(events.map((event) => event.attempt)).toEqual([1, 2])
+    expect(events[0]).toMatchObject({
+      event: 'story.plan.failed',
+      reason: 'respuesta truncada por max_tokens',
+    })
+    expect(events[1]).toMatchObject({
+      event: 'story.plan.failed',
+      reason: 'respuesta truncada por max_tokens',
+    })
+
+    const serialized = JSON.stringify(events)
+
+    expect(serialized).not.toContain(PREMISE)
+    expect(serialized).not.toContain(plan5.title)
+    expect(serialized).not.toContain('storyBible')
+  })
+})
+
+describe('director diagnostic reasons', () => {
+  it('emits the stable validation reason without plan content', async () => {
+    const invalid = {
+      ...structuredClone(plan5),
+      storyBible: {
+        ...structuredClone(plan5.storyBible),
+        weather: 'sunny',
+      },
+    }
+    const { events, onEvent } = emitRecorder()
+    const { director } = directorWith(
+      [
+        { content: planContent(invalid), finishReason: 'stop' },
+        { content: planContent(invalid), finishReason: 'stop' },
+      ],
+      onEvent,
+    )
+
+    await captureError(() => director.createPlan({
+      premise: PREMISE,
+      sceneCount: 5,
+      referenceUrl: null,
+    }))
+
+    expect(events).toEqual([
+      {
+        event: 'story.plan.failed',
+        attempt: 1,
+        finishReason: 'stop',
+        errorCode: 'director-invalid-output',
+        reason: 'storyBible.weather: valor inválido',
+      },
+      {
+        event: 'story.plan.failed',
+        attempt: 2,
+        finishReason: 'stop',
+        errorCode: 'director-invalid-output',
+        reason: 'storyBible.weather: valor inválido',
+      },
+    ])
+    expect(JSON.stringify(events)).not.toContain('sunny')
+    expect(JSON.stringify(events)).not.toContain(plan5.title)
+  })
+})
+
 describe('director truncation repair', () => {
   it('accepts a valid plan even when finish_reason is length', async () => {
     const { events, onEvent } = emitRecorder()
@@ -253,8 +371,8 @@ describe('director truncation repair', () => {
 
     expect(plan.beats).toHaveLength(5)
     expect(requests).toHaveLength(2)
-    expect(requests[0]?.body.max_tokens).toBe(3_000)
-    expect(requests[1]?.body.max_tokens).toBe(3_800)
+    expect(requests[0]?.body.max_tokens).toBe(6_000)
+    expect(requests[1]?.body.max_tokens).toBe(6_800)
 
     const repairMessages = requests[1]!.body.messages
     const repairText = repairMessages
@@ -271,6 +389,7 @@ describe('director truncation repair', () => {
         attempt: 1,
         finishReason: 'length',
         errorCode: 'director-invalid-output',
+        reason: 'json inválido',
       },
       { event: 'story.plan.ok', attempt: 2, finishReason: 'stop' },
     ])
@@ -285,8 +404,8 @@ describe('director truncation repair', () => {
     await director.createPlan({ premise: PREMISE, sceneCount: 6, referenceUrl: null })
 
     expect(requests).toHaveLength(2)
-    expect(requests[0]?.body.max_tokens).toBe(3_400)
-    expect(requests[1]?.body.max_tokens).toBe(4_000)
+    expect(requests[0]?.body.max_tokens).toBe(7_000)
+    expect(requests[1]?.body.max_tokens).toBe(7_800)
   })
 
   it('uses the repair budget and no note for a non truncated failure', async () => {
@@ -298,7 +417,7 @@ describe('director truncation repair', () => {
     await director.createPlan({ premise: PREMISE, sceneCount: 5, referenceUrl: null })
 
     expect(requests).toHaveLength(2)
-    expect(requests[1]?.body.max_tokens).toBe(3_800)
+    expect(requests[1]?.body.max_tokens).toBe(6_800)
 
     const repairText = requests[1]!.body.messages
       .filter((message) => message.role === 'user')
@@ -335,12 +454,14 @@ describe('director truncation repair', () => {
         attempt: 1,
         finishReason: 'length',
         errorCode: 'director-invalid-output',
+        reason: 'json inválido',
       },
       {
         event: 'story.plan.failed',
         attempt: 2,
         finishReason: 'length',
         errorCode: 'director-invalid-output',
+        reason: 'json inválido',
       },
     ])
   })

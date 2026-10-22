@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DIRECTOR_JSON_SCHEMA,
+  DIRECTOR_SCENE_ROLE_PATTERNS,
   storyDirectorRepairMessages,
   storyDirectorSystemPrompt,
   storyDirectorUserMessage,
@@ -39,13 +40,97 @@ describe('storyDirectorSystemPrompt', () => {
     expect(prompt).not.toContain('<')
   })
 
-  it('changes only the scene count between prompts', () => {
-    const four = storyDirectorSystemPrompt(4)
-    const six = storyDirectorSystemPrompt(6)
+  it('uses the exact sceneRole pattern for each supported scene count', () => {
+    for (const [count, pattern] of Object.entries(DIRECTOR_SCENE_ROLE_PATTERNS)) {
+      const prompt = storyDirectorSystemPrompt(Number(count))
 
-    expect(four).toContain('exactamente 4 beats')
-    expect(six).toContain('exactamente 6 beats')
-    expect(four.replace('4 beats', 'N beats')).toBe(six.replace('6 beats', 'N beats'))
+      expect(prompt).toContain(`exactamente ${count} beats`)
+      expect(prompt).toContain(`Patrón exacto de sceneRole para ${count} escenas: ${pattern}.`)
+    }
+
+    expect(DIRECTOR_SCENE_ROLE_PATTERNS[4])
+      .toBe('establishing, development, climax, resolution')
+    expect(DIRECTOR_SCENE_ROLE_PATTERNS[5])
+      .toBe('establishing, development, escalation, climax, resolution')
+    expect(DIRECTOR_SCENE_ROLE_PATTERNS[6])
+      .toBe('establishing, development, development, escalation, climax, resolution')
+  })
+
+  it('enumerates the exact timeOfDay and weather values and rejects synonyms', () => {
+    const prompt = storyDirectorSystemPrompt(5)
+
+    expect(prompt).toContain(
+      'Valores exactos de timeOfDay: dawn|morning|noon|afternoon|golden-hour|dusk|night.',
+    )
+    expect(prompt).toContain(
+      'Valores exactos de weather: clear|cloudy|overcast|light-rain|rain|storm|snow|fog|windy.',
+    )
+    expect(prompt).toContain(
+      'Prohibido usar sinónimos como day, sunny, sunset, rainy o stormy en timeOfDay o weather.',
+    )
+  })
+
+  it('defines mobile props, forbids scenery props and bounds the list to 1-3', () => {
+    const prompt = storyDirectorSystemPrompt(5)
+
+    expect(prompt).toContain(
+      'Los props son objetos móviles que un personaje lleva o usa.',
+    )
+    expect(prompt).toContain(
+      'NO son props el entorno, el cielo, los árboles, los carteles, las rampas ni el decorado.',
+    )
+    expect(prompt).toContain('Declara entre 1 y 3 props.')
+    expect(prompt).toContain(
+      'El prop característico (signaturePropId) es el vehículo u objeto principal de la historia y no puede sustituirse por otro.',
+    )
+    expect(prompt).not.toContain('Homer')
+    expect(prompt).not.toContain('Springfield')
+    expect(prompt).not.toContain('patinete')
+  })
+
+  it('requires the lead and signature prop in every scene and no extra characters', () => {
+    const prompt = storyDirectorSystemPrompt(5)
+
+    expect(prompt).toContain(
+      'El protagonista (leadCharacterId) y su prop característico (signaturePropId) deben aparecer en "characters" y "props" de TODAS las escenas.',
+    )
+    expect(prompt).toContain(
+      'Cada personaje de la storyBible debe aparecer al menos en una escena; no añadas personajes que no actúen en la premisa ni cameos.',
+    )
+    expect(prompt).toContain(
+      '"continuityFromPrevious" es null en la primera escena; en el resto debe tener al menos 20 caracteres y describir qué personajes, ropa, prop, lugar, hora y clima se conservan de la escena anterior.',
+    )
+  })
+
+  it('forbids contradictory forbidden entries and additional provider fields', () => {
+    const prompt = storyDirectorSystemPrompt(5)
+
+    expect(prompt).toContain(
+      'Prohibido incluir en forbidden el id o el nombre del protagonista, del prop característico, del lugar, ni la hora o el clima que sí aparecen en la storyBible.',
+    )
+    expect(prompt).toContain(
+      'forbidden es solo para elementos que NO deben aparecer',
+    )
+    expect(prompt).toContain(
+      'Prohibido añadir campos adicionales en storyBible o en los beats, como negativePrompt, seed, duration o imageUrl.',
+    )
+    expect(prompt).toContain('no añadas personajes que no actúen en la premisa ni cameos')
+  })
+
+  it('asks for a concise response that fits the output budget', () => {
+    const prompt = storyDirectorSystemPrompt(5)
+
+    expect(prompt).toContain('Para que la respuesta completa quepa en el presupuesto de salida')
+    expect(prompt).toContain('descripciones de personaje y vestuario en una frase')
+    expect(prompt).toContain('≤ 90 caracteres')
+    expect(prompt).toContain('descripción de prop ≤ 80 caracteres')
+    expect(prompt).toContain('visualPrompt ≤ 220 caracteres')
+    expect(prompt).toContain('narration ≤ 120 caracteres')
+    expect(prompt).toContain('continuityFromPrevious ≤ 100 caracteres')
+    expect(prompt).toContain('continuityRules máximo 3 reglas de una frase')
+    expect(prompt).toContain('los ids ya los conectan')
+    expect(prompt).toContain('Devuelve solo el JSON, sin explicaciones')
+    expect(prompt).toContain('no nuevos límites de validación')
   })
 
   it('documents the schema limits and required keys', () => {

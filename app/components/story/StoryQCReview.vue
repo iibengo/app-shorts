@@ -84,13 +84,18 @@ const verdict = computed(() => {
 const hasBrokenClip = computed(() =>
   props.story.scenes.some((scene) => scene.status === 'VIDEO_FAILED'),
 )
+const allScenesHaveVideo = computed(() =>
+  props.story.scenes.every((scene) => scene.videoUrl !== null),
+)
 const exhaustedRetries = computed(() =>
   props.story.scenes.some((scene) =>
     (scene.status === 'VIDEO_FAILED' && scene.videoAttempts >= 2)
     || (scene.status === 'VIDEO_READY' && scene.keyframeAttempts >= 2),
   ),
 )
-const overrideDisabled = computed(() => !confirmed.value || hasBrokenClip.value || !qc.value)
+const overrideDisabled = computed(() =>
+  !confirmed.value || !qc.value || !allScenesHaveVideo.value || hasBrokenClip.value,
+)
 
 onMounted(() => {
   heading.value?.focus()
@@ -255,7 +260,7 @@ defineExpose({ heading })
         type="button"
         data-testid="story-qc-retry"
         class="min-h-11 w-full text-sm sm:w-auto"
-        :disabled="hasBrokenClip"
+        :disabled="!allScenesHaveVideo"
         @click="emit('retry')"
       >
         {{ STORY_COPY.qcRetry }}
@@ -283,7 +288,7 @@ defineExpose({ heading })
     </div>
 
     <p
-      v-if="hasBrokenClip"
+      v-if="!allScenesHaveVideo"
       data-testid="story-qc-retry-blocked"
       class="mt-2 text-xs leading-relaxed text-brand-muted"
     >

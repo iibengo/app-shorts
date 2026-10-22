@@ -937,6 +937,25 @@ describe('StoryService QC commands', () => {
     })
   })
 
+  it('revalidates technical-failed clips with a URL without consuming attempts', async () => {
+    const scenes = makeScenes(5, {
+      status: 'VIDEO_FAILED',
+      keyframeAttempts: 1,
+      videoAttempts: 1,
+      videoError: 'provider-invalid-output',
+      videoUrl: 'https://v3.fal.media/files/test/clip.mp4',
+    })
+    const story = waitingStory({ scenes })
+    const { service, repository } = setup({ seed: [story] })
+
+    const result = await service.retryQc(story.id, SESSION_ID)
+    const updated = repository.find(story.id)!
+
+    expect(result.status).toBe('VIDEOS_READY')
+    expect(updated.scenes.every((scene) => scene.status === 'VIDEO_READY')).toBe(true)
+    expect(updated.scenes.every((scene) => scene.videoAttempts === 1)).toBe(true)
+  })
+
   it('keeps retryQc idempotent from VIDEOS_READY and QC', async () => {
     for (const status of ['VIDEOS_READY', 'QC'] as const) {
       const story = waitingStory({ status, qc: null })

@@ -9,6 +9,7 @@ import type {
 import {
   storyDirectorRepairMessages,
   storyDirectorSystemPrompt,
+  storyDirectorTruncationRepairMessages,
   storyDirectorUserMessage,
 } from './director-prompt'
 import { StoryError, isStoryError } from './errors'
@@ -17,14 +18,14 @@ import { validateDirectorPlan } from './plan-validator'
 export const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
 export const DEEPSEEK_MODEL = 'deepseek-flash'
 export const DIRECTOR_TEMPERATURE = 0.4
-export const DIRECTOR_MAX_TOKENS = 3_000
-export const DIRECTOR_MAX_TOKENS_LIMIT = 4_000
+export const DIRECTOR_MAX_TOKENS = 6_000
+export const DIRECTOR_MAX_TOKENS_LIMIT = 8_000
 export const DIRECTOR_REPAIR_TOKEN_INCREMENT = 800
 
 const DIRECTOR_TOKENS_BY_SCENE_COUNT: Readonly<Record<number, number>> = {
-  4: 2_600,
-  5: 3_000,
-  6: 3_400,
+  4: 5_000,
+  5: 6_000,
+  6: 7_000,
 }
 
 /**
@@ -52,6 +53,8 @@ export interface StoryDirectorLogEvent {
   readonly attempt: 1 | 2
   readonly finishReason: DirectorFinishReason
   readonly errorCode?: string
+  /** Stable validation reason. Never contains plan, prompt or model content. */
+  readonly reason?: string
 }
 
 export interface StoryDirectorOptions {
@@ -163,7 +166,44 @@ export class NativeStoryDirector implements StoryDirector {
     const first = await this.attempt(messages, baseMaxTokens, 1)
 
     if (first.content === null) {
-      this.emitFailure(1, first.finishReason)
+      if (first.finishReason !== 'length') {
+        this.emitFailure(1, first.finishReason)
+
+        throw new StoryError('director-invalid-output')
+      }
+
+      const truncationReason = 'respuesta truncada por max_tokens'
+      this.emitFailure(1, first.finishReason, truncationReason)
+
+      const repairMaxTokens = directorRepairMaxTokens(baseMaxTokens)
+      const repaired = await this.attempt(
+        [
+          ...messages,
+          ...storyDirectorTruncationRepairMessages(input.sceneCount, repairMaxTokens),
+        ],
+        repairMaxTokens,
+        2,
+      )
+
+      if (repaired.content === null) {
+        this.emitFailure(
+          2,
+          repaired.finishReason,
+          repaired.finishReason === 'length' ? truncationReason : undefined,
+        )
+
+        throw new StoryError('director-invalid-output')
+      }
+
+      const secondAttempt = this.parse(repaired.content, input.sceneCount)
+
+      if (secondAttempt.ok) {
+        this.emitSuccess(2, repaired.finishReason)
+
+        return secondAttempt.plan
+      }
+
+      this.emitFailure(2, repaired.finishReason, secondAttempt.reason)
 
       throw new StoryError('director-invalid-output')
     }
@@ -176,7 +216,7 @@ export class NativeStoryDirector implements StoryDirector {
       return firstAttempt.plan
     }
 
-    this.emitFailure(1, first.finishReason)
+    this.emitFailure(1, first.finishReason, firstAttempt.reason)
 
     const truncated = first.finishReason === 'length'
     const repairMaxTokens = directorRepairMaxTokens(baseMaxTokens)
@@ -206,7 +246,7 @@ export class NativeStoryDirector implements StoryDirector {
       return secondAttempt.plan
     }
 
-    this.emitFailure(2, repaired.finishReason)
+    this.emitFailure(2, repaired.finishReason, secondAttempt.reason)
 
     throw new StoryError('director-invalid-output')
   }
@@ -232,12 +272,17 @@ export class NativeStoryDirector implements StoryDirector {
     this.emit({ event: 'story.plan.ok', attempt, finishReason })
   }
 
-  private emitFailure(attempt: 1 | 2, finishReason: DirectorFinishReason): void {
+  private emitFailure(
+    attempt: 1 | 2,
+    finishReason: DirectorFinishReason,
+    reason?: string,
+  ): void {
     this.emit({
       event: 'story.plan.failed',
       attempt,
       finishReason,
       errorCode: 'director-invalid-output',
+      ...(reason === undefined ? {} : { reason }),
     })
   }
 

@@ -108,7 +108,7 @@ describe('POST /api/story with a short premise and a real decorated director', (
     const content = body.messages[1]?.content
 
     expect(body.model).toBe('deepseek-flash')
-    expect(body.max_tokens).toBe(3_000)
+    expect(body.max_tokens).toBe(6_000)
     expect(typeof content).toBe('string')
 
     const text = content as string

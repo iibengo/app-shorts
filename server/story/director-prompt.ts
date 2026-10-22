@@ -52,17 +52,43 @@ export const DIRECTOR_JSON_SCHEMA = `{
   ]
 }`
 
+export const DIRECTOR_SCENE_ROLE_PATTERNS: Readonly<Record<number, string>> = {
+  4: 'establishing, development, climax, resolution',
+  5: 'establishing, development, escalation, climax, resolution',
+  6: 'establishing, development, development, escalation, climax, resolution',
+}
+
+function sceneRolePattern(sceneCount: number): string {
+  return DIRECTOR_SCENE_ROLE_PATTERNS[sceneCount]
+    ?? 'establishing, development, escalation, climax, resolution'
+}
+
 export function storyDirectorSystemPrompt(sceneCount: number): string {
   return 'Eres un director de micro-relatos verticales. Devuelve un objeto JSON con "title", "logline", "storyBible" y "beats". '
     + `Debe haber exactamente ${sceneCount} beats con "order" consecutivo desde 1, "sceneRole", "visualPrompt", "narration", "characters", "props", "camera", "continuityFromPrevious" y "transition". `
     + 'La storyBible es la fuente de verdad visual: estilo, localización, hora del día, clima, personajes con vestuario exacto, props, elementos prohibidos y reglas de continuidad. '
-    + 'El protagonista (leadCharacterId) y su prop característico (signaturePropId) deben aparecer en todas las escenas. '
     + 'La hora del día y el clima son los mismos en toda la historia; ningún beat puede declarar hora ni clima propios. '
-    + 'Usa solo personajes y props declarados en la storyBible, por su id. Cada personaje de la biblia debe aparecer en al menos una escena. '
-    + 'Prohibido: personajes extra o ajenos a la biblia, vehículos o props incorrectos, cambios de vestuario, cambios de clima o de hora, texto en pantalla y marcas de agua. '
+    + 'Valores exactos de timeOfDay: dawn|morning|noon|afternoon|golden-hour|dusk|night. '
+    + 'Valores exactos de weather: clear|cloudy|overcast|light-rain|rain|storm|snow|fog|windy. '
+    + 'Prohibido usar sinónimos como day, sunny, sunset, rainy o stormy en timeOfDay o weather. '
+    + 'Los props son objetos móviles que un personaje lleva o usa. NO son props el entorno, el cielo, los árboles, los carteles, las rampas ni el decorado. '
+    + 'Declara entre 1 y 3 props. El prop característico (signaturePropId) es el vehículo u objeto principal de la historia y no puede sustituirse por otro. '
+    + 'El protagonista (leadCharacterId) y su prop característico (signaturePropId) deben aparecer en "characters" y "props" de TODAS las escenas. '
+    + 'Cada personaje de la storyBible debe aparecer al menos en una escena; no añadas personajes que no actúen en la premisa ni cameos. '
+    + 'Usa solo personajes y props declarados en la storyBible, por su id. '
+    + 'forbidden es solo para elementos que NO deben aparecer en esta historia concreta: personajes ajenos a la biblia, vehículos u objetos distintos del prop característico, un clima o una hora distintos de los declarados, texto o watermark. Nunca incluyas lo que sí aparece en la biblia. '
+    + 'Incluye entre 1 y 10 elementos en forbidden. '
+    + 'Prohibido incluir en forbidden el id o el nombre del protagonista, del prop característico, del lugar, ni la hora o el clima que sí aparecen en la storyBible. '
     + 'La primera escena es "establishing"; la última es "resolution"; debe haber exactamente un "climax" entre la primera y la última. '
-    + 'Cada "transition" es siempre "cut". "continuityFromPrevious" es null en la primera escena y describe la continuidad en el resto. '
-    + 'Escribe en español, sin HTML, sin Markdown y sin texto que deba aparecer en pantalla. '
+    + `Patrón exacto de sceneRole para ${sceneCount} escenas: ${sceneRolePattern(sceneCount)}. `
+    + '"continuityFromPrevious" es null en la primera escena; en el resto debe tener al menos 20 caracteres y describir qué personajes, ropa, prop, lugar, hora y clima se conservan de la escena anterior. '
+    + 'Cada "transition" es siempre "cut". '
+    + 'Prohibido añadir campos adicionales en storyBible o en los beats, como negativePrompt, seed, duration o imageUrl. '
+    + 'Prohibido: personajes extra o ajenos a la biblia, vehículos o props incorrectos, cambios de vestuario, cambios de clima o de hora, texto en pantalla y marcas de agua. '
+    + 'Para que la respuesta completa quepa en el presupuesto de salida, sé conciso: descripciones de personaje y vestuario en una frase, idealmente ≤ 90 caracteres; descripción de prop ≤ 80 caracteres; visualPrompt ≤ 220 caracteres; narration ≤ 120 caracteres; continuityFromPrevious ≤ 100 caracteres; continuityRules máximo 3 reglas de una frase. '
+    + 'No repitas la biblia, el vestuario ni los props en cada beat; los ids ya los conectan. '
+    + 'Estas son instrucciones de concisión, no nuevos límites de validación. Devuelve solo el JSON, sin explicaciones. '
+    + 'Escribe en español, sin HTML, sin Markdown, sin URLs y sin texto que deba aparecer en pantalla. '
     + 'Todas las imágenes son de formato vertical 9:16. '
     + `Límites: title 1-${DIRECTOR_MAX_TITLE_LENGTH} caracteres, logline 1-${DIRECTOR_MAX_LOGLINE_LENGTH}, `
     + `visualPrompt ${DIRECTOR_MIN_VISUAL_PROMPT_LENGTH}-${DIRECTOR_MAX_VISUAL_PROMPT_LENGTH}, `
@@ -92,13 +118,28 @@ export function storyDirectorUserMessage(
   }
 }
 
+export function storyDirectorTruncationRepairMessages(
+  sceneCount: number,
+  maxTokens: number,
+): readonly DeepSeekMessage[] {
+  return [
+    {
+      role: 'user',
+      content: 'La respuesta anterior se truncó por el límite de tokens y no llegó a devolver un JSON completo. '
+        + `Devuelve un JSON completo y conciso con exactamente ${sceneCount} beats, dentro del presupuesto de salida de ${maxTokens} tokens: `
+        + 'descripciones de una sola frase, sin repetir la storyBible ni el vestuario en cada beat, y sin campos adicionales. '
+        + 'Incluye title, logline, storyBible y beats, con la biblia completa una sola vez. '
+        + `Esquema:\n${DIRECTOR_JSON_SCHEMA}`,
+    },
+  ]
+}
+
 export function storyDirectorRepairMessages(
   sceneCount: number,
   previousContent: string,
   reason: string,
   truncated = false,
-): readonly DeepSeekMessage[] {
-  const truncationNote = truncated
+): readonly DeepSeekMessage[] {  const truncationNote = truncated
     ? ' La respuesta anterior se truncó por el límite de tokens: acorta title, logline, storyBible, visualPrompt y narration para que el JSON completo quepa en la respuesta.'
     : ''
 

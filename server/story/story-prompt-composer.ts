@@ -2,7 +2,9 @@ import type {
   StoryBible,
   StoryBeat,
   StoryCameraShot,
+  StoryCharacter,
   StoryPlan,
+  StoryProp,
   StoryPreset,
   StorySceneRole,
   StoryTimeOfDay,
@@ -38,6 +40,7 @@ export interface StoryPromptComposer {
 }
 
 export const STORY_PROMPT_MAX_LENGTH = 4_000
+export const STORY_VIDEO_PROMPT_MAX_LENGTH = 2_000
 export const STORY_GLOBAL_BLOCK_MAX_LENGTH = 2_600
 
 /** Constant negative prompt of 004. It is normative and must not change. */
@@ -64,6 +67,17 @@ const BASE_NEGATIVE: readonly string[] = [
   'logo',
   'low quality',
   'artifacts',
+]
+
+const COMPACT_VIDEO_NEGATIVE: readonly string[] = [
+  'extra characters',
+  'different clothing',
+  'different prop',
+  'different weather',
+  'different time of day',
+  'text',
+  'watermark',
+  'low quality',
 ]
 
 const TIME_OF_DAY_LABELS: Readonly<Record<StoryTimeOfDay, string>> = {
@@ -169,7 +183,11 @@ export function composeGlobalBlock(bible: StoryBible): string {
 }
 
 /** Scene block. Uses the exact names and wardrobe of the bible. */
-export function composeSceneBlock(bible: StoryBible, beat: StoryBeat): string {
+export function composeSceneBlock(
+  bible: StoryBible,
+  beat: StoryBeat,
+  options: { readonly includeContinuity?: boolean } = {},
+): string {
   const present = beat.characters
     .map((id) => {
       const character = characterById(bible, id)
@@ -184,9 +202,11 @@ export function composeSceneBlock(bible: StoryBible, beat: StoryBeat): string {
       return prop ? `${prop.name} (${prop.id})` : id
     })
     .join(', ')
-  const continuity = beat.continuityFromPrevious
-    ? `Continúa de la escena anterior: ${beat.continuityFromPrevious}. `
-    : 'Primera escena: establece la situación. '
+  const continuity = options.includeContinuity === false
+    ? ''
+    : beat.continuityFromPrevious
+      ? `Continúa de la escena anterior: ${beat.continuityFromPrevious}. `
+      : 'Primera escena: establece la situación. '
 
   return `ESCENA ${beat.order} (${storySceneRoleLabel(beat.sceneRole)}). `
     + `Cámara: ${storyCameraLabel(beat.camera)}. `
@@ -248,6 +268,86 @@ export function storyVideoLegacyPrompt(visualPrompt: string): string {
   return `${visualPrompt}. Vertical 9:16 short film scene, smooth natural motion, consistent subject, no text, no watermark, no logo.`
 }
 
+function compactText(value: string, maxLength: number): string {
+  const normalized = value.normalize('NFC').trim().replace(/\s+/g, ' ')
+
+  if (normalized.length <= maxLength) return normalized
+
+  const slice = normalized.slice(0, Math.max(0, maxLength - 1))
+  const lastSpace = slice.lastIndexOf(' ')
+
+  if (lastSpace <= 0) return normalized
+
+  return `${slice.slice(0, lastSpace).trimEnd()}…`
+}
+
+function compactCharacter(character: { readonly name: string; readonly wardrobe: string }): string {
+  return `${character.name}: ${compactText(character.wardrobe, 70)}`
+}
+
+function compactProp(prop: { readonly name: string; readonly description: string }): string {
+  return `${prop.name}: ${compactText(prop.description, 60)}`
+}
+
+/**
+ * Compact, deterministic continuity block for video models. It keeps only the
+ * essential bible facts and never includes long descriptions.
+ */
+export function composeVideoGlobalBlock(
+  bible: StoryBible,
+  beat: StoryBeat,
+  options: { readonly minimal?: boolean } = {},
+): string {
+  const lead = characterById(bible, bible.leadCharacterId)
+  const signature = signatureProp(bible)
+  const leadBlock = lead === undefined
+    ? ''
+    : `Protagonista: ${lead.name} (${lead.id}), vestuario: ${compactText(lead.wardrobe, 90)}. `
+  const signatureBlock = signature === null
+    ? ''
+    : `Prop característico: ${signature.name} (${signature.id}) — ${compactText(signature.description, 70)}. `
+  const locationBlock = `Localización: ${bible.location.name}. `
+  const timeBlock = `Hora: ${storyTimeOfDayLabel(bible.timeOfDay)}. Clima: ${storyWeatherLabel(bible.weather)}. `
+  const lock = 'No cambies identidad, ropa, prop, fondo, clima ni hora.'
+
+  if (options.minimal === true) {
+    return `CONTINUIDAD DE VÍDEO. ${leadBlock}${signatureBlock}${locationBlock}${timeBlock}${lock}`
+  }
+
+  const present = beat.characters
+    .map((id) => characterById(bible, id))
+    .filter((character): character is StoryCharacter => character !== undefined)
+    .map(compactCharacter)
+    .join('; ')
+  const objects = beat.props
+    .map((id) => propById(bible, id))
+    .filter((prop): prop is StoryProp => prop !== undefined)
+    .map(compactProp)
+    .join('; ')
+
+  return 'CONTINUIDAD DE VÍDEO. '
+    + leadBlock
+    + signatureBlock
+    + locationBlock
+    + timeBlock
+    + `Presentes: ${present.length > 0 ? present : '—'}. `
+    + `Objetos: ${objects.length > 0 ? objects : 'Sin objetos'}. `
+    + lock
+}
+
+function joinVideoPrompt(
+  globalBlock: string,
+  sceneBlock: string,
+  avoid?: string,
+): string {
+  return [
+    globalBlock,
+    sceneBlock,
+    VIDEO_STAGE_BLOCK,
+    ...(avoid === undefined ? [] : [`Avoid: ${avoid}`]),
+  ].join(' ')
+}
+
 export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePrompt {
   if (input.bible === null) {
     return {
@@ -276,20 +376,30 @@ export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
   }
 
   const negativePrompt = composeNegative(input.bible, input.beat)
-  const blocks = [
-    composeGlobalBlock(input.bible),
-    composeSceneBlock(input.bible, input.beat),
-    VIDEO_STAGE_BLOCK,
-  ]
+  const globalBlock = composeVideoGlobalBlock(input.bible, input.beat)
+  const minimalGlobal = composeVideoGlobalBlock(input.bible, input.beat, { minimal: true })
+  const fullScene = composeSceneBlock(input.bible, input.beat)
+  const sceneWithoutContinuity = composeSceneBlock(input.bible, input.beat, {
+    includeContinuity: false,
+  })
+  const shortNegative = COMPACT_VIDEO_NEGATIVE.join(', ')
+  const candidates = input.preset === 'fast'
+    ? [
+        joinVideoPrompt(globalBlock, fullScene, negativePrompt),
+        joinVideoPrompt(globalBlock, fullScene, shortNegative),
+        joinVideoPrompt(globalBlock, sceneWithoutContinuity, shortNegative),
+        joinVideoPrompt(minimalGlobal, sceneWithoutContinuity, shortNegative),
+      ]
+    : [
+        joinVideoPrompt(globalBlock, fullScene),
+        joinVideoPrompt(globalBlock, sceneWithoutContinuity),
+        joinVideoPrompt(minimalGlobal, sceneWithoutContinuity),
+      ]
+  const prompt = candidates.find(
+    (candidate) => candidate.length <= STORY_VIDEO_PROMPT_MAX_LENGTH,
+  ) ?? candidates[candidates.length - 1]!
 
-  if (input.preset === 'fast') {
-    blocks.push(`Avoid: ${negativePrompt}`)
-  }
-
-  return {
-    prompt: blocks.join(' '),
-    negativePrompt,
-  }
+  return { prompt, negativePrompt }
 }
 
 export const storyPromptComposer: StoryPromptComposer = {

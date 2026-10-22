@@ -21,7 +21,10 @@ const PROBE_TIMEOUT_MS = 15_000
 const MIN_CLIP_DURATION_SECONDS = 5.5
 const MIN_CLIP_HEIGHT = 720
 const ASPECT_RATIO = 9 / 16
-const ASPECT_TOLERANCE = 0.03
+// The assembler normalizes with scale+crop, so near-vertical provider outputs
+// such as 768x1422 (ratio 0.5399) are usable. Keep blocking only for clearly
+// non-vertical clips (horizontal or square).
+const ASPECT_TOLERANCE = 0.06
 
 export class QCFramesGlobalError extends Error {
   readonly code: Extract<StoryQCErrorCode, 'qc-frames-failed' | 'ffmpeg-not-configured'>

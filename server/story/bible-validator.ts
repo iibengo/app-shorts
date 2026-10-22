@@ -11,6 +11,7 @@ import type {
 import {
   STORY_GLOBAL_BLOCK_MAX_LENGTH,
   STORY_PROMPT_MAX_LENGTH,
+  STORY_VIDEO_PROMPT_MAX_LENGTH,
   composeGlobalBlock,
   storyPromptComposer,
   storySceneRoleLabel,
@@ -793,13 +794,17 @@ export function validateContinuityBeats(
     })
     const video = storyPromptComposer.composeVideo({ bible, beat, preset: 'fast' })
 
-    if (
-      keyframe.prompt.length > STORY_PROMPT_MAX_LENGTH
-      || video.prompt.length > STORY_PROMPT_MAX_LENGTH
-    ) {
+    if (keyframe.prompt.length > STORY_PROMPT_MAX_LENGTH) {
       return {
         ok: false,
         reason: `beats[${index}]: prompt final demasiado largo`,
+      }
+    }
+
+    if (video.prompt.length > STORY_VIDEO_PROMPT_MAX_LENGTH) {
+      return {
+        ok: false,
+        reason: `beats[${index}]: prompt de vídeo demasiado largo`,
       }
     }
   }
