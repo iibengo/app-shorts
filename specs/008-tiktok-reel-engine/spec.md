@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Implemented and validated (commit `dff2764`, 2026-10-22; enmiendas 2026-10-23 de thinking y de errores transitorios/jobs inactivos en `b09584d` y `d96decc`). Tests: **2099 passed / 13 skipped**; build green. Real-provider smoke pending; see “Cierre de 008”.
+**Status**: Implemented and validated (commit `dff2764`, 2026-10-22; enmiendas 2026-10-23 de thinking, errores transitorios/jobs inactivos y composición del keyframe). Tests: **2103 passed / 13 skipped**; build green. Real-provider smoke pending; see “Cierre de 008”.
 
 **Input**: User description: "El motor de 007 hace 4–6 escenas de 6 segundos con un keyframe y un vídeo por escena. El resultado dura 24–36 s, se ve repetitivo y no se parece a un reel de TikTok o Instagram: no hay cambios de localización dentro de la cobertura, no hay varios planos por escena, no hay hook en el primer segundo y no hay forma de elegir la duración. Quiero reels de 15–90 s con escenas narrativas y varios planos visuales por escena, cobertura variada, cambios de localización, ritmo de retención (gancho, conflicto, pattern interrupts, giro y payoff) y la opción de regenerar un plano concreto sin rehacer toda la escena. La duración es un contrato: el Narrador y el Director Visual se adaptan y ningún MP4 puede superar el máximo elegido. El flujo automático sigue siendo el camino por defecto; la edición es opcional. Sin audio, sin subtítulos y sin publicación."
 
@@ -43,6 +43,19 @@
 | 3 | **`max_tokens` y la fórmula de reparación no cambian**: sin razonamiento no se necesita reserva. | FR-446, truncamiento |
 | 4 | **`thinking` es obligatorio en el contrato del cliente**, sin default silencioso; `enabled` con `reasoning_effort` queda disponible si la eval de calidad lo justifica. | `DeepSeekCompletionRequest` |
 | 5 | **Las estimaciones de latencia y caps no se reajustan** en esta enmienda; el smoke real de 15 s budget sigue pendiente. | §Costes y latencia, gates |
+
+### Enmienda 2026-10-23 — composición del keyframe (B2)
+
+> Verificado en la documentación de Fal: `fal-ai/flux/dev` y `fal-ai/flux-pro/kontext` **no admiten `negative_prompt`** en su esquema de entrada. FLUX.1 [dev] lee como máximo **512 tokens T5** (`https://fal.ai/learn/tools/how-to-use-flux`); Kontext, ~512 según fuentes secundarias, no documentado por Fal. El tope anterior de 4 000 caracteres superaba ese límite y dejaba el texto específico del plano al final del prompt.
+
+| # | Cambio | Dónde se aplica |
+|---|---|---|
+| 1 | **Orden nuevo del keyframe**: plano (encuadre + sujeto + acción), composición, solo las entidades presentes con vestuario, localización/hora/clima, y estilo al final. | `story-prompt-composer.ts` |
+| 2 | **Inglés y presupuesto de 900 caracteres** (`KEYFRAME_PROMPT_MAX_CHARS`), con escalera de degradación determinista: reglas → props → vestuarios → composición. El bloque del plano nunca se recorta. | `composeKeyframe` |
+| 3 | **El keyframe ya no falla por longitud.** `invalid-visual-prompt` deja de dispararse a 4 000; el prompt se acota siempre. El límite de 2 000 del prompt de vídeo se mantiene. | Servicio, validador de plan, director visual |
+| 4 | **Sin negativos en el prompt positivo.** Se elimina `Avoid:` del keyframe (FLUX/Kontext no tienen canal) y del vídeo. Kling sigue recibiendo `negative_prompt` en su campo; Minimax no admite negativos y ya no recibe texto adversativo. | `composeKeyframe`, `composeVideo` |
+| 5 | **`StoryBeat` se restaura** en `app/models/story.ts` (fue eliminado en `dff2764` y seguía importándose en 8 ficheros) y gana `subject?` y `framing?` para que el compositor reciba el encuadre real del plano. | Modelo compartido, `storyBeatForShot` |
+| 6 | **Tests**: longitud ≤ 900, orden de bloques, solo entidades presentes, inglés, ausencia de `Avoid:`, degradación determinista y caída a `camera` cuando no hay `framing`. | `story-prompt-composer.spec.ts`, `story-shot-orchestrators.spec.ts` |
 
 ---
 
@@ -2143,7 +2156,7 @@ El proxy de `POST /api/story` MUST permitir ≥ 360 s. Nunca se muestran porcent
 
 ## Test Plan
 
-La baseline histórica de 007 era **1505 passed / 7 skipped opt-in / 96 archivos**; la baseline validada de 008 es **2089 passed / 13 skipped / 154 archivos**, **2090** tras la enmienda de thinking y **2099** tras la de errores transitorios y jobs inactivos (2026-10-23).
+La baseline histórica de 007 era **1505 passed / 7 skipped opt-in / 96 archivos**; la baseline validada de 008 es **2089 passed / 13 skipped / 154 archivos**, **2090** tras la enmienda de thinking, **2099** tras la de errores transitorios y jobs inactivos, y **2103** tras la de composición del keyframe (2026-10-23).
 
 ### Gate de calidad
 
