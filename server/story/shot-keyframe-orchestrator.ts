@@ -53,6 +53,8 @@ export function storyBeatForShot(
     camera: shot.camera,
     continuityFromPrevious: narrative?.continuityFromPrevious ?? null,
     transition: 'cut',
+    subject: shot.subject,
+    framing: shot.framing,
   }
 }
 

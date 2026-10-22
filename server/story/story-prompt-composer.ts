@@ -8,6 +8,7 @@ import type {
   StoryPreset,
   StoryProp,
   StorySceneRole,
+  StoryShotFraming,
   StoryStoryFunction,
   StoryTimeOfDay,
   StoryTone,
@@ -49,12 +50,18 @@ export const STORY_PROMPT_MAX_LENGTH = 4_000
 export const STORY_VIDEO_PROMPT_MAX_LENGTH = 2_000
 export const STORY_GLOBAL_BLOCK_MAX_LENGTH = 2_600
 
+/**
+ * FLUX.1 [dev] and Kontext read at most ~512 T5 tokens, and the shot-specific
+ * text must survive. 900 characters of English stay well below that ceiling.
+ */
+export const KEYFRAME_PROMPT_MAX_CHARS = 900
+
 /** Constant negative prompt of 004. It is normative and must not change. */
 export const KLING_LEGACY_NEGATIVE_PROMPT =
   'blur, distortion, flicker, text, watermark, logo, low quality, deformed hands'
 
-export const KEYFRAME_STAGE_BLOCK =
-  'Fotograma estático vertical 9:16, un solo instante, sin movimiento, sin texto, sin subtítulos, sin logotipo, sin marca de agua.'
+export const KEYFRAME_STAGE_BLOCK_EN =
+  'Static vertical 9:16 keyframe, single instant, no motion, no text, no subtitles, no logo, no watermark.'
 
 export const VIDEO_STAGE_BLOCK =
   'Animate this keyframe only. Preserve character identity, exact clothing, the signature prop, the background, the location, the weather and the time of day described for this scene. '
@@ -75,18 +82,6 @@ const BASE_NEGATIVE: readonly string[] = [
   'logo',
   'low quality',
   'artifacts',
-]
-
-const COMPACT_VIDEO_NEGATIVE: readonly string[] = [
-  'extra characters',
-  'different clothing',
-  'different props than described',
-  'different location than described',
-  'different weather than described',
-  'different time of day than described',
-  'text',
-  'watermark',
-  'low quality',
 ]
 
 const TIME_OF_DAY_LABELS: Readonly<Record<StoryTimeOfDay, string>> = {
@@ -141,6 +136,69 @@ const TONE_LABELS: Readonly<Record<StoryTone, string>> = {
 
 export function storyTimeOfDayLabel(value: StoryTimeOfDay): string {
   return TIME_OF_DAY_LABELS[value]
+}
+
+const TIME_OF_DAY_EN: Readonly<Record<StoryTimeOfDay, string>> = {
+  dawn: 'dawn',
+  morning: 'morning',
+  noon: 'midday',
+  afternoon: 'afternoon',
+  'golden-hour': 'golden hour',
+  dusk: 'dusk',
+  night: 'night',
+}
+
+const WEATHER_EN: Readonly<Record<StoryWeather, string>> = {
+  clear: 'clear sky',
+  cloudy: 'cloudy',
+  overcast: 'overcast',
+  'light-rain': 'light rain',
+  rain: 'rain',
+  storm: 'storm',
+  snow: 'snow',
+  fog: 'fog',
+  windy: 'windy',
+}
+
+const CAMERA_EN: Readonly<Record<StoryCameraShot, string>> = {
+  wide: 'wide shot',
+  medium: 'medium shot',
+  'close-up': 'close-up',
+  'low-angle': 'low angle',
+  'high-angle': 'high angle',
+  tracking: 'tracking shot',
+  'over-the-shoulder': 'over-the-shoulder shot',
+  detail: 'detail shot',
+}
+
+const FRAMING_EN: Readonly<Record<StoryShotFraming, string>> = {
+  establishing: 'establishing shot',
+  wide: 'wide shot',
+  medium: 'medium shot',
+  'close-up': 'close-up',
+  'extreme-close-up': 'extreme close-up',
+  detail: 'detail shot',
+  reaction: 'reaction shot',
+  'over-the-shoulder': 'over-the-shoulder shot',
+  'two-shot': 'two-shot',
+  insert: 'insert shot',
+}
+
+const TONE_EN: Readonly<Record<StoryTone, string>> = {
+  humor: 'humor',
+  aventura: 'adventure',
+  absurdo: 'absurd',
+  heartwarming: 'heartwarming',
+  dramatic: 'dramatic',
+  neutral: 'neutral',
+}
+
+function capitalizeFirst(value: string): string {
+  return value.length === 0 ? value : `${value[0]!.toUpperCase()}${value.slice(1)}`
+}
+
+function stripTrailingPeriod(value: string): string {
+  return value.replace(/[.;,\s]+$/u, '')
 }
 
 export function storyWeatherLabel(value: StoryWeather): string {
@@ -384,32 +442,110 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
     ? input.hasReference
       ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
       : storyKeyframeFluxPrompt(input.beat.visualPrompt)
-    : [
-        composeGlobalBlock(input.bible),
-        composeSceneBlock(input.bible, input.beat),
-        `${KEYFRAME_STAGE_BLOCK} Localización: ${sceneLocation(input.bible, input.beat).name}. Hora: ${storyTimeOfDayLabel(input.beat.timeOfDay)}. Clima: ${storyWeatherLabel(input.beat.weather)}.`,
-        `Avoid: ${composeNegative(input.bible, input.beat)}`,
-      ].join(' ')
+    : composeCanonKeyframePrompt(input.bible, input.beat)
 
-  if (input.maxLength !== undefined && prompt.length > input.maxLength) {
+  const budget = input.maxLength === undefined
+    ? KEYFRAME_PROMPT_MAX_CHARS
+    : Math.min(input.maxLength, KEYFRAME_PROMPT_MAX_CHARS)
+
+  if (prompt.length > budget) {
     throw new StoryError('invalid-visual-prompt')
   }
 
   return { prompt }
 }
 
+function keyframeShotLine(beat: StoryBeat): string {
+  const framing = beat.framing === undefined
+    ? CAMERA_EN[beat.camera]
+    : FRAMING_EN[beat.framing]
+  const subject = beat.subject === undefined ? '' : compactText(beat.subject, 80)
+  const action = stripTrailingPeriod(compactText(beat.action, 160))
+
+  return subject.length === 0
+    ? `${capitalizeFirst(framing)}: ${action}.`
+    : `${capitalizeFirst(framing)} of ${subject}: ${action}.`
+}
+
+function keyframeEntities(
+  bible: StoryBible,
+  beat: StoryBeat,
+  detailed: boolean,
+): string {
+  const characters = beat.characters
+    .map((id) => characterById(bible, id))
+    .filter((character): character is StoryCharacter => character !== undefined)
+    .map((character) => detailed
+      ? `${character.name} (${stripTrailingPeriod(compactText(character.wardrobe, 60))})`
+      : character.name)
+    .join('; ')
+  const props = beat.props
+    .map((id) => propById(bible, id))
+    .filter((prop): prop is StoryProp => prop !== undefined)
+    .map((prop) => prop.name)
+    .join(', ')
+
+  return [
+    characters.length === 0 ? '' : `Characters: ${characters}.`,
+    props.length === 0 ? '' : `Props: ${props}.`,
+  ].filter((part) => part.length > 0).join(' ')
+}
+
+function keyframeContext(bible: StoryBible, beat: StoryBeat): string {
+  const location = sceneLocation(bible, beat)
+
+  return `Location: ${compactText(location.name, 60)}. Time: ${TIME_OF_DAY_EN[beat.timeOfDay]}. Weather: ${WEATHER_EN[beat.weather]}.`
+}
+
+function keyframeComposition(beat: StoryBeat): string {
+  const composition = stripTrailingPeriod(compactText(beat.visualPrompt, 180))
+
+  return composition.length === 0 ? '' : `Composition: ${composition}.`
+}
+
+function keyframeStyle(bible: StoryBible, withRules: boolean): string {
+  const rules = withRules
+    ? bible.continuityRules
+        .slice(0, 2)
+        .map((rule) => compactText(rule, 60))
+        .join('; ')
+    : ''
+  const base = `Style: ${compactText(bible.style, 80)}. Tone: ${TONE_EN[bible.tone]}. Theme: ${compactText(bible.theme, 80)}.`
+
+  return rules.length === 0 ? base : `${base} Continuity: ${rules}.`
+}
+
+/**
+ * Canon keyframe prompt: shot first, then only the entities present, then the
+ * location, and the style last. The degradation ladder is deterministic so a
+ * long canon never truncates the shot-specific text.
+ */
+function composeCanonKeyframePrompt(bible: StoryBible, beat: StoryBeat): string {
+  const head = keyframeShotLine(beat)
+  const composition = keyframeComposition(beat)
+  const context = keyframeContext(bible, beat)
+  const style = keyframeStyle(bible, true)
+  const styleShort = keyframeStyle(bible, false)
+  const entities = keyframeEntities(bible, beat, true)
+  const entitiesShort = keyframeEntities(bible, beat, false)
+  const candidates = [
+    [head, composition, entities, context, style, KEYFRAME_STAGE_BLOCK_EN],
+    [head, composition, entities, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    [head, composition, entitiesShort, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    [head, composition, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    [head, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+  ].map((parts) => parts.filter((part) => part.length > 0).join(' '))
+
+  return candidates.find((candidate) => candidate.length <= KEYFRAME_PROMPT_MAX_CHARS)
+    ?? candidates[candidates.length - 1]!
+}
+
 function joinVideoPrompt(
   globalBlock: string,
   sceneBlock: string,
   stageBlock: string,
-  avoid?: string,
 ): string {
-  return [
-    globalBlock,
-    sceneBlock,
-    stageBlock,
-    ...(avoid === undefined ? [] : [`Avoid: ${avoid}`]),
-  ].join(' ')
+  return [globalBlock, sceneBlock, stageBlock].join(' ')
 }
 
 export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
@@ -434,19 +570,11 @@ export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
     includeContinuity: false,
   })
   const stageBlock = `${VIDEO_STAGE_BLOCK} Localización: ${sceneLocation(input.bible, input.beat).name}. Hora: ${storyTimeOfDayLabel(input.beat.timeOfDay)}. Clima: ${storyWeatherLabel(input.beat.weather)}.`
-  const shortNegative = COMPACT_VIDEO_NEGATIVE.join(', ')
-  const candidates = input.preset === 'fast'
-    ? [
-        joinVideoPrompt(globalBlock, fullScene, stageBlock, negativePrompt),
-        joinVideoPrompt(globalBlock, fullScene, stageBlock, shortNegative),
-        joinVideoPrompt(globalBlock, sceneWithoutContinuity, stageBlock, shortNegative),
-        joinVideoPrompt(minimalGlobal, sceneWithoutContinuity, stageBlock, shortNegative),
-      ]
-    : [
-        joinVideoPrompt(globalBlock, fullScene, stageBlock),
-        joinVideoPrompt(globalBlock, sceneWithoutContinuity, stageBlock),
-        joinVideoPrompt(minimalGlobal, sceneWithoutContinuity, stageBlock),
-      ]
+  const candidates = [
+    joinVideoPrompt(globalBlock, fullScene, stageBlock),
+    joinVideoPrompt(globalBlock, sceneWithoutContinuity, stageBlock),
+    joinVideoPrompt(minimalGlobal, sceneWithoutContinuity, stageBlock),
+  ]
   const prompt = candidates.find(
     (candidate) => candidate.length <= STORY_VIDEO_PROMPT_MAX_LENGTH,
   )

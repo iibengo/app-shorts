@@ -182,6 +182,32 @@ export interface StoryPlan {
   readonly scenes: readonly StoryNarrativeScene[]
 }
 
+/**
+ * Puesta en escena que consume el compositor de prompts. Los planes 005–007 lo
+ * guardaban en `planJson.beats`; 008 lo reconstruye desde `Shot` y `Scene`.
+ */
+export interface StoryBeat {
+  readonly order: number
+  readonly sceneRole: StorySceneRole
+  readonly locationId: string
+  readonly timeOfDay: StoryTimeOfDay
+  readonly weather: StoryWeather
+  readonly characters: readonly string[]
+  readonly props: readonly string[]
+  readonly action: string
+  readonly narration: string
+  readonly storyFunction: StoryStoryFunction
+  readonly gag: string | null
+  readonly visualPrompt: string
+  readonly camera: StoryCameraShot
+  readonly continuityFromPrevious: string | null
+  readonly transition: StoryTransition
+  /** Solo 008: sujeto del plano, ya validado por el director. */
+  readonly subject?: string
+  /** Solo 008: encuadre del plano; prevalece sobre `camera` en el keyframe. */
+  readonly framing?: StoryShotFraming
+}
+
 /** Unidad de generación. Una fila de `Shot`. */
 export interface StoryShot {
   readonly id: string

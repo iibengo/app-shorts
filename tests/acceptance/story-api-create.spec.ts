@@ -189,16 +189,13 @@ describe('POST /api/story success', () => {
   })
 
   it.each([
-    ['keyframe', longGlobalPlan(), 502],
     ['video', longVideoPlan(), 502],
   ])('rejects a director plan with an oversized %s prompt without persisting', async (_label, plan, status) => {
     const validation = validateStoryPlan(plan, { sceneCount: 5, mode: 'faithful' })
 
     expect(validation.ok).toBe(false)
     if (!validation.ok) {
-      expect(validation.reason).toContain(
-        _label === 'keyframe' ? 'prompt final demasiado largo' : 'prompt de vídeo demasiado largo',
-      )
+      expect(validation.reason).toContain('prompt de vídeo demasiado largo')
     }
 
     const director = new FakeStoryDirector(plan)

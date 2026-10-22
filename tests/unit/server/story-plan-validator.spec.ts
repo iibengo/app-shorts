@@ -60,8 +60,16 @@ describe('story plan validator', () => {
     expect(validateStoryPlan(value, { sceneCount: 5, mode: 'faithful' }).ok).toBe(false)
   })
 
-  it.each<[string, ReturnType<typeof longGlobalPlan>, string]>([
-    ['keyframe', longGlobalPlan(), 'prompt final demasiado largo'],
+  it('bounds the keyframe prompt so only the video limit rejects an oversized canon', () => {
+    const validation = validateStoryPlan(longGlobalPlan(), { sceneCount: 5, mode: 'faithful' })
+
+    expect(validation.ok).toBe(false)
+    if (validation.ok) return
+    expect(validation.reason).toContain('prompt de vídeo demasiado largo')
+    expect(validation.reason).not.toContain('prompt final demasiado largo')
+  })
+
+  it.each<[string, ReturnType<typeof longVideoPlan>, string]>([
     ['video', longVideoPlan(), 'prompt de vídeo demasiado largo'],
   ])('rejects a plan that composes an oversized %s prompt', (_label, plan, reason) => {
     const result = validateStoryPlan(plan, { sceneCount: 5, mode: 'faithful' })

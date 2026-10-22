@@ -616,29 +616,22 @@ describe('StoryService.updateBeatAndRegenerate', () => {
   })
 
 
-  it('rejects an edit whose keyframe prompt exceeds 4000 without writing', async () => {
-    const story = waitingStory({ plan: longGlobalPlan() })
+  it('accepts an edit and bounds the composed keyframe prompt', async () => {
+    const story = waitingStory()
     const { service, repository } = setup({ seed: [story] })
-    const longPrompt = 'Composición visual '.repeat(30).slice(0, 600)
+    const scene = story.scenes[1]!
+    const longPrompt = 'Composición visual de la escena con detalle. '.repeat(8).slice(0, 360)
 
-    const beat = story.plan!.beats[1]!
-    expect(composeKeyframe({
-      bible: story.plan!.storyBible,
-      beat: { ...beat, visualPrompt: longPrompt },
-      hasReference: false,
-    }).prompt.length).toBeGreaterThan(4_000)
-
-    const error = await captureError(() => service.updateBeatAndRegenerate({
+    const result = await service.updateBeatAndRegenerate({
       storyId: story.id,
       sessionId: SESSION_ID,
-      sceneId: story.scenes[1]!.id,
+      sceneId: scene.id,
       update: { visualPrompt: longPrompt, regenerate: true },
-    }))
+    })
 
-    expect(error.code).toBe('invalid-visual-prompt')
-    expect(error.status).toBe(400)
-    expect(repository.calls).not.toContain('updateStory')
-    expect(repository.calls).not.toContain('updateScene')
+    expect(result.status).toBe('GENERATING_KEYFRAMES')
+    expect(repository.calls).toContain('updateStory')
+    expect(repository.calls).toContain('updateScene')
   })
 
   it('rejects an edit whose video prompt exceeds 2000 without writing', async () => {

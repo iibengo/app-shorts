@@ -6,7 +6,10 @@ import {
   storyBeatForShot,
 } from '../../../server/story/shot-keyframe-orchestrator'
 import { createShotVideoOrchestrator } from '../../../server/story/shot-video-orchestrator'
-import { composeKeyframe } from '../../../server/story/story-prompt-composer'
+import {
+  KEYFRAME_PROMPT_MAX_CHARS,
+  composeKeyframe,
+} from '../../../server/story/story-prompt-composer'
 import { makeReelNarrative, makeReelShotList } from '../../helpers/reel-fixtures'
 import { FakeReelStoryRepository } from '../../helpers/story-reel'
 
@@ -70,26 +73,24 @@ async function record(preset: 'fast' | 'quality' = 'fast') {
 }
 
 describe('shot orchestrators', () => {
-  it('fails instead of truncating when the keyframe prompt exceeds 4.000', async () => {
+  it('bounds a huge canon instead of failing or truncating the shot text', async () => {
     const ctx = await record()
     const beat = storyBeatForShot(ctx.shot, ctx.scene)
     const giantBible = {
       ...ctx.story.plan.storyBible!,
       style: 'Estilo visual detallado '.repeat(300),
+      theme: 'Tema narrativo larguisimo '.repeat(200),
     }
-    const unconstrained = composeKeyframe({
-      bible: giantBible,
-      beat,
-      hasReference: false,
-    })
 
-    expect(unconstrained.prompt.length).toBeGreaterThan(4_000)
-    expect(() => composeKeyframe({
+    const constrained = composeKeyframe({
       bible: giantBible,
       beat,
       hasReference: false,
       maxLength: 4_000,
-    })).toThrow('El prompt visual no es válido.')
+    })
+
+    expect(constrained.prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
+    expect(constrained.prompt).not.toContain('Estilo visual detallado Estilo visual detallado Estilo visual detallado Estilo visual detallado')
 
     const queue = new FakeQueue()
     const orchestrator = createShotKeyframeOrchestrator(queue)
@@ -98,9 +99,9 @@ describe('shot orchestrators', () => {
       plan: { ...ctx.story.plan, storyBible: giantBible },
     }
 
-    await expect(orchestrator.submit(ctx.shot, ctx.scene, story))
-      .rejects.toMatchObject({ code: 'invalid-visual-prompt' })
-    expect(queue.submissions).toHaveLength(0)
+    const submission = await orchestrator.submit(ctx.shot, ctx.scene, story)
+    expect(submission.requestId).toBe('request-1')
+    expect(queue.submissions).toHaveLength(1)
   })
 
   it('submits a keyframe for the shot prompt', async () => {
@@ -116,7 +117,7 @@ describe('shot orchestrators', () => {
     expect(submission.requestId).toBe('request-1')
     expect(queue.submissions[0]?.endpoint).toBe('fal-ai/flux/dev')
     expect(input.image_size).toEqual({ width: 1152, height: 2048 })
-    expect(input.prompt.length).toBeLessThanOrEqual(4_000)
+    expect(input.prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
     expect(input.prompt).toContain(ctx.shot.visualPrompt.slice(0, 20))
 
     const poll = await orchestrator.poll({

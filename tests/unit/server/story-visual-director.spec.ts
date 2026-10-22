@@ -211,7 +211,7 @@ describe('visual director', () => {
     expect(calls).toHaveLength(2)
   })
 
-  it('consumes the repair and returns 502 when the keyframe prompt exceeds 4000', async () => {
+  it('rejects an oversized canon through the video prompt, not the keyframe one', async () => {
     const oversized = structuredClone(narrative) as typeof narrative
     const pad = (length: number, char: string): string => char.repeat(length)
 
@@ -272,6 +272,6 @@ describe('visual director', () => {
     expect((error as StoryError).status).toBe(502)
     expect(calls).toHaveLength(2)
     expect(events.at(-1)?.event).toBe('story.visual.failed')
-    expect(events.at(-1)?.reason).toContain('prompt final demasiado largo')
+    expect(events.at(-1)?.reason).toContain('prompt de vídeo demasiado largo')
   })
 })
