@@ -19,7 +19,7 @@ import {
   storyVisualTruncationRepairMessages,
   storyVisualUserMessage,
 } from './visual-prompt'
-import type { DeepSeekClient } from './deepseek-client'
+import type { DeepSeekClient, DeepSeekUsage } from './deepseek-client'
 import { hasSignificantNarrationCopy } from './prompt-guard'
 
 export const VISUAL_TOKENS_BY_SCENE: Readonly<Record<number, number>> = {
@@ -30,7 +30,7 @@ export const VISUAL_TOKENS_BY_SCENE: Readonly<Record<number, number>> = {
 export const VISUAL_MAX_TOKENS = 2_800
 export const VISUAL_MAX_TOKENS_LIMIT = 4_000
 export const VISUAL_REPAIR_INCREMENT = 300
-export const VISUAL_TIMEOUT_MS = 25_000
+export const VISUAL_TIMEOUT_MS = 40_000
 
 export function visualMaxTokens(sceneCount: number): number {
   return Math.min(
@@ -47,6 +47,12 @@ export interface VisualDirectorOptions {
   readonly client: DeepSeekClient
   readonly onEvent?: (event: DirectorLogEvent) => void
   readonly timeoutMs?: number
+}
+
+function usageFields(usage: DeepSeekUsage | undefined): { readonly completionTokens?: number; readonly reasoningTokens?: number } {
+  return usage === undefined
+    ? {}
+    : { completionTokens: usage.completionTokens, reasoningTokens: usage.reasoningTokens }
 }
 
 function parseJson(content: string): unknown {
@@ -99,7 +105,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
 
     if (first.content === null) {
       if (first.finishReason === 'content_filter') {
-        this.fail(1, first.finishReason, 'content-blocked', input.mode, startedAt)
+        this.fail(1, first.finishReason, 'content-blocked', input.mode, startedAt, undefined, first.usage)
         throw new StoryError('content-blocked')
       }
 
@@ -108,7 +114,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
         ? 'respuesta truncada por max_tokens'
         : 'respuesta vacía'
 
-      this.fail(1, first.finishReason, 'director-invalid-output', input.mode, startedAt, reason)
+      this.fail(1, first.finishReason, 'director-invalid-output', input.mode, startedAt, reason, first.usage)
       const repaired = await this.client.complete({
         messages: truncated
           ? [...messages, ...storyVisualTruncationRepairMessages(visualRepairMaxTokens(baseMaxTokens))]
@@ -126,13 +132,13 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
     const truncated = first.finishReason === 'length'
 
     if (validation.ok && !truncated) {
-      this.ok(1, first.finishReason, input.mode, startedAt)
+      this.ok(1, first.finishReason, input.mode, startedAt, first.usage)
       return validation.draft
     }
 
     const reason = truncated ? 'respuesta truncada por max_tokens' : validation.reason
 
-    this.fail(1, first.finishReason, 'director-invalid-output', input.mode, startedAt, reason)
+    this.fail(1, first.finishReason, 'director-invalid-output', input.mode, startedAt, reason, first.usage)
     const repaired = await this.client.complete({
       messages: truncated
         ? [...messages, ...storyVisualTruncationRepairMessages(visualRepairMaxTokens(baseMaxTokens))]
@@ -159,6 +165,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
         input.mode,
         startedAt,
         repaired.finishReason === 'length' ? 'respuesta truncada por max_tokens' : undefined,
+        repaired.usage,
       )
       throw new StoryError('director-invalid-output')
     }
@@ -171,6 +178,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
         input.mode,
         startedAt,
         'respuesta truncada por max_tokens',
+        repaired.usage,
       )
       throw new StoryError('director-invalid-output')
     }
@@ -178,11 +186,11 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
     const validation = this.validate(repaired.content, input.narrative)
 
     if (validation.ok) {
-      this.ok(2, repaired.finishReason, input.mode, startedAt)
+      this.ok(2, repaired.finishReason, input.mode, startedAt, repaired.usage)
       return validation.draft
     }
 
-    this.fail(2, repaired.finishReason, 'director-invalid-output', input.mode, startedAt, validation.reason)
+    this.fail(2, repaired.finishReason, 'director-invalid-output', input.mode, startedAt, validation.reason, repaired.usage)
     throw new StoryError('director-invalid-output')
   }
 
@@ -253,6 +261,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
     finishReason: DirectorFinishReason,
     mode: StoryMode,
     startedAt: number,
+    usage?: DeepSeekUsage,
   ): void {
     this.emit({
       event: 'story.visual.ok',
@@ -261,6 +270,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
       finishReason,
       mode,
       latencyMs: Date.now() - startedAt,
+      ...usageFields(usage),
     })
   }
 
@@ -271,6 +281,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
     mode: StoryMode,
     startedAt: number,
     reason?: string,
+    usage?: DeepSeekUsage,
   ): void {
     this.emit({
       event: 'story.visual.failed',
@@ -281,6 +292,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
       mode,
       ...(reason === undefined ? {} : { reason }),
       latencyMs: Date.now() - startedAt,
+      ...usageFields(usage),
     })
   }
 }

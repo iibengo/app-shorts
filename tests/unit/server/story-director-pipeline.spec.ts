@@ -11,6 +11,7 @@ import { NativeStoryVisualDirector } from '../../../server/story/visual-director
 import { createBriefingNarrativeDirector } from '../../../server/story/briefing-director'
 import type {
   DeepSeekClient,
+  DeepSeekCompletion,
   DeepSeekCompletionRequest,
 } from '../../../server/story/deepseek-client'
 import { StoryError } from '../../../server/story/errors'
@@ -82,7 +83,7 @@ describe('story director pipeline', () => {
   })
 
   it('defaults the total pipeline timeout to 85 seconds', () => {
-    expect(DIRECTOR_TOTAL_TIMEOUT_MS).toBe(85_000)
+    expect(DIRECTOR_TOTAL_TIMEOUT_MS).toBe(180_000)
   })
 
   it('aborts the total pipeline with director-timeout/504', async () => {
@@ -192,14 +193,83 @@ describe('story director pipeline', () => {
     expect((visualPass.calls[0] as { mode: string }).mode).toBe('creative')
   })
 
+  it('does not call visual when canon fails after two attempts', async () => {
+    const client: DeepSeekClient = {
+      async complete() {
+        return { content: '{"title":"bad"}', finishReason: 'stop', httpStatus: 200 }
+      },
+    }
+    const visualPass = visualDirector()
+    const director = new NativeStoryDirector({
+      narrative: new NativeStoryNarrativeDirector({ client }),
+      visual: visualPass.director,
+    })
+
+    await expect(director.createPlan({
+      premise: 'Una premisa suficientemente larga.',
+      sceneCount: 5,
+      referenceUrl: null,
+      mode: 'creative',
+    })).rejects.toBeInstanceOf(StoryError)
+
+    expect(visualPass.calls).toHaveLength(0)
+  })
+
+  it('does not call visual when beats fail after two attempts', async () => {
+    const canon = {
+      title: narrative.title,
+      logline: narrative.logline,
+      tone: narrative.tone,
+      storyBible: narrative.storyBible,
+    }
+    const responses: DeepSeekCompletion[] = [
+      { content: JSON.stringify(canon), finishReason: 'stop', httpStatus: 200 },
+      { content: '{"beats":[]}', finishReason: 'stop', httpStatus: 200 },
+      { content: '{"beats":[]}', finishReason: 'stop', httpStatus: 200 },
+    ]
+    let index = 0
+    const client: DeepSeekClient = {
+      async complete() {
+        const response = responses[Math.min(index, responses.length - 1)]!
+        index += 1
+
+        return response
+      },
+    }
+    const visualPass = visualDirector()
+    const director = new NativeStoryDirector({
+      narrative: new NativeStoryNarrativeDirector({ client }),
+      visual: visualPass.director,
+    })
+
+    await expect(director.createPlan({
+      premise: 'Una premisa suficientemente larga.',
+      sceneCount: 5,
+      referenceUrl: null,
+      mode: 'creative',
+    })).rejects.toBeInstanceOf(StoryError)
+
+    expect(index).toBe(3)
+    expect(visualPass.calls).toHaveLength(0)
+  })
+
   it('injects the deterministic brief into the narrative request only', async () => {
+    const canon = {
+      title: narrative.title,
+      logline: narrative.logline,
+      tone: narrative.tone,
+      storyBible: narrative.storyBible,
+    }
+    const beats = { beats: narrative.beats }
     const calls: DeepSeekCompletionRequest[] = []
     const client: DeepSeekClient = {
       async complete(input) {
         calls.push(input)
         const content = calls.length === 1
-          ? JSON.stringify(narrative)
-          : JSON.stringify(storyboard)
+          ? JSON.stringify(canon)
+          : calls.length === 2
+            ? JSON.stringify(beats)
+            : JSON.stringify(storyboard)
 
         return { content, finishReason: 'stop', httpStatus: 200 }
       },
@@ -218,16 +288,16 @@ describe('story director pipeline', () => {
       mode: 'creative',
     })
 
-    expect(calls).toHaveLength(2)
+    expect(calls).toHaveLength(3)
 
     const narrativeRequest = JSON.stringify(calls[0]?.messages)
-    const visualRequest = JSON.stringify(calls[1]?.messages)
+    const visualRequest = JSON.stringify(calls[2]?.messages)
 
     expect(narrativeRequest).toContain('Brief de producción')
     expect(narrativeRequest).toContain('no sustituye la premisa')
     expect(visualRequest).not.toContain('Brief de producción')
     expect(visualRequest).not.toContain('no sustituye la premisa')
     expect(visualRequest).toContain('obrador')
-    expect(calls[1]?.temperature).toBe(0.7)
+    expect(calls[2]?.temperature).toBe(0.7)
   })
 })

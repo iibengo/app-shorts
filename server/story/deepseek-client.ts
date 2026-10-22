@@ -19,10 +19,17 @@ export interface DeepSeekCompletionRequest {
   readonly signal?: AbortSignal
 }
 
+export interface DeepSeekUsage {
+  readonly promptTokens: number
+  readonly completionTokens: number
+  readonly reasoningTokens: number
+}
+
 export interface DeepSeekCompletion {
   readonly content: string | null
   readonly finishReason: DirectorFinishReason
   readonly httpStatus: number
+  readonly usage?: DeepSeekUsage
 }
 
 export interface DeepSeekClient {
@@ -57,6 +64,30 @@ function readFinishReason(payload: unknown): DirectorFinishReason {
   return reason === 'stop' || reason === 'length' || reason === 'content_filter'
     ? reason
     : 'unknown'
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function readUsage(payload: unknown): DeepSeekUsage | undefined {
+  if (!isRecord(payload) || !isRecord(payload.usage)) return undefined
+
+  const usage = payload.usage
+  const completionDetails = isRecord(usage.completion_tokens_details)
+    ? usage.completion_tokens_details
+    : isRecord(usage.output_tokens_details)
+      ? usage.output_tokens_details
+      : null
+
+  return {
+    promptTokens: readNumber(usage.prompt_tokens) ?? 0,
+    completionTokens: readNumber(usage.completion_tokens) ?? 0,
+    reasoningTokens: readNumber(usage.reasoning_tokens)
+      ?? (completionDetails === null
+        ? 0
+        : readNumber(completionDetails.reasoning_tokens) ?? 0),
+  }
 }
 
 function isContentBlocked(payload: unknown): boolean {
@@ -145,10 +176,13 @@ export class NativeDeepSeekClient implements DeepSeekClient {
       throw new StoryError('director-unavailable')
     }
 
+    const usage = readUsage(payload)
+
     return {
       content: readMessageContent(payload),
       finishReason: readFinishReason(payload),
       httpStatus: response.status,
+      ...(usage === undefined ? {} : { usage }),
     }
   }
 }

@@ -1,12 +1,17 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import {
-  NARRATIVE_JSON_SCHEMA,
+  BEATS_JSON_SCHEMA,
+  CANON_JSON_SCHEMA,
   narrativeModeBlock,
-  storyNarrativeRepairMessages,
-  storyNarrativeSystemPrompt,
-  storyNarrativeTruncationRepairMessages,
-  storyNarrativeUserMessage,
+  storyBeatsRepairMessages,
+  storyBeatsSystemPrompt,
+  storyBeatsTruncationRepairMessages,
+  storyBeatsUserMessage,
+  storyCanonRepairMessages,
+  storyCanonSystemPrompt,
+  storyCanonTruncationRepairMessages,
+  storyCanonUserMessage,
 } from '../../../server/story/narrative-prompt'
 import {
   STORYBOARD_JSON_SCHEMA,
@@ -15,40 +20,33 @@ import {
   storyVisualTruncationRepairMessages,
   storyVisualUserMessage,
 } from '../../../server/story/visual-prompt'
-import type { NarrativeDraft } from '../../../server/story/director-types'
+import type { DeepSeekMessage, NarrativeDraft } from '../../../server/story/director-types'
 import narrative from '../../fixtures/deepseek/narrative-creative-3-locations.json'
 
 const NARRATIVE = narrative as NarrativeDraft
 const PREMISE = 'Clara persigue un merengue imposible desde el parque hasta un despacho.'
 
-function textOf(message: ReturnType<typeof storyVisualUserMessage>): string {
+function textOf(message: DeepSeekMessage): string {
   return typeof message.content === 'string'
     ? message.content
     : JSON.stringify(message.content)
 }
 
-describe('narrative prompt', () => {
-  it('asks for the five-beat structure and the exact scene count', () => {
-    const prompt = storyNarrativeSystemPrompt(5, 'creative')
+describe('canon prompt', () => {
+  it('asks only for canon and the tightened limits', () => {
+    const prompt = storyCanonSystemPrompt('creative')
 
     for (const directive of [
-      'gancho en el primer segundo',
-      'complicación',
-      'escalada',
-      'giro',
-      'remate visual',
-      'No repitas la misma acción',
-      'texto en pantalla',
-      'Hay exactamente 5 beats',
+      'Primera etapa',
+      'canon narrativo',
+      'No incluyas beats',
+      'style y theme 10–120',
+      'descripciones de personaje 20–90',
+      'máximo 6 prohibiciones',
     ]) {
       expect(prompt, directive).toContain(directive)
     }
-  })
-
-  it('never promises virality or guaranteed comedy', () => {
-    const prompt = storyNarrativeSystemPrompt(5, 'creative')
-
-    expect(prompt).toContain('No prometas viralidad ni garantices gracia')
+    expect(prompt).not.toContain('visualPrompt')
   })
 
   it('keeps the faithful mode conservative and the creative mode bounded', () => {
@@ -63,30 +61,21 @@ describe('narrative prompt', () => {
     expect(creative).not.toContain('No inventes canon')
   })
 
-  it('describes canon lists and never asks for visual fields', () => {
-    expect(NARRATIVE_JSON_SCHEMA).toContain('"locations"')
-    expect(NARRATIVE_JSON_SCHEMA).toContain('"source": "premise|invented"')
-    expect(NARRATIVE_JSON_SCHEMA).toContain('"storyFunction"')
-    expect(NARRATIVE_JSON_SCHEMA).not.toContain('visualPrompt')
-    expect(NARRATIVE_JSON_SCHEMA).not.toContain('"camera"')
-    expect(NARRATIVE_JSON_SCHEMA).not.toContain('"transition"')
+  it('describes canon lists and never asks for beats or visual fields', () => {
+    expect(CANON_JSON_SCHEMA).toContain('"locations"')
+    expect(CANON_JSON_SCHEMA).toContain('"source": "premise|invented"')
+    expect(CANON_JSON_SCHEMA).toContain('"forbidden"')
+    expect(CANON_JSON_SCHEMA).not.toContain('"beats"')
+    expect(CANON_JSON_SCHEMA).not.toContain('visualPrompt')
+    expect(CANON_JSON_SCHEMA).not.toContain('"camera"')
+    expect(CANON_JSON_SCHEMA).not.toContain('"transition"')
   })
 
-  it('puts the premise and the schema in the user message without a brief by default', () => {
-    const message = storyNarrativeUserMessage(PREMISE, null)
-    const text = textOf(message)
-
-    expect(text).toContain(`Premisa: ${PREMISE}`)
-    expect(text).toContain(NARRATIVE_JSON_SCHEMA)
-    expect(message.role).toBe('user')
-    expect(Array.isArray(message.content)).toBe(false)
-  })
-
-  it('appends the deterministic brief only when the context provides an applied brief', () => {
-    const withoutBrief = textOf(storyNarrativeUserMessage(PREMISE, null, {
+  it('puts the premise, schema and optional brief in the canon user message', () => {
+    const withoutBrief = textOf(storyCanonUserMessage(PREMISE, null, {
       brief: { applied: false, reasons: [] },
     }))
-    const withBrief = textOf(storyNarrativeUserMessage(PREMISE, null, {
+    const withBrief = textOf(storyCanonUserMessage(PREMISE, null, {
       brief: {
         applied: true,
         reasons: ['short-text'],
@@ -95,13 +84,15 @@ describe('narrative prompt', () => {
       },
     }))
 
+    expect(withoutBrief).toContain(`Premisa: ${PREMISE}`)
+    expect(withoutBrief).toContain(CANON_JSON_SCHEMA)
     expect(withoutBrief).not.toContain('Brief de producción')
     expect(withBrief).toContain('Brief de producción')
     expect(withBrief).toContain('Concreta el lugar de cada escena.')
   })
 
-  it('attaches the reference as an image part without hiding the text', () => {
-    const message = storyNarrativeUserMessage(
+  it('attaches the reference image only in the canon message', () => {
+    const message = storyCanonUserMessage(
       PREMISE,
       'https://v3.fal.media/files/test/reference.jpeg',
     )
@@ -113,21 +104,78 @@ describe('narrative prompt', () => {
     expect(parts[1]).toMatchObject({ type: 'image_url' })
   })
 
-  it('builds one repair message with the stable reason and never a third prompt', () => {
-    const withPrevious = storyNarrativeRepairMessages('tone: valor inválido', '{"title":"x"}')
-    const withoutPrevious = storyNarrativeRepairMessages('tone: valor inválido', null)
+  it('builds separate canon repair and truncation prompts', () => {
+    const withPrevious = storyCanonRepairMessages('tone: valor inválido', '{"title":"x"}')
+    const withoutPrevious = storyCanonRepairMessages('tone: valor inválido', null)
+    const [truncated] = storyCanonTruncationRepairMessages(3_400)
 
     expect(withPrevious).toHaveLength(2)
     expect(withPrevious[0]?.role).toBe('assistant')
     expect(withPrevious[1]?.content).toContain('tone: valor inválido')
+    expect(withPrevious[1]?.content).toContain(CANON_JSON_SCHEMA)
     expect(withoutPrevious).toHaveLength(1)
+    expect(String(truncated?.content)).toContain('3400 tokens')
+    expect(String(truncated?.content)).toContain(CANON_JSON_SCHEMA)
+  })
+})
+
+describe('beats prompt', () => {
+  it('asks for the exact scene count and the five-beat structure', () => {
+    const prompt = storyBeatsSystemPrompt(5, 'creative')
+
+    for (const directive of [
+      'Segunda etapa',
+      'No cambies el canon',
+      'No añadas campos visuales',
+      'gancho en el primer segundo',
+      'complicación',
+      'escalada',
+      'giro',
+      'remate visual',
+      'No repitas la misma acción',
+      'texto en pantalla',
+      'Hay exactamente 5 beats',
+    ]) {
+      expect(prompt, directive).toContain(directive)
+    }
   })
 
-  it('asks for a compact JSON within the truncation budget', () => {
-    const [message] = storyNarrativeTruncationRepairMessages(7_400)
+  it('never promises virality or guaranteed comedy', () => {
+    const prompt = storyBeatsSystemPrompt(5, 'creative')
 
-    expect(String(message?.content)).toContain('7400 tokens')
-    expect(String(message?.content)).toContain(NARRATIVE_JSON_SCHEMA)
+    expect(prompt).toContain('No prometas viralidad ni garantices gracia')
+  })
+
+  it('exposes only narrative beat fields and no canon or visual fields', () => {
+    expect(BEATS_JSON_SCHEMA).toContain('"beats"')
+    expect(BEATS_JSON_SCHEMA).toContain('"locationId"')
+    expect(BEATS_JSON_SCHEMA).toContain('"storyFunction"')
+    expect(BEATS_JSON_SCHEMA).not.toContain('"storyBible"')
+    expect(BEATS_JSON_SCHEMA).not.toContain('visualPrompt')
+    expect(BEATS_JSON_SCHEMA).not.toContain('"camera"')
+    expect(BEATS_JSON_SCHEMA).not.toContain('"transition"')
+  })
+
+  it('sends the premise and validated canon without a reference image', () => {
+    const canonJson = JSON.stringify({ title: 'El azúcar lo sabe', storyBible: { id: 'x' } })
+    const text = textOf(storyBeatsUserMessage(PREMISE, canonJson))
+
+    expect(text).toContain(`Premisa: ${PREMISE}`)
+    expect(text).toContain(canonJson)
+    expect(text).toContain(BEATS_JSON_SCHEMA)
+    expect(text).not.toContain('image_url')
+  })
+
+  it('builds separate beats repair and truncation prompts', () => {
+    const withPrevious = storyBeatsRepairMessages('beats: se esperaban exactamente 5', '{"beats":[]}')
+    const [truncated] = storyBeatsTruncationRepairMessages(5_400)
+
+    expect(withPrevious).toHaveLength(2)
+    expect(withPrevious[0]?.role).toBe('assistant')
+    expect(withPrevious[1]?.content).toContain('beats: se esperaban exactamente 5')
+    expect(withPrevious[1]?.content).toContain(BEATS_JSON_SCHEMA)
+    expect(String(truncated?.content)).toContain('5400 tokens')
+    expect(String(truncated?.content)).toContain(BEATS_JSON_SCHEMA)
   })
 })
 

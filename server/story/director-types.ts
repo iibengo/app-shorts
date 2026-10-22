@@ -25,11 +25,14 @@ export interface NarrativeBeat {
   readonly gag: string | null
 }
 
-export interface NarrativeDraft {
+export interface CanonDraft {
   readonly title: string
   readonly logline: string
   readonly tone: StoryNarrativeTone
   readonly storyBible: StoryBible
+}
+
+export interface NarrativeDraft extends CanonDraft {
   readonly beats: readonly NarrativeBeat[]
 }
 
@@ -52,12 +55,15 @@ export type DirectorPass = 'narrative' | 'visual'
 export interface DirectorLogEvent {
   readonly event: string
   readonly pass: DirectorPass
+  readonly stage?: 'canon' | 'beats'
   readonly attempt: 1 | 2
   readonly finishReason: DirectorFinishReason
   readonly errorCode?: string
   readonly reason?: string
   readonly mode?: StoryMode
   readonly latencyMs?: number
+  readonly completionTokens?: number
+  readonly reasoningTokens?: number
 }
 
 export interface DirectorContext {

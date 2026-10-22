@@ -1,40 +1,37 @@
 import type { StoryMode } from '~/models/story'
 import type {
+  CanonDraft,
+  DeepSeekMessage,
   DirectorFinishReason,
   DirectorLogEvent,
+  NarrativeBeat,
   NarrativeDraft,
   StoryNarrativeDirector,
 } from './director-types'
 import { StoryError } from './errors'
-import { validateNarrativeDraft } from './canon-validator'
 import {
-  storyNarrativeRepairMessages,
-  storyNarrativeSystemPrompt,
-  storyNarrativeTruncationRepairMessages,
-  storyNarrativeUserMessage,
+  validateBeats,
+  validateCanon,
+  validateNarrativeDraft,
+} from './canon-validator'
+import {
+  storyBeatsRepairMessages,
+  storyBeatsSystemPrompt,
+  storyBeatsTruncationRepairMessages,
+  storyBeatsUserMessage,
+  storyCanonRepairMessages,
+  storyCanonSystemPrompt,
+  storyCanonTruncationRepairMessages,
+  storyCanonUserMessage,
 } from './narrative-prompt'
-import type { DeepSeekClient } from './deepseek-client'
+import type { DeepSeekClient, DeepSeekUsage } from './deepseek-client'
 
-export const NARRATIVE_TOKENS_BY_SCENE: Readonly<Record<number, number>> = {
-  4: 6_000,
-  5: 7_000,
-  6: 7_800,
-}
-export const NARRATIVE_MAX_TOKENS = 7_000
-export const NARRATIVE_MAX_TOKENS_LIMIT = 8_000
-export const NARRATIVE_REPAIR_INCREMENT = 400
-export const NARRATIVE_TIMEOUT_MS = 40_000
-
-export function narrativeMaxTokens(sceneCount: number): number {
-  return Math.min(
-    NARRATIVE_TOKENS_BY_SCENE[sceneCount] ?? NARRATIVE_MAX_TOKENS,
-    NARRATIVE_MAX_TOKENS_LIMIT,
-  )
-}
-
-export function narrativeRepairMaxTokens(base: number): number {
-  return Math.min(NARRATIVE_MAX_TOKENS_LIMIT, base + NARRATIVE_REPAIR_INCREMENT)
-}
+export const CANON_MAX_TOKENS = 8_000
+export const CANON_REPAIR_MAX_TOKENS = 8_000
+export const BEATS_MAX_TOKENS = 8_000
+export const BEATS_REPAIR_MAX_TOKENS = 8_000
+export const CANON_TIMEOUT_MS = 60_000
+export const BEATS_TIMEOUT_MS = 60_000
 
 export function directorTemperature(mode: StoryMode): number {
   return mode === 'creative' ? 0.7 : 0.4
@@ -43,11 +40,35 @@ export function directorTemperature(mode: StoryMode): number {
 export interface NarrativeDirectorOptions {
   readonly client: DeepSeekClient
   readonly onEvent?: (event: DirectorLogEvent) => void
-  readonly timeoutMs?: number
+  readonly canonTimeoutMs?: number
+  readonly beatsTimeoutMs?: number
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+type Stage = 'canon' | 'beats'
+
+interface StageSuccess<T> {
+  readonly ok: true
+  readonly value: T
+}
+
+interface StageFailure {
+  readonly ok: false
+  readonly reason: string
+}
+
+type StageValidation<T> = StageSuccess<T> | StageFailure
+
+interface StageInput<T> {
+  readonly stage: Stage
+  readonly messages: readonly DeepSeekMessage[]
+  readonly mode: StoryMode
+  readonly maxTokens: number
+  readonly repairMaxTokens: number
+  readonly timeoutMs: number
+  readonly signal?: AbortSignal
+  readonly validate: (content: string) => StageValidation<T>
+  readonly repairMessages: (reason: string, previousContent: string | null) => readonly DeepSeekMessage[]
+  readonly truncationMessages: (maxTokens: number) => readonly DeepSeekMessage[]
 }
 
 function parseJson(content: string): unknown {
@@ -63,144 +84,199 @@ function parseJson(content: string): unknown {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function usageFields(usage: DeepSeekUsage | undefined): { readonly completionTokens?: number; readonly reasoningTokens?: number } {
+  return usage === undefined
+    ? {}
+    : { completionTokens: usage.completionTokens, reasoningTokens: usage.reasoningTokens }
+}
+
 export class NativeStoryNarrativeDirector implements StoryNarrativeDirector {
   private readonly client: DeepSeekClient
   private readonly onEvent: (event: DirectorLogEvent) => void
-  private readonly timeoutMs: number
+  private readonly canonTimeoutMs: number
+  private readonly beatsTimeoutMs: number
 
   constructor(options: NarrativeDirectorOptions) {
     this.client = options.client
     this.onEvent = options.onEvent ?? (() => undefined)
-    this.timeoutMs = options.timeoutMs ?? NARRATIVE_TIMEOUT_MS
+    this.canonTimeoutMs = options.canonTimeoutMs ?? CANON_TIMEOUT_MS
+    this.beatsTimeoutMs = options.beatsTimeoutMs ?? BEATS_TIMEOUT_MS
   }
 
   async createNarrative(input: Parameters<StoryNarrativeDirector['createNarrative']>[0]): Promise<NarrativeDraft> {
-    const startedAt = Date.now()
-    const messages = [
-      {
-        role: 'system' as const,
-        content: storyNarrativeSystemPrompt(input.sceneCount, input.mode),
-      },
-      storyNarrativeUserMessage(input.premise, input.referenceUrl, input.context),
-    ]
-    const baseMaxTokens = narrativeMaxTokens(input.sceneCount)
+    const canon = await this.runStage<CanonDraft>({
+      stage: 'canon',
+      mode: input.mode,
+      messages: [
+        { role: 'system', content: storyCanonSystemPrompt(input.mode) },
+        storyCanonUserMessage(input.premise, input.referenceUrl, input.context),
+      ],
+      maxTokens: CANON_MAX_TOKENS,
+      repairMaxTokens: CANON_REPAIR_MAX_TOKENS,
+      timeoutMs: this.canonTimeoutMs,
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+      validate: (content) => {
+        const parsed = parseJson(content)
 
+        if (parsed === undefined) return { ok: false, reason: 'json inválido' }
+        if (!isRecord(parsed)) return { ok: false, reason: 'canon: forma inválida' }
+
+        const validation = validateCanon(parsed, { mode: input.mode })
+
+        return validation.ok
+          ? { ok: true, value: validation.canon }
+          : validation
+      },
+      repairMessages: storyCanonRepairMessages,
+      truncationMessages: storyCanonTruncationRepairMessages,
+    })
+
+    const beats = await this.runStage<readonly NarrativeBeat[]>({
+      stage: 'beats',
+      mode: input.mode,
+      messages: [
+        { role: 'system', content: storyBeatsSystemPrompt(input.sceneCount, input.mode) },
+        storyBeatsUserMessage(input.premise, JSON.stringify(canon)),
+      ],
+      maxTokens: BEATS_MAX_TOKENS,
+      repairMaxTokens: BEATS_REPAIR_MAX_TOKENS,
+      timeoutMs: this.beatsTimeoutMs,
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+      validate: (content) => {
+        const parsed = parseJson(content)
+
+        if (parsed === undefined) return { ok: false, reason: 'json inválido' }
+
+        const validation = validateBeats(parsed, {
+          sceneCount: input.sceneCount,
+          canon,
+        })
+
+        return validation.ok
+          ? { ok: true, value: validation.beats }
+          : validation
+      },
+      repairMessages: storyBeatsRepairMessages,
+      truncationMessages: storyBeatsTruncationRepairMessages,
+    })
+
+    const draft: NarrativeDraft = {
+      ...canon,
+      beats,
+    }
+    const validation = validateNarrativeDraft(draft, {
+      sceneCount: input.sceneCount,
+      mode: input.mode,
+    })
+
+    if (!validation.ok) {
+      this.fail('beats', 2, 'unknown', 'director-invalid-output', input.mode, 'draft final inválido')
+      throw new StoryError('director-invalid-output')
+    }
+
+    return validation.draft
+  }
+
+  private async runStage<T>(input: StageInput<T>): Promise<T> {
     this.emit({
       event: 'story.narrative.start',
       pass: 'narrative',
+      stage: input.stage,
       attempt: 1,
       finishReason: 'unknown',
       mode: input.mode,
     })
 
     const first = await this.client.complete({
-      messages,
+      messages: input.messages,
       temperature: directorTemperature(input.mode),
-      maxTokens: baseMaxTokens,
-      timeoutMs: this.timeoutMs,
+      maxTokens: input.maxTokens,
+      timeoutMs: input.timeoutMs,
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 
     if (first.content === null) {
       if (first.finishReason === 'content_filter') {
-        this.fail(1, first.finishReason, 'content-blocked', input.mode, startedAt)
+        this.fail(input.stage, 1, first.finishReason, 'content-blocked', input.mode, 'contenido bloqueado', first.usage)
         throw new StoryError('content-blocked')
       }
 
       const truncated = first.finishReason === 'length'
-      const reason = truncated
-        ? 'respuesta truncada por max_tokens'
-        : 'respuesta vacía'
+      const reason = truncated ? 'respuesta truncada por max_tokens' : 'respuesta vacía'
 
-      this.fail(1, first.finishReason, 'director-invalid-output', input.mode, startedAt, reason)
+      this.fail(input.stage, 1, first.finishReason, 'director-invalid-output', input.mode, reason, first.usage)
       const repaired = await this.client.complete({
         messages: truncated
-          ? [...messages, ...storyNarrativeTruncationRepairMessages(narrativeRepairMaxTokens(baseMaxTokens))]
-          : [...messages, ...storyNarrativeRepairMessages(reason, null)],
+          ? [...input.messages, ...input.truncationMessages(input.repairMaxTokens)]
+          : [...input.messages, ...input.repairMessages(reason, null)],
         temperature: directorTemperature(input.mode),
-        maxTokens: narrativeRepairMaxTokens(baseMaxTokens),
-        timeoutMs: this.timeoutMs,
+        maxTokens: input.repairMaxTokens,
+        timeoutMs: input.timeoutMs,
         ...(input.signal === undefined ? {} : { signal: input.signal }),
       })
 
-      return this.finishRepair(repaired, input, startedAt)
+      return this.finishStage(repaired, input)
     }
 
-    const validation = this.validate(first.content, input.sceneCount, input.mode)
+    const validation = input.validate(first.content)
     const truncated = first.finishReason === 'length'
 
     if (validation.ok && !truncated) {
-      this.ok(1, first.finishReason, input.mode, startedAt)
-      return validation.draft
+      this.ok(input.stage, 1, first.finishReason, input.mode, first.usage)
+      return validation.value
     }
 
     const reason = truncated ? 'respuesta truncada por max_tokens' : validation.reason
 
-    this.fail(1, first.finishReason, 'director-invalid-output', input.mode, startedAt, reason)
+    this.fail(input.stage, 1, first.finishReason, 'director-invalid-output', input.mode, reason, first.usage)
     const repaired = await this.client.complete({
       messages: truncated
-        ? [...messages, ...storyNarrativeTruncationRepairMessages(narrativeRepairMaxTokens(baseMaxTokens))]
-        : [...messages, ...storyNarrativeRepairMessages(reason, first.content)],
+        ? [...input.messages, ...input.truncationMessages(input.repairMaxTokens)]
+        : [...input.messages, ...input.repairMessages(reason, first.content)],
       temperature: directorTemperature(input.mode),
-      maxTokens: narrativeRepairMaxTokens(baseMaxTokens),
-      timeoutMs: this.timeoutMs,
+      maxTokens: input.repairMaxTokens,
+      timeoutMs: input.timeoutMs,
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 
-    return this.finishRepair(repaired, input, startedAt)
+    return this.finishStage(repaired, input)
   }
 
-  private async finishRepair(
+  private async finishStage<T>(
     repaired: Awaited<ReturnType<DeepSeekClient['complete']>>,
-    input: Parameters<StoryNarrativeDirector['createNarrative']>[0],
-    startedAt: number,
-  ): Promise<NarrativeDraft> {
+    input: StageInput<T>,
+  ): Promise<T> {
     if (repaired.content === null) {
       this.fail(
+        input.stage,
         2,
         repaired.finishReason,
         'director-invalid-output',
         input.mode,
-        startedAt,
         repaired.finishReason === 'length' ? 'respuesta truncada por max_tokens' : undefined,
+        repaired.usage,
       )
       throw new StoryError('director-invalid-output')
     }
 
     if (repaired.finishReason === 'length') {
-      this.fail(
-        2,
-        repaired.finishReason,
-        'director-invalid-output',
-        input.mode,
-        startedAt,
-        'respuesta truncada por max_tokens',
-      )
+      this.fail(input.stage, 2, repaired.finishReason, 'director-invalid-output', input.mode, 'respuesta truncada por max_tokens', repaired.usage)
       throw new StoryError('director-invalid-output')
     }
 
-    const validation = this.validate(repaired.content, input.sceneCount, input.mode)
+    const validation = input.validate(repaired.content)
 
     if (validation.ok) {
-      this.ok(2, repaired.finishReason, input.mode, startedAt)
-      return validation.draft
+      this.ok(input.stage, 2, repaired.finishReason, input.mode, repaired.usage)
+      return validation.value
     }
 
-    this.fail(2, repaired.finishReason, 'director-invalid-output', input.mode, startedAt, validation.reason)
+    this.fail(input.stage, 2, repaired.finishReason, 'director-invalid-output', input.mode, validation.reason, repaired.usage)
     throw new StoryError('director-invalid-output')
-  }
-
-  private validate(
-    content: string,
-    sceneCount: number,
-    mode: StoryMode,
-  ): ReturnType<typeof validateNarrativeDraft> {
-    const parsed = parseJson(content)
-
-    if (parsed === undefined) return { ok: false, reason: 'json inválido' }
-    if (!isRecord(parsed)) return { ok: false, reason: 'plan: forma inválida' }
-
-    return validateNarrativeDraft(parsed, { sceneCount, mode })
   }
 
   private emit(event: DirectorLogEvent): void {
@@ -208,38 +284,42 @@ export class NativeStoryNarrativeDirector implements StoryNarrativeDirector {
   }
 
   private ok(
+    stage: Stage,
     attempt: 1 | 2,
     finishReason: DirectorFinishReason,
     mode: StoryMode,
-    startedAt: number,
+    usage?: DeepSeekUsage,
   ): void {
     this.emit({
       event: 'story.narrative.ok',
       pass: 'narrative',
+      stage,
       attempt,
       finishReason,
       mode,
-      latencyMs: Date.now() - startedAt,
+      ...usageFields(usage),
     })
   }
 
   private fail(
+    stage: Stage,
     attempt: 1 | 2,
     finishReason: DirectorFinishReason,
     errorCode: string,
     mode: StoryMode,
-    startedAt: number,
     reason?: string,
+    usage?: DeepSeekUsage,
   ): void {
     this.emit({
       event: 'story.narrative.failed',
       pass: 'narrative',
+      stage,
       attempt,
       finishReason,
       errorCode,
       mode,
       ...(reason === undefined ? {} : { reason }),
-      latencyMs: Date.now() - startedAt,
+      ...usageFields(usage),
     })
   }
 }

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { NativeStoryVisualDirector, visualMaxTokens, visualRepairMaxTokens } from '../../../server/story/visual-director'
 import type { DeepSeekClient, DeepSeekCompletion, DeepSeekCompletionRequest } from '../../../server/story/deepseek-client'
+import type { DirectorLogEvent } from '../../../server/story/director-types'
 import { StoryError } from '../../../server/story/errors'
 import narrative from '../../fixtures/deepseek/narrative-creative-3-locations.json'
 import storyboard from '../../fixtures/deepseek/storyboard-valid.json'
@@ -108,6 +109,39 @@ describe('visual director', () => {
       narrative,
     })).resolves.toBeDefined()
     expect(calls).toHaveLength(1)
+  })
+
+  it('includes usage tokens in the failed visual log when exposed', async () => {
+    const invalid = structuredClone(storyboard)
+    invalid.beats[0] = { ...invalid.beats[0], action: 'Cambia la acción' }
+    const usage = { promptTokens: 44, completionTokens: 3_200, reasoningTokens: 700 }
+    const { fake } = client([
+      {
+        content: JSON.stringify(invalid),
+        finishReason: 'stop',
+        httpStatus: 200,
+        usage,
+      },
+      { content: JSON.stringify(storyboard), finishReason: 'stop', httpStatus: 200 },
+    ])
+    const events: DirectorLogEvent[] = []
+    const director = new NativeStoryVisualDirector({
+      client: fake,
+      onEvent: (event) => events.push(event),
+    })
+
+    await director.createStoryboard({
+      premise: 'Una premisa suficientemente larga.',
+      mode: 'creative',
+      narrative,
+    })
+
+    const failure = events.find((event) => event.event === 'story.visual.failed')
+
+    expect(failure).toMatchObject({
+      completionTokens: 3_200,
+      reasoningTokens: 700,
+    })
   })
 
   it('uses temperature 0.4 in faithful mode', async () => {

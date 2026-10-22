@@ -69,7 +69,8 @@ interface RuntimeStoryConfig {
   readonly commandWindowMs?: number
   readonly maxActiveStories?: number
   readonly directorModel?: string
-  readonly narrativeTimeoutMs?: number
+  readonly canonTimeoutMs?: number
+  readonly beatsTimeoutMs?: number
   readonly visualTimeoutMs?: number
   readonly directorTotalTimeoutMs?: number
   readonly deepseekBaseUrl?: string
@@ -129,7 +130,8 @@ export interface StoryRuntime {
   readonly qcEnabled: boolean
   readonly qcMinConfidence: number
   readonly costQcUsd: number
-  readonly narrativeTimeoutMs: number
+  readonly canonTimeoutMs: number
+  readonly beatsTimeoutMs: number
   readonly visualTimeoutMs: number
   readonly directorTotalTimeoutMs: number
   readonly hasFfmpeg: boolean
@@ -152,10 +154,13 @@ interface StoryLogEvent {
   readonly errorCode?: string
   readonly reason?: string
   readonly pass?: 'narrative' | 'visual'
+  readonly stage?: 'canon' | 'beats'
   readonly attempt?: 1 | 2
   readonly finishReason?: string
   readonly mode?: string
   readonly latencyMs?: number
+  readonly completionTokens?: number
+  readonly reasoningTokens?: number
 }
 
 function logStoryEvent(event: StoryLogEvent): void {
@@ -305,9 +310,10 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     qcUnitCostUsd: costQcUsd,
     dailyBudgetUsd: decimalValue(story.dailyBudgetUsd, 50),
   })
-  const narrativeTimeoutMs = numberValue(story.narrativeTimeoutMs, 40_000)
-  const visualTimeoutMs = numberValue(story.visualTimeoutMs, 25_000)
-  const directorTotalTimeoutMs = numberValue(story.directorTotalTimeoutMs, 85_000)
+  const canonTimeoutMs = numberValue(story.canonTimeoutMs, 60_000)
+  const beatsTimeoutMs = numberValue(story.beatsTimeoutMs, 60_000)
+  const visualTimeoutMs = numberValue(story.visualTimeoutMs, 40_000)
+  const directorTotalTimeoutMs = numberValue(story.directorTotalTimeoutMs, 180_000)
   const deepseekClient = hasDeepSeekKey
     ? createDeepSeekClient({
         apiKey: deepseekKey,
@@ -318,7 +324,8 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     ? createBriefingNarrativeDirector(createStoryNarrativeDirector({
         client: deepseekClient,
         onEvent: logStoryEvent,
-        timeoutMs: narrativeTimeoutMs,
+        canonTimeoutMs,
+        beatsTimeoutMs,
       }))
     : null
   const visual = deepseekClient
@@ -461,7 +468,8 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     qcEnabled,
     qcMinConfidence,
     costQcUsd,
-    narrativeTimeoutMs,
+    canonTimeoutMs,
+    beatsTimeoutMs,
     visualTimeoutMs,
     directorTotalTimeoutMs,
     hasFfmpeg,

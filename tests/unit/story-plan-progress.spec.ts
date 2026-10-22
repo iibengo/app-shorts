@@ -34,6 +34,31 @@ describe('StoryPlanProgress', () => {
     expect(section.get('h2').attributes('tabindex')).toBe('-1')
   })
 
+  it('shows and emits cancel in keyframes without losing the status region', async () => {
+    const wrapper = await mountSuspended(StoryPlanProgress, {
+      attachTo: document.body,
+      props: { status: 'keyframes' },
+    })
+    const cancel = wrapper.get('[data-testid="story-keyframes-cancel"]')
+
+    expect(normalize(cancel.text())).toBe('Cancelar historia')
+    expect(cancel.classes()).toContain('min-h-11')
+    expect(wrapper.findAll('[role="status"]')).toHaveLength(1)
+
+    await cancel.trigger('click')
+
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+  })
+
+  it('does not offer cancel while the story is still planning', async () => {
+    const wrapper = await mountSuspended(StoryPlanProgress, {
+      attachTo: document.body,
+      props: { status: 'planning' },
+    })
+
+    expect(wrapper.find('[data-testid="story-keyframes-cancel"]').exists()).toBe(false)
+  })
+
   it('announces progress once without fake percentages', async () => {
     const wrapper = await mountSuspended(StoryPlanProgress, {
       attachTo: document.body,

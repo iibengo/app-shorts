@@ -288,6 +288,7 @@ watch(
       <StoryPlanProgress
         v-else-if="state.status === 'keyframes'"
         status="keyframes"
+        @cancel="handleCancel"
       />
 
       <StoryReview
@@ -295,6 +296,7 @@ watch(
         :story="story"
         @regenerate="handleRegenerate"
         @approve="handleApprove"
+        @cancel="handleCancel"
       />
 
       <StoryVideoProgress

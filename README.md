@@ -148,7 +148,7 @@ Antes de Spec 005 (micro-relatos), lee `AGENTS.md` y la sección de patrones reu
 - Prisma 7 + PostgreSQL preparados: `prisma/schema.prisma` con `Story`/`Scene`, Docker local y migración inicial aplicada.
 - Spec 006 implementada: Story Bible, continuidad en prompts, QC de fotogramas y estados `QC`/`WAITING_QC`.
 - Spec 007 implementada: modos `faithful`/`creative`, canon con localizaciones y `source`, dos pasadas de DeepSeek y QC por escena.
-- Suite automatizada: **1859 tests en verde** (13 skips opt-in, 130 archivos); los 613 tests de 004 siguen intactos.
+- Suite automatizada: **1913 tests en verde** (13 skips opt-in, 133 archivos); los 613 tests de 004 siguen intactos.
 - Build Node/Nitro correcto.
 - Smoke real de Fal opt-in (`RUN_FAL_SMOKE=1`), no ejecutado en CI.
 - Pendiente de QA manual de accesibilidad/navegador y validación de CORS/lifecycle reales en el entorno de despliegue.
@@ -194,8 +194,8 @@ La Spec 007 sustituye la historia de una sola localización de 006 por un canon 
 - `StoryTone = 'humor' | 'aventura' | 'absurdo' | 'heartwarming' | 'dramatic'`, más `neutral` solo para normalizar filas anteriores a 007. El tono vive en `planJson` y se expone como `plan.tone`; no hay columna `Story.tone`.
 - `StoryBible` contiene `style`, `tone`, `theme`, `leadCharacterId`, `signaturePropId`, `characters`, `locations`, `props`, `forbidden` y `continuityRules`. Personajes, localizaciones y props declaran `source: 'premise' | 'invented'`.
 - `StoryBeat` declara `locationId`, `timeOfDay`, `weather`, `action`, `storyFunction` y `gag`, además de la puesta en escena (`visualPrompt`, `camera`, `continuityFromPrevious`, `transition`).
-- Dos pasadas de DeepSeek: el Narrador produce canon y beats narrativos; el Director Visual produce solo `visualPrompt`, `camera`, `continuityFromPrevious` y `transition`. Un ensamblador puro copia la narrativa sin cambios.
-- Presupuestos de salida: narrativa 6 000/7 000/7 800 tokens (tope 8 000, reparación +400); visual 2 400/2 800/3 200 (tope 4 000, reparación +300). Temperatura 0.4 en `faithful` y 0.7 en `creative`.
+- Dos pasadas de producto: la pasada narrativa se divide internamente en canon y beats; el Director Visual produce solo `visualPrompt`, `camera`, `continuityFromPrevious` y `transition`. Un ensamblador puro copia la narrativa sin cambios.
+- Presupuestos de salida: canon 8 000 (reparación 8 000) + beats 8 000 (reparación 8 000); visual 2 400/2 800/3 200 (tope 4 000, reparación +300). Temperatura 0.4 en `faithful` y 0.7 en `creative`.
 - Límites de prompt: bloque global ≤ 2 600 caracteres; keyframe ≤ 4 000; vídeo compacto ≤ 2 000. El compositor no trunca contenido normativo.
 - QC por escena: la expectativa incluye localización, hora, clima, personajes y props de esa escena. Un cambio de escena declarado no es un error; el protagonista y el prop característico solo se exigen cuando la escena los declara.
 - Migración: `prisma/migrations/20261022010856_story_mode/migration.sql` añade el enum `StoryMode` y `Story.mode` con default `faithful`; las filas de 006 se normalizan al leer sin llamar a DeepSeek.
@@ -208,8 +208,9 @@ La Spec 007 sustituye la historia de una sola localización de 006 por un canon 
 | `NUXT_STORY_COST_NARRATIVE_USD` | `0.01` | Coste estimado de la pasada narrativa. |
 | `NUXT_STORY_COST_VISUAL_USD` | `0.005` | Coste estimado de la pasada visual. |
 | `NUXT_STORY_COST_DIRECTOR_REPAIR_USD` | `0.01` | Coste estimado de una reparación. |
-| `NUXT_STORY_NARRATIVE_TIMEOUT_MS` | `40000` | Timeout de la pasada narrativa. |
-| `NUXT_STORY_VISUAL_TIMEOUT_MS` | `25000` | Timeout de la pasada visual. |
-| `NUXT_STORY_DIRECTOR_TOTAL_TIMEOUT_MS` | `85000` | Timeout total compartido por ambas pasadas. |
+| `NUXT_STORY_CANON_TIMEOUT_MS` | `60000` | Timeout de la etapa canon. |
+| `NUXT_STORY_BEATS_TIMEOUT_MS` | `60000` | Timeout de la etapa beats. |
+| `NUXT_STORY_VISUAL_TIMEOUT_MS` | `40000` | Timeout de la pasada visual. |
+| `NUXT_STORY_DIRECTOR_TOTAL_TIMEOUT_MS` | `180000` | Timeout total compartido por canon, beats y visual. |
 
 Smokes opt-in: `RUN_STORY_NARRATIVE_SMOKE=1`, `RUN_DB_SMOKE=1`, `RUN_STORY_QC_VISION_SMOKE=1`, `RUN_FFMPEG_SMOKE=1` y `RUN_FAL_SMOKE=1`. Nunca se ejecutan en CI.

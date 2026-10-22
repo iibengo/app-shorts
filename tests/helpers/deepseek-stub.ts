@@ -9,6 +9,13 @@ export const narrative5 = {
   storyBible: plan5.storyBible,
   beats: plan5.beats.map(({ visualPrompt, camera, continuityFromPrevious, transition, ...beat }) => beat),
 }
+export const canon5 = {
+  title: narrative5.title,
+  logline: narrative5.logline,
+  tone: narrative5.tone,
+  storyBible: narrative5.storyBible,
+}
+export const beats5 = { beats: narrative5.beats }
 export const storyboard5 = {
   beats: plan5.beats.map((beat) => ({
     order: beat.order,
@@ -71,7 +78,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
     status: 200,
     errorPayload: { error: { message: 'stub failure' } },
     delayMs: 0,
-    contents: [narrative5, storyboard5],
+    contents: [canon5, beats5, storyboard5],
   }
 
   const server: Server = createServer(async (incoming, response) => {
@@ -139,7 +146,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
       state.status = 200
       state.errorPayload = { error: { message: 'stub failure' } }
       state.delayMs = 0
-      state.contents = [narrative5, storyboard5]
+      state.contents = [canon5, beats5, storyboard5]
     },
     async close() {
       await new Promise<void>((resolve) => server.close(() => resolve()))

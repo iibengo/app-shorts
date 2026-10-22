@@ -59,13 +59,18 @@ function responseFetch(
   return { fetchImpl, calls }
 }
 
-function completion(content: string | null, finishReason = 'stop'): Response {
+function completion(
+  content: string | null,
+  finishReason = 'stop',
+  usage?: unknown,
+): Response {
   return new Response(JSON.stringify({
     choices: [{
       index: 0,
       message: { role: 'assistant', content: content ?? '' },
       finish_reason: finishReason,
     }],
+    ...(usage === undefined ? {} : { usage }),
   }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -118,6 +123,64 @@ describe('DeepSeekClient request contract', () => {
     expect(calls[0]?.init.headers).toMatchObject({
       Authorization: 'Bearer test-key',
     })
+  })
+
+  it('parses prompt, completion and reasoning usage when present', async () => {
+    const { fetchImpl } = responseFetch(completion('{}', 'stop', {
+      prompt_tokens: 120,
+      completion_tokens: 340,
+      completion_tokens_details: { reasoning_tokens: 90 },
+    }))
+    const client = new NativeDeepSeekClient({ apiKey: 'key', fetchImpl })
+    const result = await client.complete({
+      messages: [{ role: 'user', content: 'Hola' }],
+      temperature: 0,
+      maxTokens: 500,
+      timeoutMs: 1_000,
+    })
+
+    expect(result.usage).toEqual({
+      promptTokens: 120,
+      completionTokens: 340,
+      reasoningTokens: 90,
+    })
+  })
+
+  it('accepts output_tokens_details and omits usage when the payload has none', async () => {
+    const withOutputDetails = responseFetch(completion('{}', 'stop', {
+      prompt_tokens: 10,
+      completion_tokens: 20,
+      output_tokens_details: { reasoning_tokens: 5 },
+    }))
+    const client = new NativeDeepSeekClient({
+      apiKey: 'key',
+      fetchImpl: withOutputDetails.fetchImpl,
+    })
+    const parsed = await client.complete({
+      messages: [{ role: 'user', content: 'Hola' }],
+      temperature: 0,
+      maxTokens: 30,
+      timeoutMs: 1_000,
+    })
+
+    expect(parsed.usage).toEqual({
+      promptTokens: 10,
+      completionTokens: 20,
+      reasoningTokens: 5,
+    })
+
+    const withoutUsage = responseFetch(completion('{}'))
+    const second = await new NativeDeepSeekClient({
+      apiKey: 'key',
+      fetchImpl: withoutUsage.fetchImpl,
+    }).complete({
+      messages: [{ role: 'user', content: 'Hola' }],
+      temperature: 0,
+      maxTokens: 30,
+      timeoutMs: 1_000,
+    })
+
+    expect(second.usage).toBeUndefined()
   })
 
   it('returns an empty content and unknown finish reason for invalid JSON', async () => {

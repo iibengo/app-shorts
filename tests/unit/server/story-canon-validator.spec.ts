@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { validateNarrativeDraft } from '../../../server/story/canon-validator'
+import { validateBeats, validateCanon, validateNarrativeDraft } from '../../../server/story/canon-validator'
 import narrativeCreative from '../../fixtures/deepseek/narrative-creative-3-locations.json'
 import narrative4 from '../../fixtures/deepseek/narrative-4-scenes.json'
 import narrativeInvented from '../../fixtures/deepseek/narrative-faithful-invented.json'
@@ -25,6 +25,45 @@ describe('canon-validator: valid canon', () => {
     const result = validateNarrativeDraft(narrative4, { sceneCount: 4, mode: 'faithful' })
 
     expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+  })
+})
+
+describe('canon-validator: independent canon and beats', () => {
+  it('validates the canon before validating beats against it', () => {
+    const { beats: _beats, ...canonValue } = narrativeCreative
+    const canon = validateCanon(canonValue, { mode: 'creative' })
+
+    expect(canon.ok, canon.ok ? '' : canon.reason).toBe(true)
+    if (!canon.ok) return
+
+    const beats = validateBeats({ beats: narrativeCreative.beats }, {
+      sceneCount: 5,
+      canon: canon.canon,
+    })
+
+    expect(beats.ok, beats.ok ? '' : beats.reason).toBe(true)
+  })
+
+  it('rejects beats against a canon that does not contain their locations', () => {
+    const canon = validateCanon({
+      title: narrativeCreative.title,
+      logline: narrativeCreative.logline,
+      tone: narrativeCreative.tone,
+      storyBible: {
+        ...narrativeCreative.storyBible,
+        locations: [narrativeCreative.storyBible.locations[0]!],
+      },
+    }, { mode: 'creative' })
+
+    expect(canon.ok).toBe(true)
+    if (!canon.ok) return
+
+    const beats = validateBeats({ beats: narrativeCreative.beats }, {
+      sceneCount: 5,
+      canon: canon.canon,
+    })
+
+    expect(beats.ok).toBe(false)
   })
 })
 

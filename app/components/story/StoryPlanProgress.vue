@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import AppButton from '~/components/ui/AppButton.vue'
 import { STORY_COPY } from '~/data/story'
 
 const props = defineProps<{
   status: 'planning' | 'keyframes'
+}>()
+
+const emit = defineEmits<{
+  cancel: []
 }>()
 
 const heading = ref<HTMLHeadingElement | null>(null)
@@ -39,16 +44,29 @@ onMounted(() => {
       {{ note }}
     </p>
 
-    <div
-      role="status"
-      aria-live="polite"
-      class="mt-4 flex items-center gap-2 text-sm text-brand-text"
-    >
-      <span
-        aria-hidden="true"
-        class="size-3 rounded-full border-2 border-brand-fuchsia border-t-transparent motion-safe:animate-spin"
-      />
-      <span>{{ title }}</span>
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <div
+        role="status"
+        aria-live="polite"
+        class="flex items-center gap-2 text-sm text-brand-text"
+      >
+        <span
+          aria-hidden="true"
+          class="size-3 rounded-full border-2 border-brand-fuchsia border-t-transparent motion-safe:animate-spin"
+        />
+        <span>{{ title }}</span>
+      </div>
+
+      <AppButton
+        v-if="status === 'keyframes'"
+        type="button"
+        variant="secondary"
+        data-testid="story-keyframes-cancel"
+        class="min-h-11"
+        @click="emit('cancel')"
+      >
+        {{ STORY_COPY.cancel }}
+      </AppButton>
     </div>
   </section>
 </template>

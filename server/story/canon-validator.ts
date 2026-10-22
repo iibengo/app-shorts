@@ -1,4 +1,5 @@
 import type {
+  CanonDraft,
   NarrativeBeat,
   NarrativeDraft,
 } from './director-types'
@@ -62,6 +63,8 @@ export const NARRATIVE_BEAT_KEYS = [
 ] as const
 
 export const DRAFT_KEYS = ['title', 'logline', 'tone', 'storyBible', 'beats'] as const
+export const CANON_DRAFT_KEYS = ['title', 'logline', 'tone', 'storyBible'] as const
+export const BEATS_DRAFT_KEYS = ['beats'] as const
 
 export const CANON_ID_PATTERN = /^[a-z][a-z0-9-]{1,23}$/
 export const CANON_MAX_STYLE_LENGTH = 160
@@ -95,6 +98,14 @@ export const BEAT_MIN_CONTINUITY = 20
 export const BEAT_MAX_CONTINUITY = 200
 
 export type CanonValidation =
+  | { readonly ok: true; readonly canon: CanonDraft }
+  | { readonly ok: false; readonly reason: string }
+
+export type BeatsValidation =
+  | { readonly ok: true; readonly beats: readonly NarrativeBeat[] }
+  | { readonly ok: false; readonly reason: string }
+
+export type NarrativeValidation =
   | { readonly ok: true; readonly draft: NarrativeDraft }
   | { readonly ok: false; readonly reason: string }
 
@@ -450,12 +461,16 @@ function validateBeat(
   }
 }
 
-export function validateNarrativeDraft(
+export function validateCanon(
   value: unknown,
-  options: { readonly sceneCount: number; readonly mode: StoryMode },
+  options: { readonly mode: StoryMode },
 ): CanonValidation {
-  if (!isRecord(value) || !hasOnlyKeys(value, DRAFT_KEYS) || !hasAllKeys(value, DRAFT_KEYS)) {
-    return { ok: false, reason: 'plan: forma inválida' }
+  if (
+    !isRecord(value)
+    || !hasOnlyKeys(value, CANON_DRAFT_KEYS)
+    || !hasAllKeys(value, CANON_DRAFT_KEYS)
+  ) {
+    return { ok: false, reason: 'canon: forma inválida' }
   }
 
   const titleError = validateText(value.title, 1, 80, 'title')
@@ -570,74 +585,24 @@ export function validateNarrativeDraft(
     }
   }
 
-  if (!Array.isArray(value.beats) || value.beats.length !== options.sceneCount) {
-    return { ok: false, reason: `beats: se esperaban exactamente ${options.sceneCount}` }
-  }
-
-  const provisionalBible: StoryBible = {
-    style: normalize(bible.style as string),
-    tone: bible.tone as StoryNarrativeTone,
-    theme: normalize(bible.theme as string),
-    leadCharacterId: bible.leadCharacterId as string,
-    signaturePropId: bible.signaturePropId as string,
-    characters,
-    locations,
-    props,
-    forbidden: [],
-    continuityRules: [],
-  }
-  const beats: NarrativeBeat[] = []
-
-  for (let index = 0; index < value.beats.length; index += 1) {
-    const result = validateBeat(value.beats[index], index, options.sceneCount, provisionalBible)
-    if (result.reason) return { ok: false, reason: result.reason }
-    beats.push(result.beat!)
-  }
-
-  const usedCharacters = new Set(beats.flatMap((beat) => beat.characters))
-  const usedLocations = new Set(beats.map((beat) => beat.locationId))
-  const usedProps = new Set(beats.flatMap((beat) => beat.props))
-
-  for (const character of characters) {
-    if (!usedCharacters.has(character.id)) {
-      return { ok: false, reason: 'storyBible.characters: personaje sin escena' }
-    }
-  }
-  for (const location of locations) {
-    if (!usedLocations.has(location.id)) {
-      return { ok: false, reason: 'storyBible.locations: localización sin escena' }
-    }
-  }
-  for (const prop of props) {
-    if (!usedProps.has(prop.id)) {
-      return { ok: false, reason: 'storyBible.props: prop sin escena' }
-    }
-  }
-
-  const declaredCharacters = (bible.forbidden as unknown[] | undefined) ?? []
-  if (!Array.isArray(declaredCharacters)) {
+  const declaredForbidden = (bible.forbidden as unknown[] | undefined) ?? []
+  if (!Array.isArray(declaredForbidden)) {
     return { ok: false, reason: 'storyBible.forbidden: tipo inválido' }
   }
-  if (declaredCharacters.length < 1 || declaredCharacters.length > CANON_MAX_FORBIDDEN) {
+  if (declaredForbidden.length < 1 || declaredForbidden.length > CANON_MAX_FORBIDDEN) {
     return { ok: false, reason: 'storyBible.forbidden: número de elementos fuera de rango' }
   }
 
-  const usedTimes = new Set(beats.map((beat) => beat.timeOfDay))
-  const usedWeathers = new Set(beats.map((beat) => beat.weather))
-  const canonTerms = [
+  const canonEntityTerms = [
     ...characters.flatMap((character) => [character.id, character.name]),
     ...locations.flatMap((location) => [location.id, location.name]),
     ...props.flatMap((prop) => [prop.id, prop.name]),
-    ...usedTimes,
-    ...usedWeathers,
-    ...[...usedTimes].map((value) => storyTimeOfDayLabel(value)),
-    ...[...usedWeathers].map((value) => storyWeatherLabel(value)),
   ]
   const forbidden: string[] = []
   const seenForbidden = new Set<string>()
 
-  for (let index = 0; index < declaredCharacters.length; index += 1) {
-    const item = declaredCharacters[index]
+  for (let index = 0; index < declaredForbidden.length; index += 1) {
+    const item = declaredForbidden[index]
 
     if (typeof item !== 'string') {
       return { ok: false, reason: `storyBible.forbidden[${index}]: tipo inválido` }
@@ -655,7 +620,7 @@ export function validateNarrativeDraft(
     if (seenForbidden.has(key)) {
       return { ok: false, reason: 'storyBible.forbidden: duplicado' }
     }
-    if (containsCanonTerm(text, canonTerms)) {
+    if (containsCanonTerm(text, canonEntityTerms)) {
       return { ok: false, reason: 'storyBible.forbidden: contradice el canon' }
     }
 
@@ -683,9 +648,88 @@ export function validateNarrativeDraft(
   }
 
   const storyBible: StoryBible = {
-    ...provisionalBible,
+    style: normalize(bible.style as string),
+    tone: bible.tone as StoryNarrativeTone,
+    theme: normalize(bible.theme as string),
+    leadCharacterId: bible.leadCharacterId as string,
+    signaturePropId: bible.signaturePropId as string,
+    characters,
+    locations,
+    props,
     forbidden,
     continuityRules,
+  }
+
+  const globalBlock = composeGlobalBlock(storyBible)
+
+  if (globalBlock.length > STORY_GLOBAL_BLOCK_MAX_LENGTH) {
+    return { ok: false, reason: 'plan: bloque global demasiado largo' }
+  }
+
+  return {
+    ok: true,
+    canon: {
+      title: normalize(value.title as string),
+      logline: normalize(value.logline as string),
+      tone: value.tone as StoryNarrativeTone,
+      storyBible,
+    },
+  }
+}
+
+export function validateBeats(
+  value: unknown,
+  options: { readonly sceneCount: number; readonly canon: CanonDraft },
+): BeatsValidation {
+  if (!isRecord(value) || !hasOnlyKeys(value, BEATS_DRAFT_KEYS) || !hasAllKeys(value, BEATS_DRAFT_KEYS)) {
+    return { ok: false, reason: 'beats: forma inválida' }
+  }
+
+  if (!Array.isArray(value.beats) || value.beats.length !== options.sceneCount) {
+    return { ok: false, reason: `beats: se esperaban exactamente ${options.sceneCount}` }
+  }
+
+  const beats: NarrativeBeat[] = []
+
+  for (let index = 0; index < value.beats.length; index += 1) {
+    const result = validateBeat(value.beats[index], index, options.sceneCount, options.canon.storyBible)
+    if (result.reason) return { ok: false, reason: result.reason }
+    beats.push(result.beat!)
+  }
+
+  const usedCharacters = new Set(beats.flatMap((beat) => beat.characters))
+  const usedLocations = new Set(beats.map((beat) => beat.locationId))
+  const usedProps = new Set(beats.flatMap((beat) => beat.props))
+
+  for (const character of options.canon.storyBible.characters) {
+    if (!usedCharacters.has(character.id)) {
+      return { ok: false, reason: 'storyBible.characters: personaje sin escena' }
+    }
+  }
+  for (const location of options.canon.storyBible.locations) {
+    if (!usedLocations.has(location.id)) {
+      return { ok: false, reason: 'storyBible.locations: localización sin escena' }
+    }
+  }
+  for (const prop of options.canon.storyBible.props) {
+    if (!usedProps.has(prop.id)) {
+      return { ok: false, reason: 'storyBible.props: prop sin escena' }
+    }
+  }
+
+  const usedTimes = new Set(beats.map((beat) => beat.timeOfDay))
+  const usedWeathers = new Set(beats.map((beat) => beat.weather))
+  const timeWeatherTerms = [
+    ...usedTimes,
+    ...usedWeathers,
+    ...[...usedTimes].map((value) => storyTimeOfDayLabel(value)),
+    ...[...usedWeathers].map((value) => storyWeatherLabel(value)),
+  ]
+
+  for (const item of options.canon.storyBible.forbidden) {
+    if (containsCanonTerm(item, timeWeatherTerms)) {
+      return { ok: false, reason: 'storyBible.forbidden: contradice el canon' }
+    }
   }
 
   const climaxCount = beats.filter((beat) => beat.sceneRole === 'climax').length
@@ -703,30 +747,48 @@ export function validateNarrativeDraft(
     }
   }
 
-  if (!beats.some((beat) => beat.characters.includes(storyBible.leadCharacterId))) {
+  if (!beats.some((beat) => beat.characters.includes(options.canon.storyBible.leadCharacterId))) {
     return { ok: false, reason: 'beats: el protagonista no aparece' }
   }
   if (
-    storyBible.signaturePropId !== null
-    && !beats.some((beat) => beat.props.includes(storyBible.signaturePropId as string))
+    options.canon.storyBible.signaturePropId !== null
+    && !beats.some((beat) => beat.props.includes(options.canon.storyBible.signaturePropId as string))
   ) {
     return { ok: false, reason: 'beats: el prop característico no aparece' }
   }
 
-  const globalBlock = composeGlobalBlock(storyBible)
+  return { ok: true, beats }
+}
 
-  if (globalBlock.length > STORY_GLOBAL_BLOCK_MAX_LENGTH) {
-    return { ok: false, reason: 'plan: bloque global demasiado largo' }
+export function validateNarrativeDraft(
+  value: unknown,
+  options: { readonly sceneCount: number; readonly mode: StoryMode },
+): NarrativeValidation {
+  if (!isRecord(value) || !hasOnlyKeys(value, DRAFT_KEYS) || !hasAllKeys(value, DRAFT_KEYS)) {
+    return { ok: false, reason: 'plan: forma inválida' }
   }
+
+  const canon = validateCanon({
+    title: value.title,
+    logline: value.logline,
+    tone: value.tone,
+    storyBible: value.storyBible,
+  }, { mode: options.mode })
+
+  if (!canon.ok) return canon
+
+  const beats = validateBeats({ beats: value.beats }, {
+    sceneCount: options.sceneCount,
+    canon: canon.canon,
+  })
+
+  if (!beats.ok) return beats
 
   return {
     ok: true,
     draft: {
-      title: normalize(value.title as string),
-      logline: normalize(value.logline as string),
-      tone: value.tone as StoryNarrativeTone,
-      storyBible,
-      beats,
+      ...canon.canon,
+      beats: beats.beats,
     },
   }
 }

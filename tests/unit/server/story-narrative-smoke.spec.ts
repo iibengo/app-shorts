@@ -39,5 +39,5 @@ describe.skipIf(!enabled)('RUN_STORY_NARRATIVE_SMOKE=1', () => {
     expect(plan.storyBible?.locations.length).toBeGreaterThanOrEqual(1)
     expect(plan.tone).not.toBe('neutral')
     expect(plan.beats.every((beat) => beat.locationId.length > 0)).toBe(true)
-  }, 90_000)
+  }, 150_000)
 })

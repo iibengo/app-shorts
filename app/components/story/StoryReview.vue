@@ -18,6 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   regenerate: [sceneId: string, input: StoryBeatUpdateRequest]
   approve: []
+  cancel: []
 }>()
 
 const heading = ref<HTMLHeadingElement | null>(null)
@@ -99,14 +100,26 @@ defineExpose({ heading })
       Al aprobar se generarán {{ story.sceneCount }} vídeos de {{ STORY_SCENE_DURATION_SECONDS }} segundos y se cobrarán {{ story.sceneCount }} generaciones.
     </p>
 
-    <AppButton
-      type="button"
-      data-testid="story-approve"
-      :disabled="approveDisabled"
-      class="mt-3 min-h-12 w-full text-base sm:w-auto"
-      @click="emit('approve')"
-    >
-      {{ STORY_COPY.approve }}
-    </AppButton>
+    <div class="mt-3 flex flex-wrap gap-2">
+      <AppButton
+        type="button"
+        data-testid="story-approve"
+        :disabled="approveDisabled"
+        class="min-h-12 w-full text-base sm:w-auto"
+        @click="emit('approve')"
+      >
+        {{ STORY_COPY.approve }}
+      </AppButton>
+
+      <AppButton
+        type="button"
+        variant="secondary"
+        data-testid="story-cancel"
+        class="min-h-11 w-full sm:w-auto"
+        @click="emit('cancel')"
+      >
+        {{ STORY_COPY.cancel }}
+      </AppButton>
+    </div>
   </section>
 </template>

@@ -25,3 +25,4 @@ logs
 
 # Generated Prisma client
 server/generated/
+examples/

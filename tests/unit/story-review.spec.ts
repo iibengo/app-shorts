@@ -78,6 +78,19 @@ describe('StoryReview', () => {
     expect(wrapper.emitted('approve')).toHaveLength(1)
   })
 
+  it('emits cancel from the review without touching approval', async () => {
+    const wrapper = await mountReview()
+    const cancel = wrapper.get('[data-testid="story-cancel"]')
+
+    expect(normalize(cancel.text())).toBe('Cancelar historia')
+    expect(cancel.classes()).toContain('min-h-11')
+
+    await cancel.trigger('click')
+
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    expect(wrapper.emitted('approve')).toBeUndefined()
+  })
+
   it('disables approval when any scene is not ready', async () => {
     const value = story()
     const scenes = value.scenes.slice()

@@ -9,18 +9,19 @@ import { StoryError } from './errors'
 import { validateStoryPlan } from './plan-validator'
 import { assembleStoryPlan } from './storyboard-validator'
 
-export const DIRECTOR_TOTAL_TIMEOUT_MS = 85_000
+export const DIRECTOR_TOTAL_TIMEOUT_MS = 180_000
 
 export {
   DEEPSEEK_MODEL,
   DEFAULT_DEEPSEEK_BASE_URL,
 } from './deepseek-client'
 export {
-  NARRATIVE_MAX_TOKENS,
-  NARRATIVE_MAX_TOKENS_LIMIT,
-  NARRATIVE_TIMEOUT_MS,
-  narrativeMaxTokens,
-  narrativeRepairMaxTokens,
+  BEATS_MAX_TOKENS,
+  BEATS_REPAIR_MAX_TOKENS,
+  BEATS_TIMEOUT_MS,
+  CANON_MAX_TOKENS,
+  CANON_REPAIR_MAX_TOKENS,
+  CANON_TIMEOUT_MS,
 } from './narrative-director'
 export {
   VISUAL_MAX_TOKENS,
