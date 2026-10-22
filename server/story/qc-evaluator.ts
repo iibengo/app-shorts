@@ -141,6 +141,7 @@ class DeepSeekQCEvaluator implements StoryQCEvaluator {
         temperature: 0,
         maxTokens: QC_EVALUATOR_MAX_TOKENS,
         timeoutMs: this.timeoutMs,
+        thinking: { mode: 'disabled' },
         ...(externalSignal === undefined ? {} : { signal: externalSignal }),
       })
 

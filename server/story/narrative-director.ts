@@ -196,6 +196,7 @@ export class NativeStoryNarrativeDirector implements StoryNarrativeDirector {
       temperature: directorTemperature(input.mode),
       maxTokens: input.maxTokens,
       timeoutMs: input.timeoutMs,
+      thinking: { mode: 'disabled' },
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 
@@ -216,6 +217,7 @@ export class NativeStoryNarrativeDirector implements StoryNarrativeDirector {
         temperature: directorTemperature(input.mode),
         maxTokens: input.repairMaxTokens,
         timeoutMs: input.timeoutMs,
+        thinking: { mode: 'disabled' },
         ...(input.signal === undefined ? {} : { signal: input.signal }),
       })
 
@@ -240,6 +242,7 @@ export class NativeStoryNarrativeDirector implements StoryNarrativeDirector {
       temperature: directorTemperature(input.mode),
       maxTokens: input.repairMaxTokens,
       timeoutMs: input.timeoutMs,
+      thinking: { mode: 'disabled' },
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 

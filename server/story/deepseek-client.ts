@@ -11,11 +11,20 @@ export interface DeepSeekClientOptions {
   readonly fetchImpl?: typeof fetch
 }
 
+/**
+ * DeepSeek enables thinking by default and `temperature` has no effect while it
+ * is enabled. Every call site must therefore declare its mode explicitly.
+ */
+export type DeepSeekThinkingMode =
+  | { readonly mode: 'disabled' }
+  | { readonly mode: 'enabled'; readonly effort: 'low' | 'high' | 'max' }
+
 export interface DeepSeekCompletionRequest {
   readonly messages: readonly DeepSeekMessage[]
   readonly temperature: number
   readonly maxTokens: number
   readonly timeoutMs: number
+  readonly thinking: DeepSeekThinkingMode
   readonly signal?: AbortSignal
 }
 
@@ -34,6 +43,14 @@ export interface DeepSeekCompletion {
 
 export interface DeepSeekClient {
   complete(input: DeepSeekCompletionRequest): Promise<DeepSeekCompletion>
+}
+
+export function serializeThinking(
+  thinking: DeepSeekThinkingMode,
+): Record<string, unknown> {
+  return thinking.mode === 'disabled'
+    ? { type: 'disabled' }
+    : { type: 'enabled', reasoning_effort: thinking.effort }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -142,6 +159,7 @@ export class NativeDeepSeekClient implements DeepSeekClient {
           response_format: { type: 'json_object' },
           temperature: input.temperature,
           max_tokens: input.maxTokens,
+          thinking: serializeThinking(input.thinking),
           stream: false,
         }),
         signal: controller.signal,

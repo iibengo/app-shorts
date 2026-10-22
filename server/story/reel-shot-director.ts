@@ -90,6 +90,7 @@ export class NativeReelShotDirector implements StoryShotDirector {
       temperature: directorTemperature(input.mode),
       maxTokens: baseMaxTokens,
       timeoutMs: this.timeoutMs,
+      thinking: { mode: 'disabled' },
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 
@@ -110,6 +111,7 @@ export class NativeReelShotDirector implements StoryShotDirector {
         temperature: directorTemperature(input.mode),
         maxTokens: reelShotRepairMaxTokens(baseMaxTokens),
         timeoutMs: this.timeoutMs,
+        thinking: { mode: 'disabled' },
         ...(input.signal === undefined ? {} : { signal: input.signal }),
       })
 
@@ -134,6 +136,7 @@ export class NativeReelShotDirector implements StoryShotDirector {
       temperature: directorTemperature(input.mode),
       maxTokens: reelShotRepairMaxTokens(baseMaxTokens),
       timeoutMs: this.timeoutMs,
+      thinking: { mode: 'disabled' },
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 

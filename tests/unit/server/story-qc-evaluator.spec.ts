@@ -40,6 +40,7 @@ interface Call {
     readonly response_format: { readonly type: string }
     readonly temperature: number
     readonly max_tokens: number
+    readonly thinking: { readonly type: string }
     readonly stream: boolean
   }
 }
@@ -110,6 +111,7 @@ describe('qc-evaluator: request contract', () => {
     expect(body.response_format).toEqual({ type: 'json_object' })
     expect(body.temperature).toBe(0)
     expect(body.max_tokens).toBe(QC_EVALUATOR_MAX_TOKENS)
+    expect(body.thinking).toEqual({ type: 'disabled' })
     expect(body.stream).toBe(false)
 
     const user = body.messages[1]!.content as readonly {

@@ -100,6 +100,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
       temperature: directorTemperature(input.mode),
       maxTokens: baseMaxTokens,
       timeoutMs: this.timeoutMs,
+      thinking: { mode: 'disabled' },
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 
@@ -122,6 +123,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
         temperature: directorTemperature(input.mode),
         maxTokens: visualRepairMaxTokens(baseMaxTokens),
         timeoutMs: this.timeoutMs,
+        thinking: { mode: 'disabled' },
         ...(input.signal === undefined ? {} : { signal: input.signal }),
       })
 
@@ -146,6 +148,7 @@ export class NativeStoryVisualDirector implements StoryVisualDirector {
       temperature: directorTemperature(input.mode),
       maxTokens: visualRepairMaxTokens(baseMaxTokens),
       timeoutMs: this.timeoutMs,
+      thinking: { mode: 'disabled' },
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     })
 

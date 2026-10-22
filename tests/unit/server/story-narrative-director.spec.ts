@@ -98,11 +98,13 @@ describe('narrative director: canon + beats', () => {
       maxTokens: CANON_MAX_TOKENS,
       timeoutMs: CANON_TIMEOUT_MS,
       temperature: 0.7,
+      thinking: { mode: 'disabled' },
     })
     expect(calls[1]).toMatchObject({
       maxTokens: BEATS_MAX_TOKENS,
       timeoutMs: BEATS_TIMEOUT_MS,
       temperature: 0.7,
+      thinking: { mode: 'disabled' },
     })
     expect(textOf(calls[0]?.messages[1]?.content)).toContain('esquema de canon')
     expect(textOf(calls[1]?.messages[1]?.content)).toContain(JSON.stringify(CANON))

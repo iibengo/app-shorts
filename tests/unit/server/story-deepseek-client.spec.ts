@@ -103,6 +103,7 @@ describe('DeepSeekClient request contract', () => {
       temperature: 0.4,
       maxTokens: 123,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     })
 
     expect(result).toMatchObject({
@@ -118,10 +119,32 @@ describe('DeepSeekClient request contract', () => {
       max_tokens: 123,
       stream: false,
       response_format: { type: 'json_object' },
+      thinking: { type: 'disabled' },
     })
     expect(calls[0]?.body).not.toHaveProperty('seed')
     expect(calls[0]?.init.headers).toMatchObject({
       Authorization: 'Bearer test-key',
+    })
+  })
+
+  it('sends reasoning_effort only when thinking is explicitly enabled', async () => {
+    const { fetchImpl, calls } = responseFetch(completion('{"ok":true}'))
+    const client = new NativeDeepSeekClient({
+      apiKey: 'test-key',
+      baseUrl: 'https://deepseek.test/',
+      fetchImpl,
+    })
+
+    await client.complete({
+      messages: [{ role: 'user', content: 'Hola' }],
+      temperature: 0.7,
+      maxTokens: 123,
+      timeoutMs: 1_000,
+      thinking: { mode: 'enabled', effort: 'low' },
+    })
+
+    expect(calls[0]?.body).toMatchObject({
+      thinking: { type: 'enabled', reasoning_effort: 'low' },
     })
   })
 
@@ -137,6 +160,7 @@ describe('DeepSeekClient request contract', () => {
       temperature: 0,
       maxTokens: 500,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     })
 
     expect(result.usage).toEqual({
@@ -161,6 +185,7 @@ describe('DeepSeekClient request contract', () => {
       temperature: 0,
       maxTokens: 30,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     })
 
     expect(parsed.usage).toEqual({
@@ -178,6 +203,7 @@ describe('DeepSeekClient request contract', () => {
       temperature: 0,
       maxTokens: 30,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     })
 
     expect(second.usage).toBeUndefined()
@@ -198,6 +224,7 @@ describe('DeepSeekClient request contract', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     })
 
     expect(result).toEqual({
@@ -217,6 +244,7 @@ describe('DeepSeekClient error mapping', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     }))
 
     expect(error.code).toBe('director-unavailable')
@@ -231,6 +259,7 @@ describe('DeepSeekClient error mapping', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     }))
 
     expect(error.code).toBe('director-invalid-output')
@@ -248,6 +277,7 @@ describe('DeepSeekClient error mapping', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     }))
 
     expect(error.code).toBe('content-blocked')
@@ -263,6 +293,7 @@ describe('DeepSeekClient error mapping', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
     }))
 
     expect(error.code).toBe('director-unavailable')
@@ -278,6 +309,7 @@ describe('DeepSeekClient aborts', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 5,
+      thinking: { mode: 'disabled' },
     }))
 
     expect(error.code).toBe('director-timeout')
@@ -296,6 +328,7 @@ describe('DeepSeekClient aborts', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
       signal: controller.signal,
     }))
 
@@ -313,6 +346,7 @@ describe('DeepSeekClient aborts', () => {
       temperature: 0,
       maxTokens: 10,
       timeoutMs: 1_000,
+      thinking: { mode: 'disabled' },
       signal: controller.signal,
     }))
 
