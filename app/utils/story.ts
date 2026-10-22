@@ -1,5 +1,7 @@
 import {
   STORY_CAMERA_LABELS,
+  STORY_MODE_LABELS,
+  STORY_TONE_LABELS,
   STORY_MAX_IMAGE_BYTES,
   STORY_MAX_NARRATION_LENGTH,
   STORY_MAX_PREMISE_LENGTH,
@@ -24,6 +26,7 @@ import type {
   StoryCameraShot,
   StoryImageMimeType,
   StoryJobError,
+  StoryMode,
   StoryModelId,
   StoryPlan,
   StoryPreset,
@@ -32,7 +35,9 @@ import type {
   StorySceneCount,
   StorySceneRole,
   StoryTimeOfDay,
+  StoryTone,
   StoryWeather,
+  StoryEntitySource,
   StoryStatus,
 } from '~/models/story'
 
@@ -296,6 +301,18 @@ export function storyTimeOfDayLabel(value: StoryTimeOfDay): string {
   return STORY_TIME_OF_DAY_LABELS[value]
 }
 
+export function storyModeLabel(value: StoryMode): string {
+  return STORY_MODE_LABELS[value]
+}
+
+export function storyToneLabel(value: StoryTone): string {
+  return STORY_TONE_LABELS[value]
+}
+
+export function storyEntitySourceLabel(source: StoryEntitySource): string | null {
+  return source === 'invented' ? 'inventado' : null
+}
+
 export function storyWeatherLabel(value: StoryWeather): string {
   return STORY_WEATHER_LABELS[value]
 }
@@ -310,6 +327,38 @@ export function storySceneRoleLabel(value: StorySceneRole): string {
 
 export function storyQcIssueCopy(code: StoryQCIssueCode): string {
   return STORY_QC_ISSUE_COPY[code]
+}
+
+export function storySceneLocation(
+  bible: StoryBible | null,
+  beat: StoryBeat | null,
+) {
+  if (!bible || !beat) return null
+
+  return bible.locations.find((location) => location.id === beat.locationId)
+    ?? bible.locations[0]
+    ?? null
+}
+
+export function storySceneLocationName(
+  bible: StoryBible | null,
+  beat: StoryBeat | null,
+): string | null {
+  return storySceneLocation(bible, beat)?.name ?? null
+}
+
+export function storySceneChangesLocation(
+  plan: StoryPlan | null,
+  order: number,
+): boolean {
+  if (!plan) return false
+
+  const current = plan.beats.find((beat) => beat.order === order)
+  const previous = plan.beats.find((beat) => beat.order === order - 1)
+
+  if (!current || !previous) return false
+
+  return current.locationId !== previous.locationId
 }
 
 export function storyBeatForScene(

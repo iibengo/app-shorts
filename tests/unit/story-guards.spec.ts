@@ -32,7 +32,9 @@ const APP_STORY_FILES = [
   'app/components/story/StoryPlanProgress.vue',
   'app/components/story/StoryReview.vue',
   'app/components/story/StorySceneCard.vue',
-  'app/components/story/StoryBibleSummary.vue',
+  'app/components/story/StoryCanonSummary.vue',
+  'app/components/story/StoryModePicker.vue',
+  'app/components/story/StoryToneBadge.vue',
   'app/components/story/StoryQCReview.vue',
   'app/components/story/StoryQCProgress.vue',
   'app/components/story/StoryVideoProgress.vue',
@@ -363,5 +365,53 @@ describe('PWA and dependency guards', () => {  it('keeps NetworkOnly for Story A
 
     expect(components).not.toMatch(/https?:\/\//)
     expect(components).not.toMatch(/@nuxt\/icon|IconName|<Icon\b/)
+  })
+})
+
+describe('story modes guards (007)', () => {
+  it('keeps mode out of StoryPlan and tone out of Story', () => {
+    const models = read('app/models/story.ts')
+    const planBlock = models.match(/export interface StoryPlan \{([\s\S]*?)\n\}/)?.[1] ?? ''
+    const storyBlock = models.match(/export interface Story \{([\s\S]*?)\n\}/)?.[1] ?? ''
+    const bibleBlock = models.match(/export interface StoryBible \{([\s\S]*?)\n\}/)?.[1] ?? ''
+
+    expect(planBlock).not.toMatch(/\b(?:readonly\s+)?mode\b/)
+    expect(planBlock).toContain('tone')
+    expect(storyBlock).toMatch(/\b(?:readonly\s+)?mode\b/)
+    expect(storyBlock).not.toMatch(/\b(?:readonly\s+)?tone\b/)
+    expect(bibleBlock).toContain('tone')
+    expect(bibleBlock).toContain('locations')
+  })
+
+  it('adds only Story.mode and no tone or prompt columns in Prisma', () => {
+    const schema = read('prisma/schema.prisma')
+    const storyBlock = schema.match(/model Story \{([\s\S]*?)\n\}/)?.[1] ?? ''
+
+    expect(storyBlock).toMatch(/mode\s+StoryMode/)
+    expect(storyBlock).not.toMatch(/\btone\b/)
+    expect(storyBlock).not.toMatch(/\bpromptJson\b|\bnegativePrompt\b|\bprompt\b/i)
+    expect(schema).toContain('enum StoryMode')
+  })
+
+  it('keeps the DeepSeek transport centralized in deepseek-client.ts', () => {
+    const deepseekFiles = [
+      'server/story/director.ts',
+      'server/story/director-types.ts',
+      'server/story/narrative-director.ts',
+      'server/story/visual-director.ts',
+      'server/story/qc-evaluator.ts',
+      'server/story/runtime.ts',
+    ] as const
+
+    for (const file of deepseekFiles) {
+      expect(read(file), file).not.toMatch(/api\.deepseek\.com|Authorization\s*:/)
+      expect(read(file), file).not.toMatch(/\bfetchImpl\b/)
+      expect(read(file), file).not.toMatch(/\bfetch\s*\(/)
+    }
+
+    const client = read('server/story/deepseek-client.ts')
+
+    expect(client).toContain('DEFAULT_DEEPSEEK_BASE_URL')
+    expect(client).toContain("response_format: { type: 'json_object' }")
   })
 })

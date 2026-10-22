@@ -4,6 +4,9 @@ import { StoryError } from './errors'
 export interface StoryCostConfig {
   readonly maxStoryCostUsd: number
   readonly directorCostUsd: number
+  readonly narrativeCostUsd: number
+  readonly visualCostUsd: number
+  readonly directorRepairCostUsd: number
   readonly keyframeCostUsd: number
   readonly keyframeReferenceCostUsd: number
   readonly videoFastCostUsd: number
@@ -31,6 +34,9 @@ export interface StoryCostGuard {
 export interface StoryCostConfigOptions {
   readonly maxStoryCostUsd?: number
   readonly directorCostUsd?: number
+  readonly narrativeCostUsd?: number
+  readonly visualCostUsd?: number
+  readonly directorRepairCostUsd?: number
   readonly keyframeCostUsd?: number
   readonly keyframeReferenceCostUsd?: number
   readonly videoFastCostUsd?: number
@@ -42,6 +48,9 @@ export interface StoryCostConfigOptions {
 export const DEFAULT_STORY_COST_CONFIG: StoryCostConfig = {
   maxStoryCostUsd: 8,
   directorCostUsd: 0.01,
+  narrativeCostUsd: 0.01,
+  visualCostUsd: 0.005,
+  directorRepairCostUsd: 0.01,
   keyframeCostUsd: 0.05,
   keyframeReferenceCostUsd: 0.08,
   videoFastCostUsd: 0.35,
@@ -78,6 +87,14 @@ export class NativeStoryCostGuard implements StoryCostGuard {
     return this.config
   }
 
+  private directorCost(): number {
+    return roundUsd(
+      this.config.narrativeCostUsd
+      + this.config.visualCostUsd
+      + this.config.directorRepairCostUsd,
+    )
+  }
+
   estimate(story: StoryRecord): number {
     const keyframeUnits = story.scenes.reduce(
       (total, scene) => total + scene.keyframeAttempts,
@@ -93,7 +110,7 @@ export class NativeStoryCostGuard implements StoryCostGuard {
     )
 
     return roundUsd(
-      this.config.directorCostUsd
+      this.directorCost()
       + keyframeUnits * unitKeyframeCost(story, this.config)
       + videoUnits * unitVideoCost(story, this.config)
       + qcUnits * this.config.qcUnitCostUsd,
@@ -113,7 +130,7 @@ export class NativeStoryCostGuard implements StoryCostGuard {
       : this.config.videoFastCostUsd
 
     return roundUsd(
-      this.config.directorCostUsd
+      this.directorCost()
       + sceneCount * keyframeUnit
       + sceneCount * videoUnit,
     )
@@ -171,6 +188,10 @@ export function createStoryCostGuard(
   return new NativeStoryCostGuard({
     maxStoryCostUsd: options.maxStoryCostUsd ?? DEFAULT_STORY_COST_CONFIG.maxStoryCostUsd,
     directorCostUsd: options.directorCostUsd ?? DEFAULT_STORY_COST_CONFIG.directorCostUsd,
+    narrativeCostUsd: options.narrativeCostUsd ?? DEFAULT_STORY_COST_CONFIG.narrativeCostUsd,
+    visualCostUsd: options.visualCostUsd ?? DEFAULT_STORY_COST_CONFIG.visualCostUsd,
+    directorRepairCostUsd:
+      options.directorRepairCostUsd ?? DEFAULT_STORY_COST_CONFIG.directorRepairCostUsd,
     keyframeCostUsd: options.keyframeCostUsd ?? DEFAULT_STORY_COST_CONFIG.keyframeCostUsd,
     keyframeReferenceCostUsd:
       options.keyframeReferenceCostUsd

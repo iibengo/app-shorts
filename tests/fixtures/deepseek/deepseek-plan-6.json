@@ -1,18 +1,67 @@
 {
   "title": "La casa que respira",
   "logline": "Una familia descubre que su nueva casa cambia de habitaciones cada noche.",
+  "tone": "humor",
+  "storyBible": {
+    "style": "animación 3D cartoon, colores cálidos y saturados, sin grano",
+    "tone": "humor",
+    "theme": "El éxito no se puede predecir, pero se puede hornear.",
+    "leadCharacterId": "clara",
+    "signaturePropId": "merengue",
+    "characters": [
+      {
+        "id": "clara",
+        "name": "Clara",
+        "description": "Repostera joven de pelo recogido y delantal de rayas azules.",
+        "wardrobe": "Delantal de rayas azules sobre camisa blanca.",
+        "source": "premise"
+      }
+    ],
+    "locations": [
+      {
+        "id": "obrador",
+        "name": "Obrador de Clara",
+        "description": "Cocina pequeña con azulejos blancos, horno antiguo y bandejas.",
+        "source": "premise"
+      }
+    ],
+    "props": [
+      {
+        "id": "merengue",
+        "name": "Merengue",
+        "description": "Bol metálico con merengue que dibuja figuras imposibles.",
+        "source": "premise"
+      }
+    ],
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "texto",
+      "marca de agua"
+    ],
+    "continuityRules": [
+      "El delantal de Clara no cambia en ninguna escena.",
+      "El merengue sigue en el mismo bol metálico."
+    ]
+  },
   "beats": [
     {
       "order": 1,
       "sceneRole": "establishing",
-      "visualPrompt": "Una familia descarga cajas frente a una casa antigua al borde del bosque.",
-      "narration": "La casa lleva vacía treinta años y huele a lluvia.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "lucia"
+        "clara"
       ],
       "props": [
-        "linterna"
+        "merengue"
       ],
+      "action": "Clara descubre una figura en el merengue dentro del obrador.",
+      "narration": "La casa lleva vacía treinta años y huele a lluvia.",
+      "storyFunction": "hook",
+      "gag": "El merengue dibuja una puerta.",
+      "visualPrompt": "Plano general de Clara en el obrador con la puerta al fondo.",
       "camera": "wide",
       "continuityFromPrevious": null,
       "transition": "cut"
@@ -20,112 +69,107 @@
     {
       "order": 2,
       "sceneRole": "development",
-      "visualPrompt": "La hija pequeña recorre un pasillo que antes no existía en los planos.",
-      "narration": "Esa noche aparece un pasillo que nadie había visto.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "lucia"
+        "clara"
       ],
       "props": [
-        "linterna"
+        "merengue"
       ],
+      "action": "Clara sigue la figura por el pasillo del obrador.",
+      "narration": "Esa noche aparece un pasillo que nadie había visto.",
+      "storyFunction": "complication",
+      "gag": "La bandeja marca el camino.",
+      "visualPrompt": "Plano medio del pasillo con la bandeja en el suelo.",
       "camera": "medium",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 3,
       "sceneRole": "escalation",
-      "visualPrompt": "El padre dibuja los planos de la planta mientras las paredes parecen moverse.",
-      "narration": "Cada mañana el plano tiene una puerta nueva.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "lucia"
+        "clara"
       ],
       "props": [
-        "linterna"
+        "merengue"
       ],
-      "camera": "close-up",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "action": "Clara intenta dibujar el plano del obrador y las paredes cambian.",
+      "narration": "Cada mañana el plano tiene una puerta nueva.",
+      "storyFunction": "escalation",
+      "gag": "El merengue dibuja una puerta más.",
+      "visualPrompt": "Plano detalle del merengue sobre el plano.",
+      "camera": "detail",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 4,
       "sceneRole": "climax",
-      "visualPrompt": "La madre encuentra una habitación llena de muebles cubiertos con sábanas.",
-      "narration": "Detrás de una puerta esperan muebles de otra época.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "lucia"
+        "clara"
       ],
       "props": [
-        "linterna"
+        "merengue"
       ],
-      "camera": "tracking",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "action": "Clara encuentra una habitación llena de bandejas cubiertas.",
+      "narration": "Detrás de una puerta esperan bandejas de otra época.",
+      "storyFunction": "twist",
+      "gag": "Una bandeja levanta su tapa sola.",
+      "visualPrompt": "Plano sobre el hombro de Clara ante las bandejas.",
+      "camera": "over-the-shoulder",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 5,
       "sceneRole": "development",
-      "visualPrompt": "La familia se reúne en el salón con linternas y el plano sobre la mesa.",
-      "narration": "Deciden pasar una noche despiertos para entenderla.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "lucia"
+        "clara"
       ],
       "props": [
-        "linterna"
+        "merengue"
       ],
-      "camera": "detail",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "action": "Clara reúne el merengue y las bandejas en el mostrador.",
+      "narration": "Deciden pasar una noche despiertos para entenderla.",
+      "storyFunction": "complication",
+      "gag": "El merengue forma una luna.",
+      "visualPrompt": "Plano medio del mostrador lleno de bandejas.",
+      "camera": "medium",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 6,
       "sceneRole": "resolution",
-      "visualPrompt": "Al amanecer la casa amanece quieta y la familia duerme en el jardín.",
-      "narration": "La casa deja de moverse cuando todos duermen fuera.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "lucia"
+        "clara"
       ],
       "props": [
-        "linterna"
+        "merengue"
       ],
-      "camera": "high-angle",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "action": "Clara cierra el obrador y deja el merengue quieto.",
+      "narration": "La casa deja de moverse cuando todos duermen fuera.",
+      "storyFunction": "payoff",
+      "gag": "El merengue forma un punto final.",
+      "visualPrompt": "Detalle del merengue inmóvil al amanecer.",
+      "camera": "detail",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     }
-  ],
-  "storyBible": {
-    "style": "animación 3D cartoon, paleta fría y texturas de madera, sin grano",
-    "location": {
-      "name": "Casa del bosque",
-      "description": "Casa antigua de madera rodeada de pinos y niebla baja."
-    },
-    "timeOfDay": "night",
-    "weather": "fog",
-    "leadCharacterId": "lucia",
-    "signaturePropId": "linterna",
-    "characters": [
-      {
-        "id": "lucia",
-        "name": "Lucía",
-        "description": "Niña curiosa de trenza castaña que explora la casa.",
-        "wardrobe": "Pijama verde y zapatillas grises."
-      }
-    ],
-    "props": [
-      {
-        "id": "linterna",
-        "name": "Linterna",
-        "description": "Linterna amarilla con la carcasa rayada."
-      }
-    ],
-    "forbidden": [
-      "Homer",
-      "bicicleta",
-      "tormenta",
-      "texto"
-    ],
-    "continuityRules": [
-      "La linterna amarilla acompaña a Lucía en todas las escenas."
-    ]
-  }
+  ]
 }

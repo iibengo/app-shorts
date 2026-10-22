@@ -124,12 +124,17 @@ describe('StoryCreateForm', () => {
       attachTo: document.body,
       props: { premise: '', issue: null, submitDisabled: true },
       slots: {
+        mode: '<div data-testid="slot-mode">modo</div>',
         sceneCount: '<div data-testid="slot-scene-count">escenas</div>',
         preset: '<div data-testid="slot-preset">preset</div>',
         reference: '<div data-testid="slot-reference">referencia</div>',
       },
     })
 
+    expect(wrapper.find('[data-testid="slot-mode"]').exists()).toBe(true)
+    expect(
+      wrapper.findAll('[data-testid^="slot-"]').map((slot) => slot.attributes('data-testid')),
+    ).toEqual(['slot-mode', 'slot-scene-count', 'slot-preset', 'slot-reference'])
     expect(wrapper.find('[data-testid="slot-scene-count"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="slot-preset"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="slot-reference"]').exists()).toBe(true)

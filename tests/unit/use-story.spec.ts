@@ -125,6 +125,7 @@ describe('useStory initial state and creation', () => {
       premise: 'Una premisa de prueba con longitud suficiente.',
       sceneCount: 5 as const,
       preset: 'fast' as const,
+      mode: 'faithful' as const,
       referenceUrl: null,
       referenceExpiresAt: null,
     }
@@ -151,6 +152,7 @@ describe('useStory initial state and creation', () => {
       premise: 'Una premisa de prueba con longitud suficiente.',
       sceneCount: 5,
       preset: 'fast',
+      mode: 'faithful',
       referenceUrl: null,
       referenceExpiresAt: null,
     })
@@ -175,6 +177,7 @@ describe('useStory initial state and creation', () => {
       premise: 'Una premisa de prueba con longitud suficiente.',
       sceneCount: 5,
       preset: 'fast',
+      mode: 'faithful',
       referenceUrl: null,
       referenceExpiresAt: null,
     })

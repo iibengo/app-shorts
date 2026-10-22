@@ -1,0 +1,161 @@
+{
+  "title": "El azúcar lo sabe",
+  "logline": "Una repostera descubre que sus postres anticipan lo que va a pasar.",
+  "tone": "humor",
+  "storyBible": {
+    "style": "animación 3D cartoon, colores cálidos y saturados, sin grano",
+    "tone": "humor",
+    "theme": "El éxito no se puede predecir, pero se puede hornear.",
+    "leadCharacterId": "clara",
+    "signaturePropId": "merengue",
+    "characters": [
+      {
+        "id": "clara",
+        "name": "Clara",
+        "description": "Repostera joven de pelo recogido y delantal de rayas azules.",
+        "wardrobe": "Delantal de rayas azules sobre camisa blanca.",
+        "source": "premise"
+      },
+      {
+        "id": "milo",
+        "name": "Milo",
+        "description": "Amigo de Clara con gorro verde y bufanda naranja.",
+        "wardrobe": "Gorro verde y bufanda naranja.",
+        "source": "invented"
+      }
+    ],
+    "locations": [
+      {
+        "id": "obrador",
+        "name": "Obrador de Clara",
+        "description": "Cocina pequeña con azulejos blancos, horno antiguo y bandejas.",
+        "source": "premise"
+      },
+      {
+        "id": "calle",
+        "name": "Calle",
+        "description": "Calle adoquinada con farolas y escaparates.",
+        "source": "invented"
+      },
+      {
+        "id": "parque",
+        "name": "Parque",
+        "description": "Parque urbano con árboles, bancos y un estanque.",
+        "source": "premise"
+      }
+    ],
+    "props": [
+      {
+        "id": "merengue",
+        "name": "Merengue",
+        "description": "Bol metálico con merengue que dibuja figuras imposibles.",
+        "source": "premise"
+      },
+      {
+        "id": "paraguas",
+        "name": "Paraguas",
+        "description": "Paraguas amarillo con mango de madera.",
+        "source": "invented"
+      }
+    ],
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "texto",
+      "marca de agua"
+    ],
+    "continuityRules": [
+      "El delantal de Clara no cambia en ninguna escena.",
+      "El merengue sigue en el mismo bol metálico."
+    ]
+  },
+  "beats": [
+    {
+      "order": 1,
+      "sceneRole": "establishing",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara abre el obrador al amanecer y descubre una figura en el merengue.",
+      "narration": "Cada mañana, antes de encender el horno, Clara escucha.",
+      "storyFunction": "hook",
+      "gag": "El merengue dibuja un reloj sin agujas."
+    },
+    {
+      "order": 2,
+      "sceneRole": "development",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara intenta repetir la figura y el merengue cambia de forma.",
+      "narration": "El azúcar se mueve como si quisiera contar algo.",
+      "storyFunction": "complication",
+      "gag": "La figura señala la puerta con una cuchara."
+    },
+    {
+      "order": 3,
+      "sceneRole": "escalation",
+      "locationId": "calle",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara",
+        "milo"
+      ],
+      "props": [
+        "merengue",
+        "paraguas"
+      ],
+      "action": "Un cliente entra y reconoce la figura del merengue.",
+      "narration": "El primer cliente trae la cara que anunciaba el postre.",
+      "storyFunction": "escalation",
+      "gag": "El cliente saluda a la figura del merengue."
+    },
+    {
+      "order": 4,
+      "sceneRole": "climax",
+      "locationId": "calle",
+      "timeOfDay": "night",
+      "weather": "light-rain",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara descubre que el merengue anuncia una desgracia y duda.",
+      "narration": "Clara entiende que no todos los avisos son buenos.",
+      "storyFunction": "twist",
+      "gag": "La tarta se esconde bajo la bandeja."
+    },
+    {
+      "order": 5,
+      "sceneRole": "resolution",
+      "locationId": "parque",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara decide no preguntar al azúcar y cierra el obrador.",
+      "narration": "Esa mañana decide no volver a preguntar al azúcar.",
+      "storyFunction": "payoff",
+      "gag": "El merengue forma un signo de interrogación y se deshace."
+    }
+  ]
+}

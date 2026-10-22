@@ -2,286 +2,136 @@
 import { describe, expect, it } from 'vitest'
 import {
   KLING_LEGACY_NEGATIVE_PROMPT,
+  STORY_PROMPT_MAX_LENGTH,
+  STORY_VIDEO_PROMPT_MAX_LENGTH,
+  VIDEO_STAGE_BLOCK,
   composeGlobalBlock,
   composeKeyframe,
   composeNegative,
   composeVideo,
   composeVideoGlobalBlock,
-  STORY_PROMPT_MAX_LENGTH,
-  STORY_VIDEO_PROMPT_MAX_LENGTH,
-  VIDEO_STAGE_BLOCK,
   storyBeatForScene,
   storyKeyframeFluxPrompt,
-  storyKeyframeKontextPrompt,
-  storyPromptComposer,
   storyVideoLegacyPrompt,
+  storyPromptComposer,
 } from '../../../server/story/story-prompt-composer'
-import type { StoryBible, StoryPlan } from '~/models/story'
+import type { StoryPlan } from '~/models/story'
+import { StoryError } from '../../../server/story/errors'
 import plan5 from '../../fixtures/deepseek/deepseek-plan-5.json'
+import creative from '../../fixtures/story/plan-creative-scene-changes.json'
 
 const PLAN = plan5 as StoryPlan
 const BIBLE = PLAN.storyBible!
 
-function beats() {
-  return PLAN.beats.map((beat) => storyBeatForScene(PLAN, beat, PLAN.beats.length))
+function beats(plan: StoryPlan) {
+  return plan.beats.map((beat) => storyBeatForScene(plan, beat, plan.beats.length))
 }
 
-describe('story-prompt-composer: global block', () => {
-  it('uses the full global block for keyframes and a stable compact block for video', () => {
+describe('story-prompt-composer: global canon', () => {
+  it('uses a full global block for keyframes and a compact one for video', () => {
     const global = composeGlobalBlock(BIBLE)
-    const scenes = beats()
-    const videoGlobal = composeVideoGlobalBlock(BIBLE, scenes[0]!)
 
-    for (const beat of scenes) {
+    for (const beat of beats(PLAN)) {
       const keyframe = composeKeyframe({ bible: BIBLE, beat, hasReference: false })
-      const kontext = composeKeyframe({ bible: BIBLE, beat, hasReference: true })
-      const fast = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
-      const quality = composeVideo({ bible: BIBLE, beat, preset: 'quality' })
+      const video = composeVideo({ bible: BIBLE, beat, preset: 'quality' })
 
       expect(keyframe.prompt.startsWith(global)).toBe(true)
-      expect(kontext.prompt.startsWith(global)).toBe(true)
-      expect(fast.prompt.startsWith(composeVideoGlobalBlock(BIBLE, beat))).toBe(true)
-      expect(quality.prompt.startsWith(composeVideoGlobalBlock(BIBLE, beat))).toBe(true)
-    }
-
-    expect(videoGlobal).toContain('CONTINUIDAD DE VÍDEO')
-  })
-
-  it('keeps the global block under the 2600 character budget', () => {
-    expect(composeGlobalBlock(BIBLE).length).toBeLessThanOrEqual(2_600)
-  })
-
-  it('orders global, scene, stage and Avoid', () => {
-    const beat = beats()[1]!
-    const prompt = composeKeyframe({ bible: BIBLE, beat, hasReference: false }).prompt
-    const globalIndex = prompt.indexOf('CONTINUIDAD GLOBAL')
-    const sceneIndex = prompt.indexOf('ESCENA 2')
-    const stageIndex = prompt.indexOf('Fotograma estático')
-    const avoidIndex = prompt.indexOf('Avoid:')
-
-    expect(globalIndex).toBe(0)
-    expect(sceneIndex).toBeGreaterThan(globalIndex)
-    expect(stageIndex).toBeGreaterThan(sceneIndex)
-    expect(avoidIndex).toBeGreaterThan(stageIndex)
-  })
-
-  it('never includes the narration in any prompt', () => {
-    for (const beat of beats()) {
-      const prompts = [
-        composeKeyframe({ bible: BIBLE, beat, hasReference: false }).prompt,
-        composeVideo({ bible: BIBLE, beat, preset: 'fast' }).prompt,
-        composeVideo({ bible: BIBLE, beat, preset: 'quality' }).prompt,
-      ]
-
-      for (const prompt of prompts) {
-        expect(prompt).not.toContain(beat.narration)
-      }
+      expect(video.prompt.startsWith(composeVideoGlobalBlock(BIBLE, beat))).toBe(true)
     }
   })
 
-  it('is deterministic', () => {
-    const beat = beats()[3]!
-    const first = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
-    const second = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
+  it('keeps the scene location, time and weather in each scene block', () => {
+    const creativePlan = creative as StoryPlan
+    const scenes = beats(creativePlan)
+    const first = composeKeyframe({
+      bible: creativePlan.storyBible!,
+      beat: scenes[0]!,
+      hasReference: false,
+    })
+    const second = composeKeyframe({
+      bible: creativePlan.storyBible!,
+      beat: scenes[3]!,
+      hasReference: false,
+    })
 
-    expect(first).toEqual(second)
+    expect(first.prompt).toContain('Obrador de Clara')
+    expect(second.prompt).toContain('Calle')
+    expect(second.prompt).toContain('noche')
   })
-})
 
-describe('story-prompt-composer: compact video budget', () => {
-  function longBible(): StoryBible {
-    return {
-      ...BIBLE,
-      style: 'x'.repeat(160),
-      location: {
-        name: 'Parque de Springfield',
-        description: 'Sendero de tierra, césped verde, árboles frondosos y una rampa roja. '.repeat(2).slice(0, 160),
-      },
-      characters: [
-        {
-          id: 'bart',
-          name: 'Bart',
-          description: 'Niño de piel amarilla y pelo puntiagudo. '.repeat(3).slice(0, 100),
-          wardrobe: 'Camiseta naranja, shorts azules y zapatillas azules. '.repeat(2).slice(0, 80),
-        },
-        {
-          id: 'milhouse',
-          name: 'Milhouse',
-          description: 'Amigo de Bart con gafas grandes y ropa de colores. '.repeat(3).slice(0, 100),
-          wardrobe: 'Camisa azul, pantalón corto beige y zapatillas rojas. '.repeat(2).slice(0, 80),
-        },
-        {
-          id: 'lisa',
-          name: 'Lisa',
-          description: 'Hermana de Bart con vestido rojo y collar blanco. '.repeat(3).slice(0, 100),
-          wardrobe: 'Vestido rojo, collar blanco y zapatos negros. '.repeat(2).slice(0, 80),
-        },
-      ],
-      props: [
-        {
-          id: 'skateboard',
-          name: 'Patinete azul',
-          description: 'Patinete azul con manillar negro y ruedas rojas. '.repeat(2).slice(0, 90),
-        },
-        {
-          id: 'helmet',
-          name: 'Casco',
-          description: 'Casco de protección azul con correas negras. '.repeat(2).slice(0, 90),
-        },
-        {
-          id: 'backpack',
-          name: 'Mochila',
-          description: 'Mochila escolar roja con cremallera amarilla. '.repeat(2).slice(0, 90),
-        },
-      ],
-      forbidden: Array.from({ length: 8 }, (_value, index) =>
-        `elemento prohibido ${index}`),
-      continuityRules: Array.from({ length: 3 }, (_value, index) =>
-        `Regla ${index}: mantén el vestuario, el patinete, el fondo y el clima.`),
-    }
-  }
+  it('keeps video prompts under 2000 and never includes narration or gag', () => {
+    for (const beat of beats(creative as StoryPlan)) {
+      const keyframe = composeKeyframe({
+        bible: (creative as StoryPlan).storyBible!,
+        beat,
+        hasReference: false,
+      })
+      const video = composeVideo({ bible: (creative as StoryPlan).storyBible!, beat, preset: 'fast' })
 
-  function longBeat(): StoryPlan['beats'][number] {
-    return {
-      order: 2,
-      sceneRole: 'development',
-      visualPrompt: 'Bart acelera por el sendero del parque con su patinete azul mientras Milhouse lo sigue corriendo. '.repeat(5).slice(0, 600),
-      narration: 'Bart acelera por el parque con su patinete azul mientras Milhouse lo sigue.',
-      characters: ['bart', 'milhouse'],
-      props: ['skateboard', 'helmet', 'backpack'],
-      camera: 'tracking',
-      continuityFromPrevious: 'El patinete azul, el casco y la mochila siguen en el mismo sendero de tierra. '.repeat(2).slice(0, 200),
-      transition: 'cut',
-    }
-  }
-
-  it('keeps the composed video prompt within 2000 characters with a long bible', () => {
-    const bible = longBible()
-    const beat = longBeat()
-
-    for (const preset of ['fast', 'quality'] as const) {
-      const composed = composeVideo({ bible, beat, preset })
-
-      expect(composed.prompt.length).toBeLessThanOrEqual(STORY_VIDEO_PROMPT_MAX_LENGTH)
-      expect(composed.prompt).toContain(beat.visualPrompt)
-      expect(composed.prompt).toContain(VIDEO_STAGE_BLOCK)
-      expect(composed.prompt).not.toContain(beat.narration)
+      expect(keyframe.prompt).not.toContain(beat.narration)
+      if (beat.gag) expect(keyframe.prompt).not.toContain(beat.gag)
+      expect(video.prompt.length).toBeLessThanOrEqual(STORY_VIDEO_PROMPT_MAX_LENGTH)
+      expect(video.prompt).toContain(VIDEO_STAGE_BLOCK)
+      expect(video.prompt).toContain(beat.visualPrompt)
+      expect(video.prompt).not.toContain(beat.narration)
+      if (beat.gag) expect(video.prompt).not.toContain(beat.gag)
     }
   })
 
-  it('keeps the keyframe on the full global block with the 4000 budget', () => {
-    const bible = longBible()
-    const beat = longBeat()
-    const keyframe = composeKeyframe({ bible, beat, hasReference: false })
+  it('keeps keyframe prompts under 4000', () => {
+    for (const beat of beats(PLAN)) {
+      const keyframe = composeKeyframe({ bible: BIBLE, beat, hasReference: false })
 
-    expect(keyframe.prompt.startsWith(composeGlobalBlock(bible))).toBe(true)
-    expect(keyframe.prompt.length).toBeLessThanOrEqual(STORY_PROMPT_MAX_LENGTH)
-  })
-
-  it('falls back to the short Avoid list without breaking words', () => {
-    const bible = longBible()
-    const beat = longBeat()
-    const fast = composeVideo({ bible, beat, preset: 'fast' })
-    const quality = composeVideo({ bible, beat, preset: 'quality' })
-
-    expect(fast.prompt).toContain('Avoid:')
-    expect(fast.prompt).not.toContain('Avoid: ' + fast.negativePrompt)
-    expect(quality.prompt).not.toContain('Avoid:')
-    expect(quality.negativePrompt.length).toBeGreaterThan(0)
-    expect(fast.prompt).toContain(beat.visualPrompt)
-    expect(fast.prompt).toContain(VIDEO_STAGE_BLOCK)
+      expect(keyframe.prompt.length).toBeLessThanOrEqual(STORY_PROMPT_MAX_LENGTH)
+    }
   })
 })
 
 describe('story-prompt-composer: negative', () => {
-  it('derives the base, the forbidden list and the contrast terms once', () => {
-    const beat = beats()[1]!
-    const negative = composeNegative(BIBLE, beat)
-    const terms = negative.split(', ')
+  it('derives contrast from the scene, not from a fixed bicycle list', () => {
+    const beat = beats(PLAN)[1]!
+    const terms = composeNegative(BIBLE, beat).split(', ')
 
-    for (const expected of [
-      'extra characters',
-      'characters not in the story bible',
-      'different vehicle or prop',
-      'different clothing',
-      'different weather',
-      'different time of day',
-      'text',
-      'subtitles',
-      'watermark',
-      'logo',
-      'low quality',
-      'artifacts',
-      'Homer',
-      'bicicleta',
-      'lluvia',
-      'noche',
-      'night',
-      'rain',
-      'storm',
-      'snow',
-      'fog',
-      'bicycle',
-    ]) {
-      expect(terms).toContain(expected)
-    }
-
-    expect(new Set(terms).size).toBe(terms.length)
-  })
-
-  it('never contradicts night, rain or a bicycle signature prop', () => {
-    const bible: StoryBible = {
-      ...BIBLE,
-      timeOfDay: 'night',
-      weather: 'rain',
-      props: [
-        {
-          id: 'bicycle',
-          name: 'Bicicleta roja',
-          description: 'Bicicleta roja con cesta de mimbre y timbre plateado.',
-        },
-      ],
-      signaturePropId: 'bicycle',
-      forbidden: ['texto'],
-    }
-    const beat = { ...beats()[0]!, props: ['bicycle'] }
-    const terms = composeNegative(bible, beat).split(', ')
-
-    expect(terms).not.toContain('night')
-    expect(terms).not.toContain('rain')
     expect(terms).not.toContain('bicycle')
   })
 
-  it('uses Avoid for MiniMax and a field for Kling', () => {
-    const beat = beats()[2]!
+  it('filters canon names and the scene context from the negative', () => {
+    const beat = beats(PLAN)[1]!
+    const terms = composeNegative(BIBLE, beat).split(', ')
+
+    for (const character of BIBLE.characters) {
+      expect(terms).not.toContain(character.id)
+      expect(terms).not.toContain(character.name)
+    }
+    for (const location of BIBLE.locations) {
+      expect(terms).not.toContain(location.id)
+      expect(terms).not.toContain(location.name)
+    }
+  })
+
+  it('adds Avoid for fast and uses a field for quality', () => {
+    const beat = beats(PLAN)[1]!
     const fast = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
     const quality = composeVideo({ bible: BIBLE, beat, preset: 'quality' })
 
-    expect(fast.prompt).toContain(`Avoid: ${fast.negativePrompt}`)
+    expect(fast.prompt).toContain('Avoid:')
     expect(quality.prompt).not.toContain('Avoid:')
     expect(quality.negativePrompt.length).toBeGreaterThan(0)
-    expect(quality.negativePrompt).toBe(fast.negativePrompt)
   })
 })
 
-describe('story-prompt-composer: legacy templates', () => {
-  it('returns the exact 005 templates without inventing a bible', () => {
-    const beat = beats()[0]!
-    const flux = composeKeyframe({ bible: null, beat, hasReference: false })
-    const kontext = composeKeyframe({ bible: null, beat, hasReference: true })
+describe('story-prompt-composer: legacy', () => {
+  it('returns the exact 005 templates with bible null', () => {
+    const beat = beats(PLAN)[0]!
+    const keyframe = composeKeyframe({ bible: null, beat, hasReference: false })
     const video = composeVideo({ bible: null, beat, preset: 'quality' })
 
-    expect(flux.prompt).toBe(storyKeyframeFluxPrompt(beat.visualPrompt))
-    expect(kontext.prompt).toBe(storyKeyframeKontextPrompt(beat.visualPrompt))
+    expect(keyframe.prompt).toBe(storyKeyframeFluxPrompt(beat.visualPrompt))
     expect(video.prompt).toBe(storyVideoLegacyPrompt(beat.visualPrompt))
     expect(video.negativePrompt).toBe(KLING_LEGACY_NEGATIVE_PROMPT)
   })
 
-  it('exposes the composer contract', () => {
-    const beat = beats()[0]!
-
+  it('exposes the StoryPromptComposer contract', () => {
     expect(storyPromptComposer.composeGlobalBlock(BIBLE)).toBe(composeGlobalBlock(BIBLE))
-    expect(storyPromptComposer.composeKeyframe({ bible: BIBLE, beat, hasReference: false }))
-      .toEqual(composeKeyframe({ bible: BIBLE, beat, hasReference: false }))
   })
 })

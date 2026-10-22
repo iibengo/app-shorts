@@ -28,7 +28,8 @@ import type {
   StoryRecord,
   StoryRepository,
 } from './repository'
-import { validateDirectorPlan } from './plan-validator'
+import { validateStoryPlan } from './plan-validator'
+import { parseStoryMode } from './story-mode'
 import { parsePersistedStoryQC } from './qc-validator'
 
 type StoryRowWithScenes = StoryRow & { readonly scenes: readonly SceneRow[] }
@@ -148,8 +149,12 @@ function mapScene(row: SceneRow): SceneRecord {
 
 function parsePlan(value: Prisma.JsonValue | null, story: StoryRowWithScenes): StoryPlan | null {
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-    const validation = validateDirectorPlan(value, story.sceneCount, {
-      allowLegacyBible: true,
+    const validation = validateStoryPlan(value, {
+      sceneCount: story.sceneCount,
+      mode: parseStoryMode(story.mode),
+      allowLegacy: true,
+      premise: story.premise,
+      logline: story.logline,
     })
 
     if (validation.ok) {
@@ -208,6 +213,7 @@ function mapStory(row: StoryRowWithScenes): StoryRecord {
     referenceUrl: row.referenceUrl,
     referenceExpiresAt: toDate(row.referenceExpiresAt),
     preset: toStoryPreset(row.preset),
+    mode: parseStoryMode(row.mode),
     sceneCount: row.sceneCount,
     durationSeconds: row.durationSeconds,
     aspectRatio: row.aspectRatio,
@@ -343,6 +349,7 @@ export class PrismaStoryRepository implements StoryRepository {
         referenceUrl: input.referenceUrl,
         referenceExpiresAt: input.referenceExpiresAt,
         preset: input.preset,
+        mode: input.mode,
         sceneCount: input.sceneCount,
         durationSeconds: input.durationSeconds,
         aspectRatio: input.aspectRatio,

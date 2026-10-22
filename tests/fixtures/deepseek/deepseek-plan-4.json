@@ -1,18 +1,67 @@
 {
   "title": "El último tren",
   "logline": "Una viajera pierde el último tren y encuentra algo inesperado.",
+  "tone": "humor",
+  "storyBible": {
+    "style": "animación 3D cartoon, colores cálidos y saturados, sin grano",
+    "tone": "humor",
+    "theme": "El éxito no se puede predecir, pero se puede hornear.",
+    "leadCharacterId": "clara",
+    "signaturePropId": "merengue",
+    "characters": [
+      {
+        "id": "clara",
+        "name": "Clara",
+        "description": "Repostera joven de pelo recogido y delantal de rayas azules.",
+        "wardrobe": "Delantal de rayas azules sobre camisa blanca.",
+        "source": "premise"
+      }
+    ],
+    "locations": [
+      {
+        "id": "obrador",
+        "name": "Obrador de Clara",
+        "description": "Cocina pequeña con azulejos blancos, horno antiguo y bandejas.",
+        "source": "premise"
+      }
+    ],
+    "props": [
+      {
+        "id": "merengue",
+        "name": "Merengue",
+        "description": "Bol metálico con merengue que dibuja figuras imposibles.",
+        "source": "premise"
+      }
+    ],
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "texto",
+      "marca de agua"
+    ],
+    "continuityRules": [
+      "El delantal de Clara no cambia en ninguna escena.",
+      "El merengue sigue en el mismo bol metálico."
+    ]
+  },
   "beats": [
     {
       "order": 1,
       "sceneRole": "establishing",
-      "visualPrompt": "Una joven espera sola en el andén de una estación vacía al anochecer.",
-      "narration": "El reloj marca las once y el andén está desierto.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "viajera"
+        "clara"
       ],
       "props": [
-        "maleta"
+        "merengue"
       ],
+      "action": "Clara espera en el obrador con el merengue y una bandeja.",
+      "narration": "El reloj marca las once y el obrador está en silencio.",
+      "storyFunction": "hook",
+      "gag": "El merengue forma la hora exacta.",
+      "visualPrompt": "Plano general de Clara esperando junto al merengue.",
       "camera": "wide",
       "continuityFromPrevious": null,
       "transition": "cut"
@@ -20,83 +69,65 @@
     {
       "order": 2,
       "sceneRole": "development",
-      "visualPrompt": "El tren pasa sin detenerse y deja una maleta olvidada sobre el banco.",
-      "narration": "Un vagón iluminado cruza y algo queda atrás.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "viajera"
+        "clara"
       ],
       "props": [
-        "maleta"
+        "merengue"
       ],
+      "action": "Clara encuentra una bandeja con una figura distinta.",
+      "narration": "Algo queda atrás cuando la luz parpadea.",
+      "storyFunction": "complication",
+      "gag": "La bandeja tintinea sola.",
+      "visualPrompt": "Plano medio de la bandeja con la figura nueva.",
       "camera": "medium",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 3,
       "sceneRole": "climax",
-      "visualPrompt": "La joven abre la maleta y encuentra fotografías de su propia infancia.",
-      "narration": "Dentro hay fotos que solo ella podría recordar.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "viajera"
+        "clara"
       ],
       "props": [
-        "maleta"
+        "merengue"
       ],
+      "action": "Clara comprende que la figura anuncia una visita.",
+      "narration": "Dentro hay una forma que solo ella podría recordar.",
+      "storyFunction": "twist",
+      "gag": "La figura saluda con una cuchara.",
+      "visualPrompt": "Primer plano de Clara ante la figura del merengue.",
       "camera": "close-up",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 4,
       "sceneRole": "resolution",
-      "visualPrompt": "Amanece mientras la joven sonríe con las fotografías en las manos.",
-      "narration": "Cuando sale el sol, ya sabe a dónde ir.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
       "characters": [
-        "viajera"
+        "clara"
       ],
       "props": [
-        "maleta"
+        "merengue"
       ],
-      "camera": "tracking",
-      "continuityFromPrevious": "La escena continúa desde la anterior con los mismos elementos.",
+      "action": "Clara sonríe y guarda el merengue al amanecer.",
+      "narration": "Cuando sale el sol, ya sabe a dónde ir.",
+      "storyFunction": "payoff",
+      "gag": "El merengue forma una sonrisa.",
+      "visualPrompt": "Detalle del merengue y la bandeja al amanecer.",
+      "camera": "detail",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     }
-  ],
-  "storyBible": {
-    "style": "animación 3D cartoon, tonos azules y violetas, sin grano",
-    "location": {
-      "name": "Estación de tren",
-      "description": "Andén vacío con bancos de madera y reloj antiguo."
-    },
-    "timeOfDay": "dusk",
-    "weather": "clear",
-    "leadCharacterId": "viajera",
-    "signaturePropId": "maleta",
-    "characters": [
-      {
-        "id": "viajera",
-        "name": "Viajera",
-        "description": "Joven de abrigo largo que espera sola en el andén.",
-        "wardrobe": "Abrigo largo gris y bufanda roja."
-      }
-    ],
-    "props": [
-      {
-        "id": "maleta",
-        "name": "Maleta",
-        "description": "Maleta de cuero marrón con cierres dorados."
-      }
-    ],
-    "forbidden": [
-      "Homer",
-      "bicicleta",
-      "lluvia",
-      "tormenta",
-      "texto"
-    ],
-    "continuityRules": [
-      "El abrigo gris y la bufanda roja no cambian en ninguna escena."
-    ]
-  }
+  ]
 }

@@ -25,6 +25,27 @@ export type SceneStatus =
 
 export type StoryPreset = 'fast' | 'quality'
 
+export type StoryMode = 'faithful' | 'creative'
+
+export type StoryNarrativeTone =
+  | 'humor'
+  | 'aventura'
+  | 'absurdo'
+  | 'heartwarming'
+  | 'dramatic'
+
+/** `neutral` solo aparece al normalizar planes anteriores a 007. */
+export type StoryTone = StoryNarrativeTone | 'neutral'
+
+export type StoryEntitySource = 'premise' | 'invented'
+
+export type StoryStoryFunction =
+  | 'hook'
+  | 'complication'
+  | 'escalation'
+  | 'twist'
+  | 'payoff'
+
 export type StoryModelId = 'minimax-hailuo-02' | 'kling-2.5-turbo-pro'
 
 export type StorySceneCount = 4 | 5 | 6
@@ -75,8 +96,10 @@ export type StorySceneRole =
 export type StoryTransition = 'cut'
 
 export interface StoryLocation {
+  readonly id: string
   readonly name: string
   readonly description: string
+  readonly source: StoryEntitySource
 }
 
 export interface StoryCharacter {
@@ -84,22 +107,25 @@ export interface StoryCharacter {
   readonly name: string
   readonly description: string
   readonly wardrobe: string
+  readonly source: StoryEntitySource
 }
 
 export interface StoryProp {
   readonly id: string
   readonly name: string
   readonly description: string
+  readonly source: StoryEntitySource
 }
 
 export interface StoryBible {
   readonly style: string
-  readonly location: StoryLocation
-  readonly timeOfDay: StoryTimeOfDay
-  readonly weather: StoryWeather
+  readonly tone: StoryTone
+  readonly theme: string
   readonly leadCharacterId: string
+  /** No nulo en creación; `null` solo en planes legacy. */
   readonly signaturePropId: string | null
   readonly characters: readonly StoryCharacter[]
+  readonly locations: readonly StoryLocation[]
   readonly props: readonly StoryProp[]
   readonly forbidden: readonly string[]
   readonly continuityRules: readonly string[]
@@ -108,10 +134,16 @@ export interface StoryBible {
 export interface StoryBeat {
   readonly order: number
   readonly sceneRole: StorySceneRole
-  readonly visualPrompt: string
-  readonly narration: string
+  readonly locationId: string
+  readonly timeOfDay: StoryTimeOfDay
+  readonly weather: StoryWeather
   readonly characters: readonly string[]
   readonly props: readonly string[]
+  readonly action: string
+  readonly narration: string
+  readonly storyFunction: StoryStoryFunction
+  readonly gag: string | null
+  readonly visualPrompt: string
   readonly camera: StoryCameraShot
   readonly continuityFromPrevious: string | null
   readonly transition: StoryTransition
@@ -120,7 +152,8 @@ export interface StoryBeat {
 export interface StoryPlan {
   readonly title: string
   readonly logline: string
-  /** `null` solo en planes persistidos antes de 006. */
+  readonly tone: StoryTone
+  /** `null` solo en planes legacy sin normalizar. */
   readonly storyBible: StoryBible | null
   readonly beats: readonly StoryBeat[]
 }
@@ -217,6 +250,7 @@ export type StoryErrorCode =
   | 'invalid-premise'
   | 'invalid-scene-count'
   | 'invalid-preset'
+  | 'invalid-mode'
   | 'invalid-reference'
   | 'reference-empty'
   | 'reference-too-large'
@@ -297,6 +331,7 @@ export interface Story {
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: string | null
   readonly preset: StoryPreset
+  readonly mode: StoryMode
   readonly modelId: StoryModelId
   readonly sceneCount: StorySceneCount
   readonly durationSeconds: StorySceneDurationSeconds
@@ -321,6 +356,7 @@ export interface StoryCreateRequest {
   readonly premise: string
   readonly sceneCount: StorySceneCount
   readonly preset: StoryPreset
+  readonly mode: StoryMode
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: string | null
 }

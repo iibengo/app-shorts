@@ -23,6 +23,7 @@ const ALL_CODES: readonly StoryErrorCode[] = [
   'invalid-premise',
   'invalid-scene-count',
   'invalid-preset',
+  'invalid-mode',
   'invalid-reference',
   'reference-empty',
   'reference-too-large',

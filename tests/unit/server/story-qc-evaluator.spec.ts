@@ -8,6 +8,7 @@ import {
   createStoryQCEvaluator,
 } from '../../../server/story/qc-evaluator'
 import type { QCSceneExpectation } from '../../../server/story/qc-types'
+import { NativeDeepSeekClient } from '../../../server/story/deepseek-client'
 import plan5 from '../../fixtures/deepseek/deepseek-plan-5.json'
 import observedPass from '../../fixtures/story/qc-observed-pass.json'
 import invalidObservation from '../../fixtures/story/qc-evaluator-invalid.json'
@@ -16,13 +17,19 @@ const BIBLE = plan5.storyBible as StoryBible
 const EXPECTATION: QCSceneExpectation = {
   sceneId: 'scene-1',
   order: 1,
+  sceneRole: 'establishing',
+  locationId: 'obrador',
+  locationName: 'Obrador de Clara',
+  locationDescription: 'Cocina pequeña con azulejos blancos y horno antiguo.',
+  timeOfDay: 'morning',
+  weather: 'clear',
   leadCharacterId: 'clara',
   characters: ['clara'],
   props: ['merengue'],
   signaturePropId: 'merengue',
+  action: 'Clara abre el obrador al amanecer.',
   visualPrompt: 'Clara abre el obrador al amanecer.',
   continuityFromPrevious: null,
-  sceneRole: 'establishing',
   camera: 'wide',
 }
 
@@ -69,11 +76,14 @@ function evaluatorWith(
     return next
   }
 
-  const evaluator = createStoryQCEvaluator({
+  const client = new NativeDeepSeekClient({
     apiKey: options.apiKey ?? 'test-deepseek-key',
     baseUrl: 'https://deepseek.test',
-    timeoutMs: options.timeoutMs ?? 1_000,
     fetchImpl: fetchImpl as typeof fetch,
+  })
+  const evaluator = createStoryQCEvaluator({
+    client,
+    timeoutMs: options.timeoutMs ?? 1_000,
   })
 
   return { evaluator, calls }
@@ -113,6 +123,13 @@ describe('qc-evaluator: request contract', () => {
       .toBe('https://v3.fal.media/files/test/strip.jpg')
     const text = user.find((block) => block.type === 'text')?.text ?? ''
     expect(text).toContain('CONTINUIDAD GLOBAL')
+    expect(text).toContain('CONTEXTO DE ESCENA')
+    expect(text).toContain('Localización: Obrador de Clara.')
+    expect(text).toContain('Personajes declarados: clara.')
+    expect(text).toContain('Props declarados: merengue.')
+    expect(text).toContain('Protagonista declarado en esta escena: sí.')
+    expect(text).toContain('Prop característico declarado en esta escena: sí.')
+    expect(text).toContain('Un cambio de localización, hora o clima respecto a la escena anterior es correcto')
     expect(text).toContain('Analiza el strip')
     expect(text).toContain('"confidence": 0.0')
     expect(text).not.toContain(plan5.beats[0]!.narration)
@@ -195,11 +212,14 @@ describe('qc-evaluator: repair and failure mapping', () => {
       setTimeout(() => reject(new DOMException('aborted', 'AbortError')), 20)
     })
     const fetchImpl = (() => never) as unknown as typeof fetch
-    const evaluator = createStoryQCEvaluator({
+    const client = new NativeDeepSeekClient({
       apiKey: 'test-deepseek-key',
       baseUrl: 'https://deepseek.test',
-      timeoutMs: 5,
       fetchImpl,
+    })
+    const evaluator = createStoryQCEvaluator({
+      client,
+      timeoutMs: 5,
     })
 
     const result = await evaluator.evaluate({
@@ -226,7 +246,7 @@ describe('qc-evaluator: repair and failure mapping', () => {
   })
 
   it('fails honestly without a key', async () => {
-    const { evaluator, calls } = evaluatorWith([completion('{}')], { apiKey: '' })
+    const evaluator = createStoryQCEvaluator({ apiKey: '' })
 
     expect(evaluator).toBeInstanceOf(NullQCEvaluator)
     const result = await evaluator.evaluate({
@@ -237,6 +257,5 @@ describe('qc-evaluator: repair and failure mapping', () => {
     })
 
     expect(result).toEqual({ kind: 'unavailable', errorCode: 'qc-not-configured' })
-    expect(calls).toHaveLength(0)
   })
 })

@@ -60,7 +60,10 @@ export function compareScene(input: {
   const expectedCharacters = new Set(expectation.characters)
   const expectedProps = new Set(expectation.props)
 
-  if (!observed.characters.includes(expectation.leadCharacterId)) {
+  if (
+    expectation.characters.includes(expectation.leadCharacterId)
+    && !observed.characters.includes(expectation.leadCharacterId)
+  ) {
     issues.push(issue('missing-lead-character', 'blocking', expectation, 'middle'))
   }
 

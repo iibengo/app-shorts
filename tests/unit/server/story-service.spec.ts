@@ -17,7 +17,8 @@ import {
 } from '../../../server/story/story-service'
 import type { StoryService } from '../../../server/story/story-service'
 import type { StoryRecord } from '../../../server/story/repository'
-import type { DirectorPlan } from '../../../server/story/director-types'
+import type { StoryPlan } from '~/models/story'
+import { composeKeyframe, composeVideo } from '../../../server/story/story-prompt-composer'
 import {
   DEFAULT_PLAN,
   FakeKeyframeOrchestrator,
@@ -29,20 +30,12 @@ import {
   createTestClock,
   makeSceneRecord,
   makeScenes,
+  longGlobalPlan,
+  longVideoPlan,
   makeStoryRecord,
 } from '../../helpers/story'
 
 const PREMISE = 'Una repostera descubre que sus postres pueden predecir el futuro.'
-
-interface SetupOptions {
-  readonly seed?: readonly StoryRecord[]
-  readonly director?: FakeStoryDirector
-  readonly rateLimit?: Partial<typeof DEFAULT_STORY_RATE_LIMIT_CONFIG>
-  readonly cost?: Parameters<typeof createStoryCostGuard>[0]
-  readonly clock?: ReturnType<typeof createTestClock>
-  readonly keyframes?: FakeKeyframeOrchestrator
-  readonly videos?: FakeVideoOrchestrator
-}
 
 function setup(options: SetupOptions = {}) {
   const repository = new FakeStoryRepository(options.seed ?? [])
@@ -75,6 +68,7 @@ function request(overrides: Partial<{
   premise: string
   sceneCount: 4 | 5 | 6
   preset: 'fast' | 'quality'
+  mode: 'faithful' | 'creative'
   referenceUrl: string | null
   referenceExpiresAt: string | null
 }> = {}) {
@@ -82,6 +76,7 @@ function request(overrides: Partial<{
     premise: overrides.premise ?? PREMISE,
     sceneCount: overrides.sceneCount ?? 5,
     preset: overrides.preset ?? 'fast',
+    mode: overrides.mode ?? 'faithful',
     referenceUrl: overrides.referenceUrl ?? null,
     referenceExpiresAt: overrides.referenceExpiresAt ?? null,
   }
@@ -137,6 +132,7 @@ describe('StoryService.create', () => {
     expect(director.calls).toEqual([{
       premise: PREMISE,
       sceneCount: 5,
+      mode: 'faithful',
       referenceUrl: null,
     }])
     expect(repository.records).toHaveLength(1)
@@ -250,6 +246,21 @@ describe('StoryService.create', () => {
     expect(error.code).toBe('idempotency-conflict')
   })
 
+  it('rejects a persisted key when only the mode differs', async () => {
+    const existing = makeStoryRecord({
+      idempotencyKey: 'idem-key-12345678',
+      premise: PREMISE,
+      mode: 'creative',
+    })
+    const { service } = setup({ seed: [existing] })
+
+    const error = await captureError(() => service.create(
+      createInput({ idempotencyKey: 'idem-key-12345678' }),
+    ))
+
+    expect(error.code).toBe('idempotency-conflict')
+  })
+
   it('deduplicates identical bodies without a key for 60 seconds', async () => {
     const { service, director } = setup()
 
@@ -304,13 +315,13 @@ describe('StoryService.create', () => {
   })
 
   it('rejects a concurrent request while the same key is in flight', async () => {
-    let resolvePlan!: (plan: DirectorPlan) => void
+    let resolvePlan!: (plan: StoryPlan) => void
     let calls = 0
     const director = {
       async createPlan() {
         calls += 1
 
-        return new Promise<DirectorPlan>((resolve) => {
+        return new Promise<StoryPlan>((resolve) => {
           resolvePlan = resolve
         })
       },
@@ -416,6 +427,7 @@ describe('story DTO projection', () => {
       id: story.id,
       status: 'WAITING_APPROVAL',
       preset: 'fast',
+      mode: 'faithful',
       modelId: 'minimax-hailuo-02',
       sceneCount: 5,
       durationSeconds: 6,
@@ -534,6 +546,11 @@ describe('StoryService.updateBeatAndRegenerate', () => {
       keyframeError: null,
     })
     expect(result.scenes[0]?.keyframeUrl).toBe(story.scenes[0]?.keyframeUrl)
+    expect(result.plan?.beats[1]).toMatchObject({
+      order: 2,
+      visualPrompt: newPrompt,
+      narration: story.plan?.beats[1]?.narration,
+    })
     expect(repository.calls).toContain('updateStory')
     expect(repository.calls).toContain('updateScene')
   })
@@ -561,6 +578,7 @@ describe('StoryService.updateBeatAndRegenerate', () => {
       keyframeAttempts: 1,
       keyframeUrl: scene.keyframeUrl,
     })
+    expect(result.plan?.beats[2]?.narration).toBe('Una narración nueva pero válida.')
   })
 
   it('does nothing when regenerate is false and nothing changed', async () => {
@@ -595,6 +613,84 @@ describe('StoryService.updateBeatAndRegenerate', () => {
     })
 
     expect(result.status).toBe('GENERATING_KEYFRAMES')
+  })
+
+
+  it('rejects an edit whose keyframe prompt exceeds 4000 without writing', async () => {
+    const story = waitingStory({ plan: longGlobalPlan() })
+    const { service, repository } = setup({ seed: [story] })
+    const longPrompt = 'Composición visual '.repeat(30).slice(0, 600)
+
+    const beat = story.plan!.beats[1]!
+    expect(composeKeyframe({
+      bible: story.plan!.storyBible,
+      beat: { ...beat, visualPrompt: longPrompt },
+      hasReference: false,
+    }).prompt.length).toBeGreaterThan(4_000)
+
+    const error = await captureError(() => service.updateBeatAndRegenerate({
+      storyId: story.id,
+      sessionId: SESSION_ID,
+      sceneId: story.scenes[1]!.id,
+      update: { visualPrompt: longPrompt, regenerate: true },
+    }))
+
+    expect(error.code).toBe('invalid-visual-prompt')
+    expect(error.status).toBe(400)
+    expect(repository.calls).not.toContain('updateStory')
+    expect(repository.calls).not.toContain('updateScene')
+  })
+
+  it('rejects an edit whose video prompt exceeds 2000 without writing', async () => {
+    const story = waitingStory({ plan: longVideoPlan() })
+    const { service, repository } = setup({ seed: [story] })
+    const longPrompt = 'Composición visual '.repeat(30).slice(0, 600)
+
+    const beat = story.plan!.beats[1]!
+    const keyframe = composeKeyframe({
+      bible: story.plan!.storyBible,
+      beat: { ...beat, visualPrompt: longPrompt },
+      hasReference: false,
+    })
+    expect(keyframe.prompt.length).toBeLessThan(4_000)
+    expect(() => composeVideo({
+      bible: story.plan!.storyBible,
+      beat: { ...beat, visualPrompt: longPrompt },
+      preset: 'fast',
+    })).toThrowError(StoryError)
+
+    const error = await captureError(() => service.updateBeatAndRegenerate({
+      storyId: story.id,
+      sessionId: SESSION_ID,
+      sceneId: story.scenes[1]!.id,
+      update: { visualPrompt: longPrompt, regenerate: true },
+    }))
+
+    expect(error.code).toBe('invalid-visual-prompt')
+    expect(error.status).toBe(400)
+    expect(repository.calls).not.toContain('updateStory')
+    expect(repository.calls).not.toContain('updateScene')
+  })
+
+  it('rejects an edit that copies the narration literally', async () => {
+    const story = waitingStory()
+    const { service, repository } = setup({ seed: [story] })
+    const narration = 'Una narración que no debe copiarse literalmente.'
+
+    const error = await captureError(() => service.updateBeatAndRegenerate({
+      storyId: story.id,
+      sessionId: SESSION_ID,
+      sceneId: story.scenes[1]!.id,
+      update: {
+        visualPrompt: narration,
+        narration,
+        regenerate: true,
+      },
+    }))
+
+    expect(error.code).toBe('invalid-visual-prompt')
+    expect(repository.calls).not.toContain('updateStory')
+    expect(repository.calls).not.toContain('updateScene')
   })
 
   it('rejects a scene that already used both attempts', async () => {

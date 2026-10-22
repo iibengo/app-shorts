@@ -14,6 +14,7 @@ import {
   validateNarration,
   validatePremise,
   validatePreset,
+  validateStoryMode,
   validateReference,
   validateSceneCount,
   validateUploadRequest,
@@ -97,6 +98,20 @@ describe('validateSceneCount and validatePreset', () => {
   })
 })
 
+describe('validateStoryMode', () => {
+  it('accepts only the two exact modes', () => {
+    expect(validateStoryMode('faithful')).toBe('faithful')
+    expect(validateStoryMode('creative')).toBe('creative')
+  })
+
+  it.each([undefined, null, '', 'Creative', 'faithful ', 1, true])(
+    'rejects %p with invalid-mode',
+    (value) => {
+      expectStoryError(() => validateStoryMode(value), 'invalid-mode')
+    },
+  )
+})
+
 describe('validateReference', () => {
   it('returns nulls when there is no reference', () => {
     expect(validateReference(undefined, undefined, NOW)).toEqual({
@@ -144,10 +159,11 @@ describe('validateReference', () => {
 
 describe('validateCreateRequest', () => {
   it('applies defaults and normalizes the premise', () => {
-    expect(validateCreateRequest({ premise: `  ${PREMISE}  ` }, NOW)).toEqual({
+    expect(validateCreateRequest({ premise: `  ${PREMISE}  `, mode: 'faithful' }, NOW)).toEqual({
       premise: PREMISE,
       sceneCount: 5,
       preset: 'fast',
+      mode: 'faithful',
       referenceUrl: null,
       referenceExpiresAt: null,
     })
@@ -160,12 +176,14 @@ describe('validateCreateRequest', () => {
       premise: PREMISE,
       sceneCount: 4,
       preset: 'quality',
+      mode: 'creative',
       referenceUrl: MEDIA,
       referenceExpiresAt: expiresAt,
     }, NOW)).toEqual({
       premise: PREMISE,
       sceneCount: 4,
       preset: 'quality',
+      mode: 'creative',
       referenceUrl: MEDIA,
       referenceExpiresAt: expiresAt,
     })

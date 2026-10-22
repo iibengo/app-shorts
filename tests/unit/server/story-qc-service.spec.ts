@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import type { StoryQCObserved } from '~/models/story'
+import type { StoryQCObserved, StoryPlan } from '~/models/story'
 import { createStoryCostGuard } from '../../../server/story/cost'
 import type { StoryCostGuard } from '../../../server/story/cost'
 import { QCFramesGlobalError } from '../../../server/story/qc-frames'
@@ -12,6 +12,7 @@ import type {
   StoryFrameExtractor,
 } from '../../../server/story/qc-types'
 import { makeScenes, makeStoryRecord } from '../../helpers/story'
+import creative from '../../fixtures/story/plan-creative-scene-changes.json'
 
 const OBSERVED: StoryQCObserved = {
   characters: ['clara'],
@@ -45,6 +46,21 @@ function qcStory() {
     status: 'QC',
     sceneCount: 5,
     scenes,
+    approvedAt: new Date(),
+  })
+}
+
+function qcStoryWithPlan(plan: StoryPlan) {
+  return makeStoryRecord({
+    status: 'QC',
+    sceneCount: 5,
+    scenes: makeScenes(5, {
+      status: 'VIDEO_READY',
+      keyframeAttempts: 1,
+      videoAttempts: 1,
+      videoUrl: 'https://v3.fal.media/files/test/clip.mp4',
+    }),
+    plan,
     approvedAt: new Date(),
   })
 }
@@ -329,7 +345,7 @@ describe('StoryQCService: QC switch and cost accounting', () => {
 
     expect(first.qc.status).toBe('PASSED')
     expect(firstEvaluation.calls).toHaveLength(5)
-    expect(costGuard.estimate(story)).toBe(2.11)
+    expect(costGuard.estimate(story)).toBe(2.125)
 
     const retried = {
       ...story,
@@ -378,5 +394,68 @@ describe('StoryQCService: QC switch and cost accounting', () => {
     // The strips are still persisted so the human review has a contact sheet.
     expect(result.qc.scenes.every((scene) => scene.framesUrl !== null)).toBe(true)
     expect(result.qc.scenes.every((scene) => scene.observed === null)).toBe(true)
+  })
+})
+
+
+describe('StoryQCService: scene context across changes', () => {
+  it('evaluates each scene with its own location, time and weather', async () => {
+    const plan = structuredClone(creative) as StoryPlan
+    const story = qcStoryWithPlan(plan)
+    const expectations: string[] = []
+    const evaluation = {
+      async evaluate(input: Parameters<typeof import('../../../server/story/qc-types').StoryQCEvaluator['evaluate']>[0]) {
+        expectations.push(`${input.expectation.locationId}:${input.expectation.timeOfDay}:${input.expectation.weather}`)
+
+        return {
+          kind: 'observed' as const,
+          observed: {
+            ...OBSERVED,
+            characters: [...input.expectation.characters],
+            props: [...input.expectation.props],
+          },
+          confidence: 0.95,
+        }
+      },
+    }
+
+    const result = await service(story, frameExtractor(strips(story)), evaluation)
+      .run({ story, clips: CLIPS(story) })
+
+    expect(result.qc.status).toBe('PASSED')
+    expect(new Set(expectations.map((value) => value.split(':')[0])).size).toBeGreaterThan(1)
+    expect(result.qc.issues.some((issue) => issue.code === 'wrong-location')).toBe(false)
+    expect(result.qc.issues.some((issue) => issue.code === 'wrong-time-of-day')).toBe(false)
+    expect(result.qc.issues.some((issue) => issue.code === 'wrong-weather')).toBe(false)
+  })
+
+  it('does not require a lead or signature prop in a scene that does not declare them', async () => {
+    const plan = structuredClone(creative) as StoryPlan
+    plan.beats[2] = {
+      ...plan.beats[2]!,
+      characters: ['milo'],
+      props: [],
+    }
+    const story = qcStoryWithPlan(plan)
+    const evaluation = {
+      async evaluate(input: Parameters<typeof import('../../../server/story/qc-types').StoryQCEvaluator['evaluate']>[0]) {
+        return {
+          kind: 'observed' as const,
+          observed: {
+            ...OBSERVED,
+            characters: [...input.expectation.characters],
+            props: [...input.expectation.props],
+          },
+          confidence: 0.95,
+        }
+      },
+    }
+
+    const result = await service(story, frameExtractor(strips(story)), evaluation)
+      .run({ story, clips: CLIPS(story) })
+    const sceneIssues = result.qc.issues.filter((issue) => issue.order === 3)
+
+    expect(sceneIssues.some((issue) => issue.code === 'missing-lead-character')).toBe(false)
+    expect(sceneIssues.some((issue) => issue.code === 'missing-prop')).toBe(false)
   })
 })

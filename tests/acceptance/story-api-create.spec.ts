@@ -1,11 +1,14 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StoryError } from '../../../server/story/errors'
+import { validateStoryPlan } from '../../../server/story/plan-validator'
 import {
   FakeStoryDirector,
   FakeStoryRepository,
   TEST_NOW,
   createTestClock,
+  longGlobalPlan,
+  longVideoPlan,
   makeStoryRecord,
 } from '../helpers/story'
 import { makeStoryRuntime } from '../helpers/story-runtime'
@@ -24,6 +27,7 @@ function body(overrides: Record<string, unknown> = {}) {
     premise: PREMISE,
     sceneCount: 5,
     preset: 'fast',
+    mode: 'faithful',
     referenceUrl: null,
     referenceExpiresAt: null,
     ...overrides,
@@ -83,6 +87,7 @@ describe('POST /api/story success', () => {
       status: 'GENERATING_KEYFRAMES',
       premise: PREMISE,
       preset: 'fast',
+      mode: 'faithful',
       modelId: 'minimax-hailuo-02',
       sceneCount: 5,
       durationSeconds: 6,
@@ -100,7 +105,7 @@ describe('POST /api/story success', () => {
     expect(story.id).toMatch(/^story-\d+$/)
     expect(story.title).toBeDefined()
     expect(story.logline).toBeDefined()
-    expect(story.plan).toBeDefined()
+    expect(story.plan).toMatchObject({ tone: 'humor' })
     expect(story.scenes).toHaveLength(5)
     expect((story.scenes as { order: number }[]).map((scene) => scene.order)).toEqual([
       1, 2, 3, 4, 5,
@@ -182,6 +187,31 @@ describe('POST /api/story success', () => {
     expect(director.calls).toHaveLength(1)
   })
 
+  it.each([
+    ['keyframe', longGlobalPlan(), 502],
+    ['video', longVideoPlan(), 502],
+  ])('rejects a director plan with an oversized %s prompt without persisting', async (_label, plan, status) => {
+    const validation = validateStoryPlan(plan, { sceneCount: 5, mode: 'faithful' })
+
+    expect(validation.ok).toBe(false)
+    if (!validation.ok) {
+      expect(validation.reason).toContain(
+        _label === 'keyframe' ? 'prompt final demasiado largo' : 'prompt de vídeo demasiado largo',
+      )
+    }
+
+    const director = new FakeStoryDirector(plan)
+    const { post, runtime } = setup({ director })
+    const repository = runtime.repository as FakeStoryRepository
+
+    const response = await post(body())
+
+    expect(response.status).toBe(status)
+    expect(errorCode(response)).toBe('director-invalid-output')
+    expect(director.calls).toHaveLength(1)
+    expect(repository.records).toHaveLength(0)
+  })
+
   it('rejects the same idempotency key with another body', async () => {
     const { post } = setup()
 
@@ -191,6 +221,22 @@ describe('POST /api/story success', () => {
       { idempotencyKey: 'idem-key-12345678', cookieSessionId: sessionOf(first) },
     )
 
+    expect(conflict.status).toBe(409)
+    expect(errorCode(conflict)).toBe('idempotency-conflict')
+  })
+
+  it('rejects the same idempotency key when only the mode changes', async () => {
+    const { post } = setup()
+
+    const first = await post(body({ mode: 'faithful' }), {
+      idempotencyKey: 'idem-key-mode-01',
+    })
+    const conflict = await post(body({ mode: 'creative' }), {
+      idempotencyKey: 'idem-key-mode-01',
+      cookieSessionId: sessionOf(first),
+    })
+
+    expect(first.status).toBe(201)
     expect(conflict.status).toBe(409)
     expect(errorCode(conflict)).toBe('idempotency-conflict')
   })
@@ -204,6 +250,12 @@ describe('POST /api/story validation', () => {
     [{ sceneCount: 3 }, 'invalid-scene-count', 400],
     [{ sceneCount: '5' }, 'invalid-scene-count', 400],
     [{ preset: 'pro' }, 'invalid-preset', 400],
+    [{ mode: undefined }, 'invalid-mode', 400],
+    [{ mode: null }, 'invalid-mode', 400],
+    [{ mode: '' }, 'invalid-mode', 400],
+    [{ mode: 'Creative' }, 'invalid-mode', 400],
+    [{ mode: 'faithful ' }, 'invalid-mode', 400],
+    [{ mode: 1 }, 'invalid-mode', 400],
     [{ referenceUrl: 'https://evil.example/a.webp', referenceExpiresAt: new Date(TEST_NOW + 1_000).toISOString() }, 'invalid-reference', 400],
     [{ referenceUrl: REFERENCE }, 'invalid-reference', 400],
     [{ referenceExpiresAt: new Date(TEST_NOW + 1_000).toISOString() }, 'invalid-reference', 400],

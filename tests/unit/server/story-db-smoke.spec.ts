@@ -14,6 +14,8 @@ import { PrismaClient } from '../../../server/generated/prisma/client'
 import { PrismaStoryRepository } from '../../../server/story/prisma-story-repository'
 import type { CreateStoryRecord, StoryRepository } from '../../../server/story/repository'
 import plan5 from '../../fixtures/deepseek/deepseek-plan-5.json'
+import creative from '../../fixtures/story/plan-creative-scene-changes.json'
+import legacy from '../../fixtures/story/plan-006-legacy.json'
 
 const connectionString = process.env.DATABASE_URL_TEST
 const enabled = process.env.RUN_DB_SMOKE === '1' && Boolean(connectionString)
@@ -40,6 +42,7 @@ function input(overrides: Partial<CreateStoryRecord> = {}): CreateStoryRecord {
     referenceUrl: null,
     referenceExpiresAt: null,
     preset: 'fast',
+    mode: overrides.mode ?? 'faithful',
     sceneCount,
     durationSeconds: 6,
     aspectRatio: '9:16',
@@ -87,6 +90,51 @@ describe.skipIf(!enabled)('PostgreSQL Story repository smoke (RUN_DB_SMOKE=1)', 
     expect(story.scenes).toHaveLength(5)
     expect(story.scenes.map((scene) => scene.order)).toEqual([1, 2, 3, 4, 5])
     expect(story.scenes.every((scene) => scene.status === 'PENDING')).toBe(true)
+  })
+
+  it('creates and reads faithful and creative stories', async () => {
+    const faithful = await requireRepository().createStory(input({ mode: 'faithful' }))
+    const createdCreative = await requireRepository().createStory(input({
+      mode: 'creative',
+      plan: creative,
+    }))
+
+    expect(faithful.mode).toBe('faithful')
+    expect(createdCreative.mode).toBe('creative')
+    expect((await requireRepository().findById(createdCreative.id))?.plan?.storyBible?.locations)
+      .toHaveLength(2)
+  })
+
+  it('normalizes a 006 row on read without calling a model', async () => {
+    const now = new Date()
+    const row = await client!.story.create({
+      data: {
+        sessionId: 'smoke-session-legacy-01',
+        status: 'WAITING_APPROVAL',
+        premise: 'Una premisa legacy con longitud suficiente.',
+        title: legacy.title,
+        logline: legacy.logline,
+        preset: 'fast',
+        mode: 'faithful',
+        sceneCount: 5,
+        durationSeconds: 6,
+        planJson: legacy as never,
+        expiresAt: new Date(now.getTime() + 86_400_000),
+        scenes: {
+          create: legacy.beats.map((beat) => ({
+            order: beat.order,
+            visualPrompt: beat.visualPrompt,
+            narration: beat.narration,
+            status: 'KEYFRAME_READY' as const,
+          })),
+        },
+      },
+    })
+
+    const story = await requireRepository().findById(row.id)
+
+    expect(story?.plan?.tone).toBe('neutral')
+    expect(story?.plan?.storyBible?.locations[0]?.id).toBe('legacy-location')
   })
 
   it('enforces ownership and the idempotency key', async () => {

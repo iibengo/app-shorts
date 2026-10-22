@@ -6,11 +6,14 @@ import type {
   SceneStatus,
   Story,
   StoryGenerationState,
+  StoryMode,
   StoryPlan,
   StoryPreset,
   StoryScene,
   StoryStatus,
+  StoryTone,
 } from '~/models/story'
+import plan5 from '../fixtures/deepseek/deepseek-plan-5.json'
 
 const ROOT = process.cwd()
 const source = readFileSync(resolve(ROOT, 'app/models/story.ts'), 'utf8')
@@ -70,6 +73,7 @@ function makeStory(overrides: Partial<Story> = {}): Story {
     referenceUrl: overrides.referenceUrl ?? null,
     referenceExpiresAt: overrides.referenceExpiresAt ?? null,
     preset: overrides.preset ?? 'fast',
+    mode: overrides.mode ?? 'faithful',
     modelId: overrides.modelId
       ?? ((overrides.preset ?? 'fast') === 'quality' ? 'kling-2.5-turbo-pro' : 'minimax-hailuo-02'),
     sceneCount,
@@ -91,17 +95,7 @@ function makeStory(overrides: Partial<Story> = {}): Story {
   }
 }
 
-const plan: StoryPlan = {
-  title: 'El azúcar lo sabe',
-  logline: 'Una repostera descubre lo que anticipan sus postres.',
-  beats: [
-    {
-      order: 1,
-      visualPrompt: 'Una repostera abre su obrador al amanecer entre bandejas.',
-      narration: 'Cada mañana, antes de encender el horno, Clara escucha.',
-    },
-  ],
-}
+const plan = plan5 as StoryPlan
 
 describe('shared Story contract invariants', () => {
   it('models the normative status unions without drift', () => {
@@ -195,5 +189,28 @@ describe('shared Story contract invariants', () => {
     const presets: readonly StoryPreset[] = ['fast', 'quality']
 
     expect(presets).toEqual(['fast', 'quality'])
+  })
+
+  it('models StoryMode, StoryTone and the canon with locations and source', () => {
+    const modes: readonly StoryMode[] = ['faithful', 'creative']
+    const tones: readonly StoryTone[] = [
+      'humor',
+      'aventura',
+      'absurdo',
+      'heartwarming',
+      'dramatic',
+      'neutral',
+    ]
+
+    expect(modes).toEqual(['faithful', 'creative'])
+    expect(tones).toHaveLength(6)
+    expect(plan.tone).toBe('humor')
+    expect(plan.storyBible?.tone).toBe('humor')
+    expect(plan.storyBible?.locations.length).toBeGreaterThanOrEqual(1)
+    expect(plan.storyBible?.characters.every((character) => character.source === 'premise'))
+      .toBe(true)
+    expect(plan.beats.every((beat) => beat.locationId.length > 0)).toBe(true)
+    expect(makeStory().mode).toBe('faithful')
+    expect(makeStory({ mode: 'creative' }).mode).toBe('creative')
   })
 })

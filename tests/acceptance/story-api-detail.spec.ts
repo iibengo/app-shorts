@@ -81,6 +81,7 @@ describe('GET /api/story/[id] success', () => {
       title: story.title,
       logline: story.logline,
       preset: 'fast',
+      mode: 'faithful',
       modelId: 'minimax-hailuo-02',
       sceneCount: 5,
       durationSeconds: 6,
@@ -93,6 +94,8 @@ describe('GET /api/story/[id] success', () => {
       error: null,
       pollAfterMs: 2_500,
     })
+    expect((response.body as { plan: { tone: string } }).plan.tone).toBe('humor')
+    expect((response.body as { mode: string }).mode).toBe('faithful')
     expect((response.body as { scenes: unknown[] }).scenes).toHaveLength(5)
 
     for (const forbidden of [

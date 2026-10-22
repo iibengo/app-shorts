@@ -1,6 +1,7 @@
 import type {
   StoryCameraShot,
   StoryImageMimeType,
+  StoryMode,
   StoryPreset,
   StoryQCIssueCode,
   StoryQCSeverity,
@@ -8,6 +9,7 @@ import type {
   StorySceneRole,
   StoryStatus,
   StoryTimeOfDay,
+  StoryTone,
   StoryWeather,
 } from '~/models/story'
 
@@ -64,6 +66,38 @@ export const STORY_PRESETS: readonly StoryPresetOption[] = [
 ]
 
 export const STORY_DEFAULT_PRESET: StoryPreset = 'fast'
+
+export const STORY_MODE_LEGEND = 'Modo de la historia'
+
+export const STORY_MODES: readonly StoryMode[] = ['faithful', 'creative']
+export const STORY_DEFAULT_MODE: StoryMode = 'faithful'
+
+export const STORY_MODE_LABELS: Readonly<Record<StoryMode, string>> = {
+  faithful: 'Fiel a la premisa',
+  creative: 'Modo creativo',
+}
+
+export const STORY_MODE_DESCRIPTIONS: Readonly<Record<StoryMode, string>> = {
+  faithful: 'Solo aparecen los personajes, lugares y objetos de tu premisa.',
+  creative: 'El narrador puede añadir personajes secundarios, lugares y giros que sirvan a tu premisa.',
+}
+
+export const STORY_MODE_HELP: Readonly<Record<StoryMode, string>> = {
+  faithful: 'El guion se ciñe a lo que escribiste.',
+  creative: 'Puede añadir hasta 2 personajes, 3 lugares y 4 objetos inventados. El protagonista, el tema y el conflicto salen de tu premisa.',
+}
+
+export const STORY_MODE_CREATIVE_NOTICE =
+  'En modo creativo pueden aparecer personajes, lugares y objetos que no están en tu premisa.'
+
+export const STORY_TONE_LABELS: Readonly<Record<StoryTone, string>> = {
+  humor: 'Humor',
+  aventura: 'Aventura',
+  absurdo: 'Absurdo',
+  heartwarming: 'Emotivo',
+  dramatic: 'Dramático',
+  neutral: 'Neutro',
+}
 
 export const STORY_SCENE_COUNT_LABELS: Readonly<Record<StorySceneCount, string>> = {
   4: '4 escenas',
@@ -164,22 +198,33 @@ export const STORY_QC_SEVERITY_LABELS: Readonly<Record<StoryQCSeverity, string>>
   warning: 'Aviso',
 }
 
-export const STORY_BIBLE_LABELS = {
-  summary: 'Continuidad de la historia',
+export const STORY_CANON_LABELS = {
+  summary: 'Canon de la historia',
   style: 'Estilo visual',
+  tone: 'Tono',
+  theme: 'Tema',
+  characters: 'Personajes',
+  locations: 'Localizaciones',
+  props: 'Objetos',
+  forbidden: 'No debe aparecer',
+  inventedCharacter: 'Personaje inventado',
+  inventedLocation: 'Localización inventada',
+  inventedProp: 'Objeto inventado',
+} as const
+
+export const STORY_SCENE_LABELS = {
   location: 'Localización',
   time: 'Hora',
   weather: 'Clima',
   characters: 'Personajes',
   props: 'Objetos',
-  forbidden: 'No debe aparecer',
-  sceneCharacters: 'Personajes',
-  sceneProps: 'Objetos',
-  sceneCamera: 'Cámara',
-  sceneContinuity: 'Continuidad',
+  camera: 'Cámara',
+  continuity: 'Continuidad',
   noProps: 'Sin objetos',
   firstScene: 'Abre la historia',
+  locationChange: 'Cambio de escena',
 } as const
+
 
 export const STORY_COPY = {
   brand: 'AI Shorts',

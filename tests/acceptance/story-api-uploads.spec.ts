@@ -345,6 +345,7 @@ describe('POST /api/story/uploads ownership isolation', () => {
         premise: 'Una repostera descubre que sus postres pueden predecir el futuro.',
         sceneCount: 5,
         preset: 'fast',
+        mode: 'faithful',
         referenceUrl: null,
         referenceExpiresAt: null,
       },

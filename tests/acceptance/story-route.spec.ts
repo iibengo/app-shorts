@@ -105,6 +105,18 @@ describe('GET /story SSR acceptance', () => {
     expect(html).toContain('data-testid="story-premise-help"')
   })
 
+  it('renders the story mode radiogroup with faithful selected by default', () => {
+    expect(html).toContain('data-testid="story-mode-group"')
+    expect(html).toContain('role="radiogroup"')
+    expect(html).toContain('aria-labelledby="story-mode-legend"')
+    expect(html).toContain('Modo de la historia')
+    expect(html).toContain('Fiel a la premisa')
+    expect(html).toContain('Modo creativo')
+    expect(html).toMatch(/data-testid="story-mode-faithful"[^>]*\bchecked\b/)
+    expect(html).not.toMatch(/data-testid="story-mode-creative"[^>]*\bchecked\b/)
+    expect(html).toContain("El guion se ciñe a lo que escribiste.")
+  })
+
   it('renders the scene radiogroup with 5 scenes selected by default', () => {
     expect(html).toContain('data-testid="story-scene-count"')
     expect(html).toContain('role="radiogroup"')

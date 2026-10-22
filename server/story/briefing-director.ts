@@ -1,68 +1,61 @@
-/**
- * Story director decorator that injects a deterministic production brief.
- *
- * Server-only. It adds no HTTP calls, no cache and no per-story state: it
- * analyses the premise, hands a structured context to the native director and
- * returns the plan untouched.
- */
 import type {
-  DirectorContext,
-  DirectorPlan,
-  StoryDirector,
+  NarrativeDraft,
+  StoryNarrativeDirector,
 } from './director-types'
-import { isStoryError } from './errors'
 import { analyzePremise } from './premise-brief'
 
-export interface BriefingDirectorLogEvent {
-  readonly event: 'story.plan.ok' | 'story.plan.failed'
+export interface BriefingNarrativeLogEvent {
+  readonly event: 'story.narrative.ok' | 'story.narrative.failed'
   readonly briefApplied: boolean
   readonly errorCode?: string
 }
 
-export interface BriefingDirectorOptions {
-  readonly onEvent?: (event: BriefingDirectorLogEvent) => void
+export interface BriefingNarrativeDirectorOptions {
+  readonly onEvent?: (event: BriefingNarrativeLogEvent) => void
 }
 
 function errorCodeOf(error: unknown): string {
-  return isStoryError(error) ? error.code : 'internal-error'
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { readonly code?: unknown }).code
+
+    return typeof code === 'string' ? code : 'internal-error'
+  }
+
+  return 'internal-error'
 }
 
-export function createBriefingDirector(
-  inner: StoryDirector,
-  options?: BriefingDirectorOptions,
-): StoryDirector {
+export function createBriefingNarrativeDirector(
+  inner: StoryNarrativeDirector,
+  options?: BriefingNarrativeDirectorOptions,
+): StoryNarrativeDirector {
   const onEvent = options?.onEvent
 
   return {
-    async createPlan(input): Promise<DirectorPlan> {
+    async createNarrative(input): Promise<NarrativeDraft> {
       const analysis = analyzePremise(input.premise)
       const briefApplied = analysis.brief.applied
-      const context: DirectorContext | null = briefApplied
-        ? { brief: analysis.brief }
-        : null
-
-      let plan: DirectorPlan
 
       try {
-        plan = await inner.createPlan({
-          premise: input.premise,
-          sceneCount: input.sceneCount,
-          referenceUrl: input.referenceUrl,
-          ...(context === null ? {} : { context }),
+        const draft = await inner.createNarrative({
+          ...input,
+          ...(briefApplied ? { context: { brief: analysis.brief } } : {}),
         })
+
+        onEvent?.({ event: 'story.narrative.ok', briefApplied })
+
+        return draft
       } catch (error) {
         onEvent?.({
-          event: 'story.plan.failed',
+          event: 'story.narrative.failed',
           briefApplied,
           errorCode: errorCodeOf(error),
         })
 
         throw error
       }
-
-      onEvent?.({ event: 'story.plan.ok', briefApplied })
-
-      return plan
     },
   }
 }
+
+/** Compatibility alias for older call sites. */
+export const createBriefingDirector = createBriefingNarrativeDirector

@@ -1,0 +1,117 @@
+{
+  "title": "El último tren",
+  "logline": "Una viajera pierde el último tren y encuentra algo inesperado.",
+  "tone": "humor",
+  "storyBible": {
+    "style": "animación 3D cartoon, colores cálidos y saturados, sin grano",
+    "tone": "humor",
+    "theme": "El éxito no se puede predecir, pero se puede hornear.",
+    "leadCharacterId": "clara",
+    "signaturePropId": "merengue",
+    "characters": [
+      {
+        "id": "clara",
+        "name": "Clara",
+        "description": "Repostera joven de pelo recogido y delantal de rayas azules.",
+        "wardrobe": "Delantal de rayas azules sobre camisa blanca.",
+        "source": "premise"
+      }
+    ],
+    "locations": [
+      {
+        "id": "obrador",
+        "name": "Obrador de Clara",
+        "description": "Cocina pequeña con azulejos blancos, horno antiguo y bandejas.",
+        "source": "premise"
+      }
+    ],
+    "props": [
+      {
+        "id": "merengue",
+        "name": "Merengue",
+        "description": "Bol metálico con merengue que dibuja figuras imposibles.",
+        "source": "premise"
+      }
+    ],
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "texto",
+      "marca de agua"
+    ],
+    "continuityRules": [
+      "El delantal de Clara no cambia en ninguna escena.",
+      "El merengue sigue en el mismo bol metálico."
+    ]
+  },
+  "beats": [
+    {
+      "order": 1,
+      "sceneRole": "establishing",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara espera en el obrador con el merengue y una bandeja.",
+      "narration": "El reloj marca las once y el obrador está en silencio.",
+      "storyFunction": "hook",
+      "gag": "El merengue forma la hora exacta."
+    },
+    {
+      "order": 2,
+      "sceneRole": "development",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara encuentra una bandeja con una figura distinta.",
+      "narration": "Algo queda atrás cuando la luz parpadea.",
+      "storyFunction": "complication",
+      "gag": "La bandeja tintinea sola."
+    },
+    {
+      "order": 3,
+      "sceneRole": "climax",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara comprende que la figura anuncia una visita.",
+      "narration": "Dentro hay una forma que solo ella podría recordar.",
+      "storyFunction": "twist",
+      "gag": "La figura saluda con una cuchara."
+    },
+    {
+      "order": 4,
+      "sceneRole": "resolution",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara sonríe y guarda el merengue al amanecer.",
+      "narration": "Cuando sale el sol, ya sabe a dónde ir.",
+      "storyFunction": "payoff",
+      "gag": "El merengue forma una sonrisa."
+    }
+  ]
+}

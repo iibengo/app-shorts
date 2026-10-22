@@ -7,6 +7,9 @@ import type {
   DeepSeekContentPart,
   DeepSeekMessage,
 } from './director-types'
+import type { DeepSeekClient } from './deepseek-client'
+import { createDeepSeekClient } from './deepseek-client'
+import { StoryError } from './errors'
 import { QC_SYSTEM_PROMPT, storyQcUserPrompt } from './qc-prompt'
 import { validateQCObservation } from './qc-validator'
 
@@ -15,18 +18,10 @@ export const QC_EVALUATOR_MAX_TOKENS = 800
 export const QC_EVALUATOR_TIMEOUT_MS = 30_000
 
 export interface StoryQCEvaluatorOptions {
-  readonly apiKey: string
-  readonly baseUrl: string
-  readonly model?: string
+  readonly client?: DeepSeekClient
+  readonly apiKey?: string
+  readonly baseUrl?: string
   readonly timeoutMs?: number
-  readonly fetchImpl?: typeof fetch
-}
-
-interface CompletionResult {
-  readonly content: string | null
-  readonly timedOut: boolean
-  readonly unavailable: boolean
-  readonly invalid: boolean
 }
 
 function parseJsonObject(content: string): unknown {
@@ -42,28 +37,31 @@ function parseJsonObject(content: string): unknown {
   }
 }
 
+function qcErrorCode(error: unknown): StoryQCErrorCode {
+  if (error instanceof StoryError) {
+    if (error.code === 'director-timeout') return 'qc-evaluator-timeout'
+    if (error.code === 'director-unavailable') return 'qc-evaluator-unavailable'
+    if (error.code === 'director-invalid-output' || error.code === 'content-blocked') {
+      return 'qc-evaluator-invalid-output'
+    }
+  }
+
+  return 'qc-evaluator-unavailable'
+}
+
 class DeepSeekQCEvaluator implements StoryQCEvaluator {
-  private readonly apiKey: string
-  private readonly baseUrl: string
-  private readonly model: string
+  private readonly client: DeepSeekClient
   private readonly timeoutMs: number
-  private readonly fetchImpl: typeof fetch
 
   constructor(options: StoryQCEvaluatorOptions) {
-    this.apiKey = options.apiKey
-    this.baseUrl = options.baseUrl.replace(/\/+$/, '')
-    this.model = options.model === QC_EVALUATOR_MODEL
-      ? options.model
-      : QC_EVALUATOR_MODEL
     this.timeoutMs = options.timeoutMs ?? QC_EVALUATOR_TIMEOUT_MS
-    this.fetchImpl = options.fetchImpl ?? fetch
+    this.client = options.client ?? createDeepSeekClient({
+      apiKey: options.apiKey ?? '',
+      ...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
+    })
   }
 
   async evaluate(input: Parameters<StoryQCEvaluator['evaluate']>[0]): Promise<QCEvaluation> {
-    if (this.apiKey.length === 0) {
-      return { kind: 'unavailable', errorCode: 'qc-not-configured' }
-    }
-
     const text = storyQcUserPrompt({
       bible: input.bible,
       expectation: input.expectation,
@@ -80,12 +78,8 @@ class DeepSeekQCEvaluator implements StoryQCEvaluator {
 
     const first = await this.complete(messages, input.signal)
 
-    if (first.timedOut) {
-      return { kind: 'unavailable', errorCode: 'qc-evaluator-timeout' }
-    }
-
-    if (first.unavailable) {
-      return { kind: 'unavailable', errorCode: 'qc-evaluator-unavailable' }
+    if (first.kind === 'error') {
+      return { kind: 'unavailable', errorCode: first.errorCode }
     }
 
     const firstValidation = first.content === null
@@ -111,16 +105,15 @@ class DeepSeekQCEvaluator implements StoryQCEvaluator {
     ]
     const repaired = await this.complete(repairMessages, input.signal)
 
-    if (repaired.timedOut) {
-      return { kind: 'unavailable', errorCode: 'qc-evaluator-timeout' }
+    if (repaired.kind === 'error') {
+      return { kind: 'unavailable', errorCode: repaired.errorCode }
     }
-
-    if (repaired.unavailable || repaired.content === null) {
+    if (repaired.content === null) {
       return { kind: 'unavailable', errorCode: 'qc-evaluator-invalid-output' }
     }
 
     const secondValidation = validateQCObservation(
-      parseJsonObject(repaired.content ?? ''),
+      parseJsonObject(repaired.content),
       input.bible,
     )
 
@@ -138,106 +131,23 @@ class DeepSeekQCEvaluator implements StoryQCEvaluator {
   private async complete(
     messages: readonly DeepSeekMessage[],
     externalSignal?: AbortSignal,
-  ): Promise<CompletionResult> {
-    const controller = new AbortController()
-    let timedOut = false
-    const onAbort = (): void => {
-      timedOut = true
-      controller.abort()
-    }
-    const timer = setTimeout(() => {
-      timedOut = true
-      controller.abort()
-    }, this.timeoutMs)
-
-    externalSignal?.addEventListener('abort', onAbort, { once: true })
-
-    if (externalSignal?.aborted) {
-      onAbort()
-    }
-
-    let response: Response
-
+  ): Promise<
+    | { readonly kind: 'content'; readonly content: string | null }
+    | { readonly kind: 'error'; readonly errorCode: StoryQCErrorCode }
+  > {
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          response_format: { type: 'json_object' },
-          temperature: 0,
-          max_tokens: QC_EVALUATOR_MAX_TOKENS,
-          stream: false,
-        }),
-        signal: controller.signal,
-        redirect: 'error',
-        credentials: 'omit',
-        cache: 'no-store',
+      const completion = await this.client.complete({
+        messages,
+        temperature: 0,
+        maxTokens: QC_EVALUATOR_MAX_TOKENS,
+        timeoutMs: this.timeoutMs,
+        ...(externalSignal === undefined ? {} : { signal: externalSignal }),
       })
-    } catch {
-      return {
-        content: null,
-        timedOut,
-        unavailable: !timedOut,
-        invalid: false,
-      }
-    } finally {
-      clearTimeout(timer)
-      externalSignal?.removeEventListener('abort', onAbort)
+
+      return { kind: 'content', content: completion.content }
+    } catch (error) {
+      return { kind: 'error', errorCode: qcErrorCode(error) }
     }
-
-    let payload: unknown
-
-    try {
-      payload = await response.json()
-    } catch {
-      payload = null
-    }
-
-    if (!response.ok) {
-      return {
-        content: null,
-        timedOut: false,
-        unavailable: response.status === 401
-          || response.status === 403
-          || response.status === 429
-          || response.status >= 500,
-        invalid: response.status === 400 || response.status === 422,
-      }
-    }
-
-    const content = this.readContent(payload)
-
-    return {
-      content,
-      timedOut: false,
-      unavailable: false,
-      invalid: false,
-    }
-  }
-
-  private readContent(payload: unknown): string | null {
-    if (typeof payload !== 'object' || payload === null) return null
-
-    const choices = (payload as { readonly choices?: unknown }).choices
-
-    if (!Array.isArray(choices) || choices.length === 0) return null
-
-    const choice = choices[0]
-
-    if (typeof choice !== 'object' || choice === null) return null
-
-    const message = (choice as { readonly message?: unknown }).message
-
-    if (typeof message !== 'object' || message === null) return null
-
-    const content = (message as { readonly content?: unknown }).content
-
-    return typeof content === 'string' && content.length > 0 ? content : null
   }
 }
 
@@ -250,7 +160,8 @@ export class NullQCEvaluator implements StoryQCEvaluator {
 export function createStoryQCEvaluator(
   options: StoryQCEvaluatorOptions | null,
 ): StoryQCEvaluator {
-  if (!options || options.apiKey.trim().length === 0) {
+  if (!options) return new NullQCEvaluator()
+  if (!options.client && (options.apiKey ?? '').trim().length === 0) {
     return new NullQCEvaluator()
   }
 

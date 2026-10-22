@@ -2,9 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import AppButton from '~/components/ui/AppButton.vue'
 import {
-  STORY_BIBLE_LABELS,
   STORY_COPY,
   STORY_MAX_VISUAL_PROMPT_LENGTH,
+  STORY_SCENE_LABELS,
 } from '~/data/story'
 import type {
   StoryBeat,
@@ -18,7 +18,10 @@ import {
   storyCameraLabel,
   storySceneCharacterNames,
   storyScenePropNames,
+  storySceneLocation,
   storySceneTitle,
+  storyTimeOfDayLabel,
+  storyWeatherLabel,
   validateStoryVisualPrompt,
 } from '~/utils/story'
 
@@ -28,6 +31,7 @@ const props = defineProps<{
   disabled: boolean
   bible?: StoryBible | null
   beat?: StoryBeat | null
+  previousBeat?: StoryBeat | null
 }>()
 
 const emit = defineEmits<{
@@ -53,10 +57,17 @@ const propNames = computed(() =>
 )
 const showBible = computed(() => Boolean(props.bible && props.beat))
 const continuityLabel = computed(() => (
-  props.beat?.continuityFromPrevious ?? STORY_BIBLE_LABELS.firstScene
+  props.beat?.continuityFromPrevious ?? STORY_SCENE_LABELS.firstScene
 ))
 const cameraLabel = computed(() =>
   props.beat ? storyCameraLabel(props.beat.camera) : '',
+)
+const location = computed(() => storySceneLocation(props.bible ?? null, props.beat ?? null))
+const locationLabel = computed(() => location.value?.name ?? '')
+const timeLabel = computed(() => props.beat ? storyTimeOfDayLabel(props.beat.timeOfDay) : '')
+const weatherLabel = computed(() => props.beat ? storyWeatherLabel(props.beat.weather) : '')
+const locationChanged = computed(() =>
+  Boolean(props.beat && props.previousBeat && props.beat.locationId !== props.previousBeat.locationId),
 )
 
 watch(
@@ -156,13 +167,31 @@ defineExpose({ focusCard })
 
     <div
       v-if="showBible"
-      data-testid="story-scene-bible"
+      data-testid="story-scene-context"
       class="mt-3 rounded-xl border border-white/10 bg-brand-ink p-3 text-sm"
     >
       <dl class="space-y-2">
+        <div data-testid="story-scene-location">
+          <dt class="text-xs font-medium text-brand-muted">
+            {{ STORY_SCENE_LABELS.location }}
+          </dt>
+          <dd class="mt-0.5 text-brand-text">{{ locationLabel }}</dd>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div data-testid="story-scene-time">
+            <dt class="text-xs font-medium text-brand-muted">{{ STORY_SCENE_LABELS.time }}</dt>
+            <dd class="mt-0.5 text-brand-text">{{ timeLabel }}</dd>
+          </div>
+          <div data-testid="story-scene-weather">
+            <dt class="text-xs font-medium text-brand-muted">{{ STORY_SCENE_LABELS.weather }}</dt>
+            <dd class="mt-0.5 text-brand-text">{{ weatherLabel }}</dd>
+          </div>
+        </div>
+
         <div data-testid="story-scene-characters">
           <dt class="text-xs font-medium text-brand-muted">
-            {{ STORY_BIBLE_LABELS.sceneCharacters }}
+            {{ STORY_SCENE_LABELS.characters }}
           </dt>
           <dd class="mt-0.5 text-brand-text">
             {{ characterNames.length > 0 ? characterNames.join(', ') : '—' }}
@@ -171,26 +200,34 @@ defineExpose({ focusCard })
 
         <div data-testid="story-scene-props">
           <dt class="text-xs font-medium text-brand-muted">
-            {{ STORY_BIBLE_LABELS.sceneProps }}
+            {{ STORY_SCENE_LABELS.props }}
           </dt>
           <dd class="mt-0.5 text-brand-text">
-            {{ propNames.length > 0 ? propNames.join(', ') : STORY_BIBLE_LABELS.noProps }}
+            {{ propNames.length > 0 ? propNames.join(', ') : STORY_SCENE_LABELS.noProps }}
           </dd>
         </div>
 
         <div data-testid="story-scene-camera">
           <dt class="text-xs font-medium text-brand-muted">
-            {{ STORY_BIBLE_LABELS.sceneCamera }}
+            {{ STORY_SCENE_LABELS.camera }}
           </dt>
           <dd class="mt-0.5 text-brand-text">{{ cameraLabel }}</dd>
         </div>
 
         <div data-testid="story-scene-continuity">
           <dt class="text-xs font-medium text-brand-muted">
-            {{ STORY_BIBLE_LABELS.sceneContinuity }}
+            {{ STORY_SCENE_LABELS.continuity }}
           </dt>
           <dd class="mt-0.5 leading-relaxed text-brand-text">{{ continuityLabel }}</dd>
         </div>
+
+        <p
+          v-if="locationChanged"
+          data-testid="story-scene-location-change"
+          class="text-[11px] font-medium text-brand-fuchsia"
+        >
+          {{ STORY_SCENE_LABELS.locationChange }}
+        </p>
       </dl>
     </div>
 

@@ -11,13 +11,19 @@ import type { QCSceneExpectation } from '../../../server/story/qc-types'
 const EXPECTATION: QCSceneExpectation = {
   sceneId: 'scene-1',
   order: 2,
+  sceneRole: 'development',
+  locationId: 'park',
+  locationName: 'Parque',
+  locationDescription: 'Sendero de tierra con árboles y una rampa roja.',
+  timeOfDay: 'afternoon',
+  weather: 'clear',
   leadCharacterId: 'bart',
   characters: ['bart'],
   props: ['skateboard'],
   signaturePropId: 'skateboard',
+  action: 'Bart acelera con su patinete azul.',
   visualPrompt: 'Bart acelera con su patinete azul.',
   continuityFromPrevious: 'El patinete azul sigue en el sendero.',
-  sceneRole: 'development',
   camera: 'medium',
 }
 
@@ -78,6 +84,27 @@ describe('qc-checker: observation comparator', () => {
     })
 
     expect(codes(issues)).toContain(code)
+  })
+
+  it('does not require the lead when the scene does not declare it', () => {
+    const issues = compareScene({
+      expectation: { ...EXPECTATION, characters: ['milhouse'], props: [] },
+      observed: observed({ characters: ['milhouse'], props: [] }),
+      framesAvailable: true,
+    })
+
+    expect(codes(issues)).not.toContain('missing-lead-character')
+    expect(codes(issues)).not.toContain('missing-prop')
+  })
+
+  it('treats a canon character not declared in the scene as extra', () => {
+    const issues = compareScene({
+      expectation: { ...EXPECTATION, characters: ['bart'] },
+      observed: observed({ characters: ['bart', 'milhouse'] }),
+      framesAvailable: true,
+    })
+
+    expect(codes(issues)).toContain('extra-character')
   })
 
   it('emits missing-character for a non-lead expected character', () => {

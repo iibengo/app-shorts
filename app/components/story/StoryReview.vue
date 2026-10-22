@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import StoryBibleSummary from '~/components/story/StoryBibleSummary.vue'
+import StoryCanonSummary from '~/components/story/StoryCanonSummary.vue'
+import StoryToneBadge from '~/components/story/StoryToneBadge.vue'
 import StorySceneCard from '~/components/story/StorySceneCard.vue'
 import AppButton from '~/components/ui/AppButton.vue'
 import { STORY_COPY, STORY_SCENE_DURATION_SECONDS } from '~/data/story'
@@ -8,7 +9,7 @@ import type {
   Story,
   StoryBeatUpdateRequest,
 } from '~/models/story'
-import { storyBeatForScene } from '~/utils/story'
+import { storyBeatForScene, storyModeLabel } from '~/utils/story'
 
 const props = defineProps<{
   story: Story
@@ -56,7 +57,23 @@ defineExpose({ heading })
       Estas son las imágenes de tus {{ story.sceneCount }} escenas. Puedes regenerar una imagen antes de aprobar.
     </p>
 
-    <StoryBibleSummary
+    <div class="mt-3 flex flex-wrap gap-2">
+      <p
+        data-testid="story-review-mode"
+        :data-mode="story.mode"
+        class="inline-flex items-center rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-brand-text forced-colors:border forced-colors:border-[ButtonText]"
+      >
+        {{ storyModeLabel(story.mode) }}
+      </p>
+
+      <StoryToneBadge
+        v-if="story.plan"
+        test-id="story-review-tone"
+        :tone="story.plan.tone"
+      />
+    </div>
+
+    <StoryCanonSummary
       v-if="story.plan?.storyBible"
       :bible="story.plan.storyBible"
     />
@@ -69,6 +86,7 @@ defineExpose({ heading })
         :total="story.sceneCount"
         :bible="story.plan?.storyBible ?? null"
         :beat="storyBeatForScene(story.plan, scene.order)"
+        :previous-beat="scene.order > 1 ? storyBeatForScene(story.plan, scene.order - 1) : null"
         :disabled="!allReady"
         @regenerate="handleRegenerate(scene.id, $event)"
       />

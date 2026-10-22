@@ -45,6 +45,9 @@ describe('createStoryRuntime configuration', () => {
     expect(runtime.reconcilerIntervalMs).toBe(5_000)
     expect(runtime.videoConcurrency).toBe(2)
     expect(runtime.assemblyTimeoutMs).toBe(180_000)
+    expect(runtime.narrativeTimeoutMs).toBe(40_000)
+    expect(runtime.visualTimeoutMs).toBe(25_000)
+    expect(runtime.directorTotalTimeoutMs).toBe(85_000)
     expect(runtime.uploadIdempotency.size).toBe(0)
     expect(runtime.ipSalt).toMatch(/^[a-f0-9]{64}$/)
   })
@@ -131,6 +134,9 @@ describe('createStoryRuntime configuration', () => {
       story: {
         maxCostUsd: 3,
         costDirectorUsd: 0.02,
+        costNarrativeUsd: 0.012,
+        costVisualUsd: 0.006,
+        costDirectorRepairUsd: 0.007,
         costKeyframeUsd: 0.04,
         costKeyframeReferenceUsd: 0.06,
         costVideoFastUsd: 0.3,
@@ -150,7 +156,9 @@ describe('createStoryRuntime configuration', () => {
         commandLimit: 5,
         commandWindowMs: 30_000,
         maxActiveStories: 1,
-        directorTimeoutMs: 10_000,
+        narrativeTimeoutMs: 31_000,
+        visualTimeoutMs: 21_000,
+        directorTotalTimeoutMs: 77_000,
         deepseekBaseUrl: 'http://127.0.0.1:9999',
         assemblyTimeoutMs: 30_000,
         assemblyConcurrency: 1,
@@ -163,12 +171,18 @@ describe('createStoryRuntime configuration', () => {
     expect(runtime.reconcilerIntervalMs).toBe(8_000)
     expect(runtime.videoConcurrency).toBe(4)
     expect(runtime.assemblyTimeoutMs).toBe(30_000)
+    expect(runtime.narrativeTimeoutMs).toBe(31_000)
+    expect(runtime.visualTimeoutMs).toBe(21_000)
+    expect(runtime.directorTotalTimeoutMs).toBe(77_000)
 
     const costs = (runtime.costGuard as unknown as { costs: Record<string, number> }).costs
 
     expect(costs).toMatchObject({
       maxStoryCostUsd: 3,
       directorCostUsd: 0.02,
+      narrativeCostUsd: 0.012,
+      visualCostUsd: 0.006,
+      directorRepairCostUsd: 0.007,
       keyframeCostUsd: 0.04,
       keyframeReferenceCostUsd: 0.06,
       videoFastCostUsd: 0.3,
@@ -202,6 +216,9 @@ describe('createStoryRuntime configuration', () => {
     expect(runtime.reconcilerIntervalMs).toBe(5_000)
     expect(runtime.videoConcurrency).toBe(2)
     expect(runtime.reconcilerEnabled).toBe(true)
+    expect(runtime.narrativeTimeoutMs).toBe(40_000)
+    expect(runtime.visualTimeoutMs).toBe(25_000)
+    expect(runtime.directorTotalTimeoutMs).toBe(85_000)
     expect((runtime.costGuard as unknown as { costs: Record<string, number> }).costs.maxStoryCostUsd)
       .toBe(8)
     expect((runtime.costGuard as unknown as { costs: Record<string, number> }).costs.dailyBudgetUsd)
@@ -234,6 +251,7 @@ describe('story body hashing', () => {
       premise: 'Una premisa de prueba con longitud suficiente.',
       sceneCount: 5 as const,
       preset: 'fast' as const,
+      mode: 'faithful' as const,
       referenceUrl: null,
       referenceExpiresAt: null,
     }
@@ -244,6 +262,7 @@ describe('story body hashing', () => {
       request.premise,
       request.sceneCount,
       request.preset,
+      request.mode,
       null,
       null,
     ]))

@@ -2,6 +2,7 @@ import type {
   SceneStatus,
   StoryBeat,
   StoryErrorCode,
+  StoryMode,
   StoryPlan,
   StoryPreset,
   StoryQC,
@@ -18,6 +19,7 @@ export interface StoryRecord {
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: Date | null
   readonly preset: StoryPreset
+  readonly mode: StoryMode
   readonly sceneCount: number
   readonly durationSeconds: number
   readonly aspectRatio: string
@@ -81,6 +83,7 @@ export interface CreateStoryRecord {
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: Date | null
   readonly preset: StoryPreset
+  readonly mode: StoryMode
   readonly sceneCount: number
   readonly durationSeconds: number
   readonly aspectRatio: string
@@ -195,25 +198,41 @@ export function rebuildPlan(input: PlanRebuildInput): StoryPlan | null {
   const beats: StoryBeat[] = input.scenes
     .slice()
     .sort((a, b) => a.order - b.order)
-    .map((scene, index, all) => ({
-      order: scene.order,
-      sceneRole: index === 0
+    .map((scene, index, all) => {
+      const sceneRole = index === 0
         ? 'establishing'
         : index === all.length - 1
           ? 'resolution'
-          : 'development',
-      visualPrompt: scene.visualPrompt,
-      narration: scene.narration,
-      characters: [],
-      props: [],
-      camera: 'wide',
-      continuityFromPrevious: index === 0 ? null : 'Continúa la escena anterior.',
-      transition: 'cut',
-    }))
+          : 'development'
+      const storyFunction = index === 0
+        ? 'hook'
+        : index === all.length - 1
+          ? 'payoff'
+          : 'complication'
+
+      return {
+        order: scene.order,
+        sceneRole,
+        locationId: 'legacy-location',
+        timeOfDay: 'morning',
+        weather: 'clear',
+        visualPrompt: scene.visualPrompt,
+        narration: scene.narration,
+        characters: [],
+        props: [],
+        action: scene.visualPrompt,
+        storyFunction,
+        gag: null,
+        camera: 'wide',
+        continuityFromPrevious: index === 0 ? null : 'Continúa la escena anterior.',
+        transition: 'cut',
+      }
+    })
 
   return {
     title: input.title ?? '',
     logline: input.logline ?? '',
+    tone: 'neutral',
     storyBible: null,
     beats,
   }

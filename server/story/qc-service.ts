@@ -81,17 +81,25 @@ function expectationFor(
     },
     story.scenes.length,
   )
+  const location = bible?.locations.find((item) => item.id === beat.locationId)
+    ?? bible?.locations[0]
 
   return {
     sceneId: scene.id,
     order: scene.order,
-    leadCharacterId: bible?.leadCharacterId ?? '',
+    sceneRole: beat.sceneRole,
+    locationId: location?.id ?? beat.locationId,
+    locationName: location?.name ?? 'Localización no disponible',
+    locationDescription: location?.description ?? 'Sin descripción.',
+    timeOfDay: beat.timeOfDay,
+    weather: beat.weather,
     characters: beat.characters,
     props: beat.props,
+    leadCharacterId: bible?.leadCharacterId ?? '',
     signaturePropId: bible?.signaturePropId ?? null,
+    action: beat.action,
     visualPrompt: beat.visualPrompt,
     continuityFromPrevious: beat.continuityFromPrevious,
-    sceneRole: beat.sceneRole,
     camera: beat.camera,
   }
 }

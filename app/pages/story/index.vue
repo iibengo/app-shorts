@@ -6,6 +6,7 @@ import {
 } from 'vue'
 import StoryCreateForm from '~/components/story/StoryCreateForm.vue'
 import StoryHeader from '~/components/story/StoryHeader.vue'
+import StoryModePicker from '~/components/story/StoryModePicker.vue'
 import StoryPlanProgress from '~/components/story/StoryPlanProgress.vue'
 import StoryPresetPicker from '~/components/story/StoryPresetPicker.vue'
 import StoryReferencePicker from '~/components/story/StoryReferencePicker.vue'
@@ -13,9 +14,15 @@ import StorySceneCountPicker from '~/components/story/StorySceneCountPicker.vue'
 import StoryStepper from '~/components/story/StoryStepper.vue'
 import StoryErrorAlert from '~/components/story/StoryErrorAlert.vue'
 import AppButton from '~/components/ui/AppButton.vue'
-import { STORY_COPY, STORY_DEFAULT_PRESET, STORY_DEFAULT_SCENE_COUNT } from '~/data/story'
+import {
+  STORY_COPY,
+  STORY_DEFAULT_MODE,
+  STORY_DEFAULT_PRESET,
+  STORY_DEFAULT_SCENE_COUNT,
+} from '~/data/story'
 import type {
   StoryJobError,
+  StoryMode,
   StoryPreset,
   StorySceneCount,
 } from '~/models/story'
@@ -63,6 +70,7 @@ const {
 } = useStory({ api })
 
 const premise = ref('')
+const mode = ref<StoryMode>(STORY_DEFAULT_MODE)
 const sceneCount = ref<StorySceneCount>(STORY_DEFAULT_SCENE_COUNT)
 const preset = ref<StoryPreset>(STORY_DEFAULT_PRESET)
 const form = ref<{ focusPremise: () => void } | null>(null)
@@ -102,6 +110,7 @@ async function handleSubmit(): Promise<void> {
     premise: normalizeStoryText(premise.value),
     sceneCount: sceneCount.value,
     preset: preset.value,
+    mode: mode.value,
     referenceUrl: reference.value?.fileUrl ?? null,
     referenceExpiresAt: reference.value?.expiresAt ?? null,
   })
@@ -126,6 +135,7 @@ function handlePremiseUpdate(value: string): void {
 function handleReset(): void {
   clearError()
   premise.value = ''
+  mode.value = STORY_DEFAULT_MODE
   sceneCount.value = STORY_DEFAULT_SCENE_COUNT
   preset.value = STORY_DEFAULT_PRESET
   premiseIssue.value = null
@@ -209,6 +219,13 @@ function handleReset(): void {
         @update:premise="handlePremiseUpdate"
         @submit="handleSubmit"
       >
+        <template #mode>
+          <StoryModePicker
+            :mode="mode"
+            @update:mode="mode = $event"
+          />
+        </template>
+
         <template #sceneCount>
           <StorySceneCountPicker
             :scene-count="sceneCount"

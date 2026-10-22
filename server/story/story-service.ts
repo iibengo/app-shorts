@@ -5,6 +5,7 @@ import type {
   StoryBeatUpdateRequest,
   StoryErrorCode,
   StoryJob,
+  StoryMode,
   StoryPlan,
   StoryPreset,
   StoryScene,
@@ -14,9 +15,17 @@ import type {
 import { IdempotencyStore } from '../shared/rate-limit'
 import type { StoryCostGuard } from './cost'
 import type { StoryDirector } from './director-types'
+import { validateStoryPlan } from './plan-validator'
+import { hasSignificantNarrationCopy } from './prompt-guard'
 import { StoryError, getStoryErrorDefinition, storyErrorMessage, toStoryError } from './errors'
 import type { KeyframeOrchestrator } from './keyframe-orchestrator'
 import type { StoryRateLimiter } from './rate-limit'
+import {
+  STORY_PROMPT_MAX_LENGTH,
+  STORY_VIDEO_PROMPT_MAX_LENGTH,
+  storyBeatForScene,
+  storyPromptComposer,
+} from './story-prompt-composer'
 import type { VideoOrchestrator } from './video-orchestrator'
 import type {
   CreateSceneRecord,
@@ -36,6 +45,7 @@ export interface CreateStoryInput {
     readonly premise: string
     readonly sceneCount: StorySceneCount
     readonly preset: StoryPreset
+    readonly mode: StoryMode
     readonly referenceUrl: string | null
     readonly referenceExpiresAt: string | null
   }
@@ -99,6 +109,7 @@ export function canonicalStoryBody(request: CreateStoryInput['request']): string
     request.premise,
     request.sceneCount,
     request.preset,
+    request.mode,
     request.referenceUrl,
     request.referenceExpiresAt,
   ])
@@ -106,6 +117,95 @@ export function canonicalStoryBody(request: CreateStoryInput['request']): string
 
 export function hashStoryBody(canonical: string): string {
   return createHash('sha256').update(canonical).digest('hex')
+}
+
+
+function withScenePrompt(
+  plan: StoryPlan | null,
+  order: number,
+  visualPrompt: string,
+  narration: string | undefined,
+): StoryPlan | null {
+  if (plan === null) return null
+
+  let changed = false
+  const beats = plan.beats.map((beat) => {
+    if (beat.order !== order) return beat
+
+    const nextNarration = narration === undefined ? beat.narration : narration
+
+    if (beat.visualPrompt === visualPrompt && beat.narration === nextNarration) return beat
+
+    changed = true
+
+    return {
+      ...beat,
+      visualPrompt,
+      narration: nextNarration,
+    }
+  })
+
+  return changed ? { ...plan, beats } : plan
+}
+
+
+function assertEditedPromptsFit(
+  story: StoryRecord,
+  scene: SceneRecord,
+  visualPrompt: string,
+  narration: string | undefined,
+): void {
+  const nextNarration = narration ?? scene.narration
+
+  if (hasSignificantNarrationCopy(visualPrompt, nextNarration)) {
+    throw new StoryError('invalid-visual-prompt')
+  }
+
+  const nextPlan = withScenePrompt(story.plan, scene.order, visualPrompt, narration)
+
+  if (nextPlan?.storyBible && nextPlan.tone !== 'neutral') {
+    const validation = validateStoryPlan(nextPlan, {
+      sceneCount: story.sceneCount,
+      mode: story.mode,
+    })
+
+    if (!validation.ok) {
+      throw new StoryError('invalid-visual-prompt')
+    }
+  }
+
+  const baseBeat = storyBeatForScene(
+    nextPlan,
+    {
+      order: scene.order,
+      visualPrompt,
+      narration: nextNarration,
+    },
+    story.scenes.length,
+  )
+  const beat = {
+    ...baseBeat,
+    visualPrompt,
+    narration: nextNarration,
+  }
+  const bible = nextPlan?.storyBible ?? null
+  const keyframe = storyPromptComposer.composeKeyframe({
+    bible,
+    beat,
+    hasReference: story.referenceUrl !== null,
+  })
+  const video = storyPromptComposer.composeVideo({
+    bible,
+    beat,
+    preset: story.preset,
+  })
+
+  if (
+    keyframe.prompt.length > STORY_PROMPT_MAX_LENGTH
+    || video.prompt.length > STORY_VIDEO_PROMPT_MAX_LENGTH
+  ) {
+    throw new StoryError('invalid-visual-prompt')
+  }
 }
 
 function toSceneCount(value: number): StorySceneCount {
@@ -194,6 +294,7 @@ export function toStoryDto(story: StoryRecord, pollAfterMs: number, now: number)
       ? story.referenceExpiresAt.toISOString()
       : null,
     preset: story.preset,
+    mode: story.mode,
     modelId: story.preset === 'quality' ? 'kling-2.5-turbo-pro' : 'minimax-hailuo-02',
     sceneCount: toSceneCount(story.sceneCount),
     durationSeconds: 6,
@@ -235,6 +336,7 @@ function matchesRequest(
     story.premise === request.premise
     && story.sceneCount === request.sceneCount
     && story.preset === request.preset
+    && story.mode === request.mode
     && story.referenceUrl === request.referenceUrl
   )
 }
@@ -319,9 +421,19 @@ export class StoryServiceImpl implements StoryService {
       const plan = await director.createPlan({
         premise: input.request.premise,
         sceneCount: input.request.sceneCount,
+        mode: input.request.mode,
         referenceUrl: input.request.referenceUrl,
       })
-      const story = await this.persistStory(input, plan)
+      const validation = validateStoryPlan(plan, {
+        sceneCount: input.request.sceneCount,
+        mode: input.request.mode,
+      })
+
+      if (!validation.ok) {
+        throw new StoryError('director-invalid-output')
+      }
+
+      const story = await this.persistStory(input, validation.plan)
 
       if (storeKey) {
         this.idempotency.setDone(storeKey, input.bodyHash, story)
@@ -405,6 +517,8 @@ export class StoryServiceImpl implements StoryService {
       const narration = input.update.narration
 
       if (narration !== undefined && narration !== scene.narration) {
+        assertEditedPromptsFit(story, scene, scene.visualPrompt, narration)
+
         const updated = await this.repository.updateScene(
           story.id,
           scene.id,
@@ -415,6 +529,20 @@ export class StoryServiceImpl implements StoryService {
         if (updated === 0) {
           throw new StoryError('scene-not-ready')
         }
+
+        const nextPlan = withScenePrompt(story.plan, scene.order, scene.visualPrompt, narration)
+
+        if (nextPlan !== null && nextPlan !== story.plan) {
+          const planUpdated = await this.repository.updateStory(
+            story.id,
+            { version: story.version },
+            { plan: nextPlan },
+          )
+
+          if (planUpdated === 0) {
+            throw new StoryError('story-not-ready')
+          }
+        }
       }
 
       return this.reload(story.id)
@@ -424,7 +552,16 @@ export class StoryServiceImpl implements StoryService {
       throw new StoryError('keyframe-limit-reached')
     }
 
+    assertEditedPromptsFit(story, scene, input.update.visualPrompt, input.update.narration)
+
     this.costGuard.assertWithinBudget(this.costGuard.estimateAfterKeyframeAttempt(story))
+
+    const nextPlan = withScenePrompt(
+      story.plan,
+      scene.order,
+      input.update.visualPrompt,
+      input.update.narration,
+    )
 
     const storyUpdated = await this.repository.updateStory(
       story.id,
@@ -434,6 +571,7 @@ export class StoryServiceImpl implements StoryService {
         approvedAt: null,
         errorCode: null,
         errorMessage: null,
+        ...(nextPlan === null ? {} : { plan: nextPlan }),
       },
     )
 
@@ -981,6 +1119,7 @@ export class StoryServiceImpl implements StoryService {
         ? new Date(input.request.referenceExpiresAt)
         : null,
       preset: input.request.preset,
+      mode: input.request.mode,
       sceneCount: input.request.sceneCount,
       durationSeconds: 6,
       aspectRatio: '9:16',

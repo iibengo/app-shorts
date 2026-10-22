@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  STORY_CANON_LABELS,
   STORY_COPY,
+  STORY_DEFAULT_MODE,
   STORY_DEFAULT_PRESET,
   STORY_DEFAULT_SCENE_COUNT,
   STORY_FILE_ACCEPT,
@@ -16,6 +18,11 @@ import {
   STORY_MAX_VIDEO_ATTEMPTS,
   STORY_MAX_VISUAL_PROMPT_LENGTH,
   STORY_MIN_NARRATION_LENGTH,
+  STORY_MODE_CREATIVE_NOTICE,
+  STORY_MODE_DESCRIPTIONS,
+  STORY_MODE_HELP,
+  STORY_MODE_LABELS,
+  STORY_MODES,
   STORY_MIN_PREMISE_LENGTH,
   STORY_MIN_VISUAL_PROMPT_LENGTH,
   STORY_POLL_AFTER_MS,
@@ -24,8 +31,10 @@ import {
   STORY_SCENE_COUNTS,
   STORY_SCENE_COUNT_LABELS,
   STORY_SCENE_DURATION_SECONDS,
+  STORY_SCENE_LABELS,
   STORY_STEPS,
   STORY_TERMINAL_STATUSES,
+  STORY_TONE_LABELS,
 } from '~/data/story'
 import {
   STORY_CREATE_MAX_BODY_BYTES,
@@ -89,6 +98,36 @@ describe('story data constants', () => {
     ])
     expect(STORY_DEFAULT_PRESET).toBe('fast')
     expect(STORY_PRESET_COPY).toEqual({ fast: 'Rápido', quality: 'Calidad' })
+  })
+
+  it('exposes the 007 mode and tone copy exactly', () => {
+    expect(STORY_MODES).toEqual(['faithful', 'creative'])
+    expect(STORY_DEFAULT_MODE).toBe('faithful')
+    expect(STORY_MODE_LABELS).toEqual({
+      faithful: 'Fiel a la premisa',
+      creative: 'Modo creativo',
+    })
+    expect(STORY_MODE_DESCRIPTIONS).toEqual({
+      faithful: 'Solo aparecen los personajes, lugares y objetos de tu premisa.',
+      creative: 'El narrador puede añadir personajes secundarios, lugares y giros que sirvan a tu premisa.',
+    })
+    expect(STORY_MODE_HELP).toEqual({
+      faithful: 'El guion se ciñe a lo que escribiste.',
+      creative: 'Puede añadir hasta 2 personajes, 3 lugares y 4 objetos inventados. El protagonista, el tema y el conflicto salen de tu premisa.',
+    })
+    expect(STORY_MODE_CREATIVE_NOTICE).toBe(
+      'En modo creativo pueden aparecer personajes, lugares y objetos que no están en tu premisa.',
+    )
+    expect(STORY_TONE_LABELS).toEqual({
+      humor: 'Humor',
+      aventura: 'Aventura',
+      absurdo: 'Absurdo',
+      heartwarming: 'Emotivo',
+      dramatic: 'Dramático',
+      neutral: 'Neutro',
+    })
+    expect(STORY_CANON_LABELS.summary).toBe('Canon de la historia')
+    expect(STORY_SCENE_LABELS.locationChange).toBe('Cambio de escena')
   })
 
   it('keeps the four stepper steps', () => {

@@ -5,6 +5,7 @@ import {
   createPrismaStoryRepository,
 } from '../../../server/story/prisma-story-repository'
 import plan5 from '../../fixtures/deepseek/deepseek-plan-5.json'
+import creative from '../../fixtures/story/plan-creative-scene-changes.json'
 
 type AnyRecord = Record<string, unknown>
 
@@ -49,6 +50,7 @@ function storyRow(overrides: AnyRecord = {}): AnyRecord {
     referenceUrl: null,
     referenceExpiresAt: null,
     preset: 'fast',
+    mode: 'faithful',
     sceneCount: 5,
     durationSeconds: 6,
     aspectRatio: '9:16',
@@ -258,6 +260,24 @@ describe('PrismaStoryRepository reads and mapping', () => {
       keyframeStatusUrl: 'https://queue.fal.run/status',
       keyframeAttempts: 1,
     })
+  })
+
+  it('reads a creative plan with invented locations without rebuilding it', async () => {
+    const { client, repo } = repository()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    client.story.findUnique.mockResolvedValue(storyRow({
+      mode: 'creative',
+      planJson: creative,
+      scenes: rows(5),
+    }))
+
+    const story = await repo.findById('story-row-1')
+
+    expect(story?.mode).toBe('creative')
+    expect(story?.plan?.storyBible?.locations).toHaveLength(3)
+    expect(story?.plan?.storyBible?.locations.some((location) => location.source === 'invented'))
+      .toBe(true)
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it('rebuilds an invalid planJson from the scenes and logs the incident', async () => {

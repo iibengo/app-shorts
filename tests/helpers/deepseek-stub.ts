@@ -2,6 +2,23 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import plan5 from '../fixtures/deepseek/deepseek-plan-5.json'
 
+export const narrative5 = {
+  title: plan5.title,
+  logline: plan5.logline,
+  tone: plan5.tone,
+  storyBible: plan5.storyBible,
+  beats: plan5.beats.map(({ visualPrompt, camera, continuityFromPrevious, transition, ...beat }) => beat),
+}
+export const storyboard5 = {
+  beats: plan5.beats.map((beat) => ({
+    order: beat.order,
+    visualPrompt: beat.visualPrompt,
+    camera: beat.camera,
+    continuityFromPrevious: beat.continuityFromPrevious,
+    transition: 'cut',
+  })),
+}
+
 export interface DeepSeekStubRequest {
   readonly method: string
   readonly path: string
@@ -54,7 +71,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
     status: 200,
     errorPayload: { error: { message: 'stub failure' } },
     delayMs: 0,
-    contents: [plan5],
+    contents: [narrative5, storyboard5],
   }
 
   const server: Server = createServer(async (incoming, response) => {
@@ -122,7 +139,7 @@ export async function startDeepSeekStub(): Promise<DeepSeekStub> {
       state.status = 200
       state.errorPayload = { error: { message: 'stub failure' } }
       state.delayMs = 0
-      state.contents = [plan5]
+      state.contents = [narrative5, storyboard5]
     },
     async close() {
       await new Promise<void>((resolve) => server.close(() => resolve()))

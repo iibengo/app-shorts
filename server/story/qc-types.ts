@@ -6,18 +6,26 @@ import type {
   StoryQC,
   StoryQCErrorCode,
   StorySceneRole,
+  StoryTimeOfDay,
+  StoryWeather,
 } from '~/models/story'
 
 export interface QCSceneExpectation {
   readonly sceneId: string
   readonly order: number
-  readonly leadCharacterId: string
+  readonly sceneRole: StorySceneRole
+  readonly locationId: string
+  readonly locationName: string
+  readonly locationDescription: string
+  readonly timeOfDay: StoryTimeOfDay
+  readonly weather: StoryWeather
   readonly characters: readonly string[]
   readonly props: readonly string[]
+  readonly leadCharacterId: string
   readonly signaturePropId: string | null
+  readonly action: string
   readonly visualPrompt: string
   readonly continuityFromPrevious: string | null
-  readonly sceneRole: StorySceneRole
   readonly camera: StoryCameraShot
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { StoryScene } from '~/models/story'
+import type { StoryPlan, StoryScene } from '~/models/story'
 import {
   canRegenerateKeyframe,
   containsStoryMarkup,
@@ -17,19 +17,32 @@ import {
   preferredPollDelay,
   sceneStatusLabel,
   storyAttemptLabel,
+  storyBeatForScene,
+  storyCharacterLabel,
+  storyEntitySourceLabel,
   storyError,
+  storyModeLabel,
   storyModelIdForPreset,
   storyPollAfterMs,
   storyPosterUrl,
+  storyPropLabel,
   storyReferenceLabel,
+  storySceneChangesLocation,
+  storySceneCharacterNames,
+  storySceneLocationName,
+  storyScenePropNames,
   storySceneTitle,
   storyStepForStatus,
+  storyToneLabel,
   storyTotalDuration,
   validateStoryNarration,
   validateStoryPremise,
   validateStoryReferenceFile,
   validateStoryVisualPrompt,
 } from '~/utils/story'
+import creative from '../fixtures/story/plan-creative-scene-changes.json'
+
+const CREATIVE_PLAN = creative as StoryPlan
 
 function scene(overrides: Partial<StoryScene> & { order: number }): StoryScene {
   return {
@@ -312,5 +325,49 @@ describe('story media allowlist helpers', () => {
       storyPosterUrl([scene({ order: 1, keyframeUrl: 'https://evil.example/one.png' })]),
     ).toBeNull()
     expect(storyPosterUrl([])).toBeNull()
+  })
+})
+
+describe('story mode and canon helpers (007)', () => {
+  it('labels both modes and every tone in Spanish', () => {
+    expect(storyModeLabel('faithful')).toBe('Fiel a la premisa')
+    expect(storyModeLabel('creative')).toBe('Modo creativo')
+    expect(storyToneLabel('humor')).toBe('Humor')
+    expect(storyToneLabel('aventura')).toBe('Aventura')
+    expect(storyToneLabel('absurdo')).toBe('Absurdo')
+    expect(storyToneLabel('heartwarming')).toBe('Emotivo')
+    expect(storyToneLabel('dramatic')).toBe('Dramático')
+    expect(storyToneLabel('neutral')).toBe('Neutro')
+  })
+
+  it('only labels invented canon as invented', () => {
+    expect(storyEntitySourceLabel('premise')).toBeNull()
+    expect(storyEntitySourceLabel('invented')).toBe('inventado')
+  })
+
+  it('resolves the scene beat, location, characters and props from the canon', () => {
+    const beat = storyBeatForScene(CREATIVE_PLAN, 3)
+    const bible = CREATIVE_PLAN.storyBible!
+
+    expect(beat?.order).toBe(3)
+    expect(storySceneLocationName(bible, beat)).toBe('Calle')
+    expect(storySceneLocationName(null, beat)).toBeNull()
+    expect(storyCharacterLabel(bible, beat!.characters[0]!)).toContain('·')
+    expect(storyCharacterLabel(bible, 'missing')).toBeNull()
+    expect(storyPropLabel(bible, beat!.props[0]!)).toContain('·')
+    expect(storyPropLabel(bible, 'missing')).toBeNull()
+    expect(storySceneCharacterNames(bible, beat).length).toBe(beat!.characters.length)
+    expect(storyScenePropNames(bible, beat).length).toBe(beat!.props.length)
+    expect(storySceneCharacterNames(null, beat)).toEqual([])
+    expect(storyScenePropNames(null, beat)).toEqual([])
+    expect(storyBeatForScene(null, 3)).toBeNull()
+  })
+
+  it('only reports a location change when the previous beat differs', () => {
+    expect(storySceneChangesLocation(CREATIVE_PLAN, 1)).toBe(false)
+    expect(storySceneChangesLocation(CREATIVE_PLAN, 3)).toBe(true)
+    expect(storySceneChangesLocation(CREATIVE_PLAN, 4)).toBe(false)
+    expect(storySceneChangesLocation(CREATIVE_PLAN, 99)).toBe(false)
+    expect(storySceneChangesLocation(null, 3)).toBe(false)
   })
 })

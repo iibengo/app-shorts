@@ -7,6 +7,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum StoryMode {
+  faithful
+  creative
+}
+
 enum StoryStatus {
   PLANNING
   GENERATING_KEYFRAMES
@@ -44,6 +49,7 @@ model Story {
   referenceUrl        String?     @db.Text
   referenceExpiresAt  DateTime?
   preset              String
+  mode                StoryMode  @default(faithful)
   sceneCount          Int
   durationSeconds     Int
   aspectRatio         String      @default("9:16")

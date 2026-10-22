@@ -1,14 +1,11 @@
 {
   "title": "El azúcar lo sabe",
   "logline": "Una repostera descubre que sus postres anticipan lo que va a pasar.",
+  "tone": "humor",
   "storyBible": {
     "style": "animación 3D cartoon, colores cálidos y saturados, sin grano",
-    "location": {
-      "name": "Obrador de Clara",
-      "description": "Cocina pequeña con azulejos blancos, horno antiguo y bandejas de hojaldre."
-    },
-    "timeOfDay": "morning",
-    "weather": "clear",
+    "tone": "humor",
+    "theme": "El éxito no se puede predecir, pero se puede hornear.",
     "leadCharacterId": "clara",
     "signaturePropId": "merengue",
     "characters": [
@@ -16,27 +13,55 @@
         "id": "clara",
         "name": "Clara",
         "description": "Repostera joven de pelo recogido y delantal de rayas azules.",
-        "wardrobe": "Delantal de rayas azules sobre camisa blanca y pantalón oscuro."
+        "wardrobe": "Delantal de rayas azules sobre camisa blanca.",
+        "source": "premise"
+      }
+    ],
+    "locations": [
+      {
+        "id": "obrador",
+        "name": "Obrador de Clara",
+        "description": "Cocina pequeña con azulejos blancos, horno antiguo y bandejas.",
+        "source": "premise"
       }
     ],
     "props": [
       {
         "id": "merengue",
         "name": "Merengue",
-        "description": "Bol metálico con merengue brillante que dibuja figuras imposibles."
+        "description": "Bol metálico con merengue que dibuja figuras imposibles.",
+        "source": "premise"
       }
     ],
-    "forbidden": ["Homer", "bicicleta", "lluvia", "noche", "texto"],
-    "continuityRules": ["El delantal de Clara no cambia en ninguna escena."]
+    "forbidden": [
+      "Homer",
+      "bicicleta",
+      "texto",
+      "marca de agua"
+    ],
+    "continuityRules": [
+      "El delantal de Clara no cambia en ninguna escena.",
+      "El merengue sigue en el mismo bol metálico."
+    ]
   },
   "beats": [
     {
       "order": 1,
       "sceneRole": "establishing",
-      "visualPrompt": "Clara abre el obrador al amanecer entre bandejas de hojaldre y luz cálida.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara abre el obrador al amanecer y descubre una figura en el merengue.",
       "narration": "Cada mañana, antes de encender el horno, Clara escucha.",
-      "characters": ["clara"],
-      "props": ["merengue"],
+      "storyFunction": "hook",
+      "gag": "El merengue dibuja un reloj sin agujas.",
+      "visualPrompt": "Plano general de Clara en el obrador al amanecer con el bol de merengue.",
       "camera": "wide",
       "continuityFromPrevious": null,
       "transition": "cut"
@@ -44,45 +69,85 @@
     {
       "order": 2,
       "sceneRole": "development",
-      "visualPrompt": "Clara observa cómo el merengue dibuja una figura imposible en el bol metálico.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara intenta repetir la figura y el merengue cambia de forma.",
       "narration": "El azúcar se mueve como si quisiera contar algo.",
-      "characters": ["clara"],
-      "props": ["merengue"],
+      "storyFunction": "complication",
+      "gag": "La figura señala la puerta con una cuchara.",
+      "visualPrompt": "Primer plano del merengue dibujando una figura imposible.",
       "camera": "close-up",
-      "continuityFromPrevious": "El merengue sigue en el mismo bol metálico sobre la mesa.",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 3,
       "sceneRole": "escalation",
-      "visualPrompt": "Un cliente entra en la pastelería y reconoce la figura dibujada en el merengue.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Un cliente entra y reconoce la figura del merengue.",
       "narration": "El primer cliente trae la cara que anunciaba el postre.",
-      "characters": ["clara"],
-      "props": ["merengue"],
+      "storyFunction": "escalation",
+      "gag": "El cliente saluda a la figura del merengue.",
+      "visualPrompt": "Plano medio de Clara y el cliente junto al mostrador.",
       "camera": "medium",
-      "continuityFromPrevious": "El cliente entra por la puerta que Clara acaba de mirar.",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 4,
       "sceneRole": "climax",
-      "visualPrompt": "Clara duda junto a la ventana con una bandeja de tartas recién hechas.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara descubre que el merengue anuncia una desgracia y duda.",
       "narration": "Clara entiende que no todos los avisos son buenos.",
-      "characters": ["clara"],
-      "props": ["merengue"],
+      "storyFunction": "twist",
+      "gag": "La tarta se esconde bajo la bandeja.",
+      "visualPrompt": "Plano sobre el hombro de Clara mirando la bandeja.",
       "camera": "over-the-shoulder",
-      "continuityFromPrevious": "La bandeja pasa del mostrador a las manos de Clara.",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     },
     {
       "order": 5,
       "sceneRole": "resolution",
-      "visualPrompt": "Clara cierra la pastelería con la última luz de la mañana y apaga el horno.",
+      "locationId": "obrador",
+      "timeOfDay": "morning",
+      "weather": "clear",
+      "characters": [
+        "clara"
+      ],
+      "props": [
+        "merengue"
+      ],
+      "action": "Clara decide no preguntar al azúcar y cierra el obrador.",
       "narration": "Esa mañana decide no volver a preguntar al azúcar.",
-      "characters": ["clara"],
-      "props": ["merengue"],
+      "storyFunction": "payoff",
+      "gag": "El merengue forma un signo de interrogación y se deshace.",
+      "visualPrompt": "Detalle del bol de merengue mientras Clara apaga el horno.",
       "camera": "detail",
-      "continuityFromPrevious": "El merengue queda tapado en el mismo bol antes de salir.",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
       "transition": "cut"
     }
   ]

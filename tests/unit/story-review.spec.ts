@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import StoryReview from '~/components/story/StoryReview.vue'
 import { makeSceneDto, makeStoryDto } from '../helpers/story'
+import type { StoryPlan } from '~/models/story'
+import plan5 from '../fixtures/deepseek/deepseek-plan-5.json'
+import creative from '../fixtures/story/plan-creative-scene-changes.json'
 
 const normalize = (value: string | null | undefined) =>
   (value ?? '').replace(/\s+/g, ' ').trim()
@@ -111,6 +114,54 @@ describe('StoryReview', () => {
       narration: value.scenes[1]?.narration,
       regenerate: true,
     })
+  })
+
+  it('shows mode, tone, canon and invented labels in creative mode', async () => {
+    const value = story()
+    const wrapper = await mountReview({
+      ...value,
+      mode: 'creative',
+      plan: creative as StoryPlan,
+    })
+
+    expect(normalize(wrapper.get('[data-testid="story-review-mode"]').text())).toBe('Modo creativo')
+    expect(normalize(wrapper.get('[data-testid="story-review-tone"]').text())).toBe('Tono: Humor')
+    expect(normalize(wrapper.get('[data-testid="story-canon"]').text())).toContain('Canon de la historia')
+    expect(normalize(wrapper.get('[data-testid="story-canon"]').text())).toContain('Obrador de Clara')
+    expect(wrapper.findAll('[data-testid="story-invented-character"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="story-invented-location"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="story-invented-prop"]')).toHaveLength(1)
+  })
+
+  it('shows scene context and a location change when the canon changes location', async () => {
+    const value = story()
+    const wrapper = await mountReview({
+      ...value,
+      plan: creative as StoryPlan,
+    })
+    const cards = wrapper.findAll('[data-testid="story-scene-card"]')
+
+    expect(normalize(cards[0]?.get('[data-testid="story-scene-location"]').text()))
+      .toContain('Obrador de Clara')
+    expect(normalize(cards[2]?.get('[data-testid="story-scene-location"]').text()))
+      .toContain('Calle')
+    expect(cards[2]?.find('[data-testid="story-scene-location-change"]').exists()).toBe(true)
+    expect(normalize(cards[2]?.get('[data-testid="story-scene-time"]').text())).toContain('Hora')
+  })
+
+  it('does not render canon rows for a legacy plan without a bible', async () => {
+    const value = story()
+    const wrapper = await mountReview({
+      ...value,
+      plan: { ...(plan5 as StoryPlan), storyBible: null, tone: 'neutral' },
+    })
+
+    expect(wrapper.find('[data-testid="story-canon"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="story-scene-context"]').exists()).toBe(false)
+    expect(normalize(wrapper.get('[data-testid="story-review-mode"]').text()))
+      .toBe('Fiel a la premisa')
+    expect(normalize(wrapper.get('[data-testid="story-review-tone"]').text()))
+      .toBe('Tono: Neutro')
   })
 
   it('does not expose internal provider data in the review', async () => {

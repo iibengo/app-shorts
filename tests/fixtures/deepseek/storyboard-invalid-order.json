@@ -1,0 +1,39 @@
+{
+  "beats": [
+    {
+      "order": 1,
+      "visualPrompt": "Plano general de Clara en el obrador al amanecer con el bol de merengue.",
+      "camera": "wide",
+      "continuityFromPrevious": null,
+      "transition": "cut"
+    },
+    {
+      "order": 9,
+      "visualPrompt": "Primer plano del merengue dibujando una figura imposible.",
+      "camera": "close-up",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
+      "transition": "cut"
+    },
+    {
+      "order": 3,
+      "visualPrompt": "Plano medio de Clara y el cliente junto al mostrador.",
+      "camera": "medium",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
+      "transition": "cut"
+    },
+    {
+      "order": 4,
+      "visualPrompt": "Plano sobre el hombro de Clara mirando la bandeja.",
+      "camera": "over-the-shoulder",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
+      "transition": "cut"
+    },
+    {
+      "order": 5,
+      "visualPrompt": "Detalle del bol de merengue mientras Clara apaga el horno.",
+      "camera": "detail",
+      "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
+      "transition": "cut"
+    }
+  ]
+}

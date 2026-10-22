@@ -17,8 +17,11 @@ import { createMediaDownloader } from './media-downloader'
 import { createFfmpegRunner } from './ffmpeg-runner'
 import type { StoryCostGuard } from './cost'
 import { createStoryCostGuard } from './cost'
-import { createBriefingDirector } from './briefing-director'
+import { createBriefingNarrativeDirector } from './briefing-director'
 import { createStoryDirector } from './director'
+import { createDeepSeekClient, DEFAULT_DEEPSEEK_BASE_URL } from './deepseek-client'
+import { createStoryNarrativeDirector } from './narrative-director'
+import { createStoryVisualDirector } from './visual-director'
 import type { StoryDirector } from './director-types'
 import { createKeyframeOrchestrator } from './keyframe-orchestrator'
 import type { KeyframeOrchestrator } from './keyframe-orchestrator'
@@ -43,6 +46,9 @@ import { createStoryFrameExtractor } from './qc-frames'
 interface RuntimeStoryConfig {
   readonly maxCostUsd?: number
   readonly costDirectorUsd?: number
+  readonly costNarrativeUsd?: number
+  readonly costVisualUsd?: number
+  readonly costDirectorRepairUsd?: number
   readonly costKeyframeUsd?: number
   readonly costKeyframeReferenceUsd?: number
   readonly costVideoFastUsd?: number
@@ -63,7 +69,9 @@ interface RuntimeStoryConfig {
   readonly commandWindowMs?: number
   readonly maxActiveStories?: number
   readonly directorModel?: string
-  readonly directorTimeoutMs?: number
+  readonly narrativeTimeoutMs?: number
+  readonly visualTimeoutMs?: number
+  readonly directorTotalTimeoutMs?: number
   readonly deepseekBaseUrl?: string
   readonly falQueueBaseUrl?: string
   readonly falRunBaseUrl?: string
@@ -78,7 +86,6 @@ interface RuntimeStoryConfig {
   readonly qcMinConfidence?: number
   readonly qcRetryLimit?: number
   readonly qcRetryWindowMs?: number
-  readonly qcModel?: string
 }
 
 interface AppRuntimeConfig {
@@ -122,6 +129,9 @@ export interface StoryRuntime {
   readonly qcEnabled: boolean
   readonly qcMinConfidence: number
   readonly costQcUsd: number
+  readonly narrativeTimeoutMs: number
+  readonly visualTimeoutMs: number
+  readonly directorTotalTimeoutMs: number
   readonly hasFfmpeg: boolean
   readonly videoConcurrency: number
   readonly assemblyTimeoutMs: number
@@ -132,7 +142,6 @@ export interface StoryRuntime {
 const DEFAULT_QUEUE_BASE_URL = 'https://queue.fal.run'
 const DEFAULT_RUN_BASE_URL = 'https://fal.run'
 const DEFAULT_STORAGE_BASE_URL = 'https://rest.fal.ai'
-const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
 
 const processIpSalt = randomBytes(32).toString('hex')
 
@@ -142,6 +151,11 @@ interface StoryLogEvent {
   readonly sceneOrder?: number
   readonly errorCode?: string
   readonly reason?: string
+  readonly pass?: 'narrative' | 'visual'
+  readonly attempt?: 1 | 2
+  readonly finishReason?: string
+  readonly mode?: string
+  readonly latencyMs?: number
 }
 
 function logStoryEvent(event: StoryLogEvent): void {
@@ -281,6 +295,9 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
   const costGuard = createStoryCostGuard({
     maxStoryCostUsd: decimalValue(story.maxCostUsd, 8),
     directorCostUsd: decimalValue(story.costDirectorUsd, 0.01),
+    narrativeCostUsd: decimalValue(story.costNarrativeUsd, 0.01),
+    visualCostUsd: decimalValue(story.costVisualUsd, 0.005),
+    directorRepairCostUsd: decimalValue(story.costDirectorRepairUsd, 0.01),
     keyframeCostUsd: decimalValue(story.costKeyframeUsd, 0.05),
     keyframeReferenceCostUsd: decimalValue(story.costKeyframeReferenceUsd, 0.08),
     videoFastCostUsd: decimalValue(story.costVideoFastUsd, 0.35),
@@ -288,15 +305,35 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     qcUnitCostUsd: costQcUsd,
     dailyBudgetUsd: decimalValue(story.dailyBudgetUsd, 50),
   })
-  const director = hasDeepSeekKey
-    ? createBriefingDirector(
-        createStoryDirector({
-          apiKey: deepseekKey,
-          baseUrl: stringValue(story.deepseekBaseUrl, DEFAULT_DEEPSEEK_BASE_URL),
-          timeoutMs: numberValue(story.directorTimeoutMs, 45_000),
-          onEvent: logStoryEvent,
-        }),
-      )
+  const narrativeTimeoutMs = numberValue(story.narrativeTimeoutMs, 40_000)
+  const visualTimeoutMs = numberValue(story.visualTimeoutMs, 25_000)
+  const directorTotalTimeoutMs = numberValue(story.directorTotalTimeoutMs, 85_000)
+  const deepseekClient = hasDeepSeekKey
+    ? createDeepSeekClient({
+        apiKey: deepseekKey,
+        baseUrl: stringValue(story.deepseekBaseUrl, DEFAULT_DEEPSEEK_BASE_URL),
+      })
+    : null
+  const narrative = deepseekClient
+    ? createBriefingNarrativeDirector(createStoryNarrativeDirector({
+        client: deepseekClient,
+        onEvent: logStoryEvent,
+        timeoutMs: narrativeTimeoutMs,
+      }))
+    : null
+  const visual = deepseekClient
+    ? createStoryVisualDirector({
+        client: deepseekClient,
+        onEvent: logStoryEvent,
+        timeoutMs: visualTimeoutMs,
+      })
+    : null
+  const director = narrative && visual
+    ? createStoryDirector({
+        narrative,
+        visual,
+        totalTimeoutMs: directorTotalTimeoutMs,
+      })
     : null
   const repository = databaseAvailable ? createPrismaStoryRepository() : null
   const keyframes = hasFalKey ? createKeyframeOrchestrator(queue) : null
@@ -330,11 +367,9 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
           ffprobePath,
         }),
         evaluator: createStoryQCEvaluator(
-          hasDeepSeekKey
+          deepseekClient
             ? {
-                apiKey: deepseekKey,
-                baseUrl: stringValue(story.deepseekBaseUrl, DEFAULT_DEEPSEEK_BASE_URL),
-                model: stringValue(story.qcModel, 'deepseek-flash'),
+                client: deepseekClient,
                 timeoutMs: QC_EVALUATOR_TIMEOUT_MS,
               }
             : null,
@@ -426,6 +461,9 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     qcEnabled,
     qcMinConfidence,
     costQcUsd,
+    narrativeTimeoutMs,
+    visualTimeoutMs,
+    directorTotalTimeoutMs,
     hasFfmpeg,
     videoConcurrency: numberValue(
       story.videoConcurrency,

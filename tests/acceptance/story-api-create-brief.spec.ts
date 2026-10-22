@@ -1,11 +1,16 @@
 // @vitest-environment node
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createBriefingDirector } from '../../../server/story/briefing-director'
+import { createBriefingNarrativeDirector } from '../../../server/story/briefing-director'
+import { createDeepSeekClient } from '../../../server/story/deepseek-client'
 import { createStoryDirector } from '../../../server/story/director'
+import { createStoryNarrativeDirector } from '../../../server/story/narrative-director'
+import { createStoryVisualDirector } from '../../../server/story/visual-director'
 import { analyzePremise, renderBriefBlock } from '../../../server/story/premise-brief'
-import { startDeepSeekStub } from '../helpers/deepseek-stub'
+import { narrative5, startDeepSeekStub } from '../helpers/deepseek-stub'
 import { FakeStoryRepository } from '../helpers/story'
 import invalidContinuity from '../fixtures/deepseek/deepseek-plan-invalid-continuity.json'
+import invalidStoryboard from '../fixtures/deepseek/storyboard-invalid-order.json'
+import storyboardValid from '../fixtures/deepseek/storyboard-valid.json'
 import { makeStoryRuntime } from '../helpers/story-runtime'
 import { callStoryRoute } from '../helpers/story-route'
 
@@ -18,11 +23,15 @@ const PREMISE = 'Mar de luz azul'
 const stub = await startDeepSeekStub()
 
 function setup() {
-  const director = createBriefingDirector(createStoryDirector({
-    apiKey: KEY,
-    baseUrl: stub.baseUrl,
-    timeoutMs: 2_000,
-  }))
+  const client = createDeepSeekClient({ apiKey: KEY, baseUrl: stub.baseUrl })
+  const director = createStoryDirector({
+    narrative: createBriefingNarrativeDirector(createStoryNarrativeDirector({
+      client,
+      timeoutMs: 2_000,
+    })),
+    visual: createStoryVisualDirector({ client, timeoutMs: 2_000 }),
+    totalTimeoutMs: 5_000,
+  })
   const runtime = makeStoryRuntime({ director, hasDeepSeekKey: true })
   const repository = runtime.repository as FakeStoryRepository
 
@@ -37,7 +46,9 @@ function setup() {
       method: 'POST',
       path: '/api/story',
       runtime,
-      body: payload,
+      body: typeof payload === 'object' && payload !== null
+        ? { mode: 'faithful', ...payload }
+        : payload,
       ...(options.idempotencyKey === undefined
         ? {}
         : { idempotencyKey: options.idempotencyKey }),
@@ -63,7 +74,7 @@ beforeEach(() => {
 })
 
 describe('POST /api/story with a short premise and a real decorated director', () => {
-  it('creates the story with one DeepSeek request and the original premise', async () => {
+  it('creates the story with two DeepSeek passes and the original premise', async () => {
     const { repository, post } = setup()
 
     const response = await post({ premise: PREMISE })
@@ -75,7 +86,7 @@ describe('POST /api/story with a short premise and a real decorated director', (
     expect(story.status).toBe('GENERATING_KEYFRAMES')
     expect(story.sceneCount).toBe(5)
     expect(story.scenes).toHaveLength(5)
-    expect(stub.requests).toHaveLength(1)
+    expect(stub.requests).toHaveLength(2)
 
     expect(repository.records).toHaveLength(1)
     expect(repository.records[0]?.premise).toBe(PREMISE)
@@ -95,6 +106,37 @@ describe('POST /api/story with a short premise and a real decorated director', (
     expect(JSON.stringify(response.body)).not.toContain('Bart')
   })
 
+  it('returns 502 after two invalid storyboards and persists nothing', async () => {
+    stub.state.contents = [narrative5, invalidStoryboard, invalidStoryboard]
+    const { repository, post } = setup()
+
+    const response = await post({ premise: PREMISE })
+
+    expect(response.status).toBe(502)
+    expect((response.body as { error?: { code?: string } }).error?.code)
+      .toBe('director-invalid-output')
+    expect(stub.requests).toHaveLength(3)
+    expect(repository.records).toHaveLength(0)
+  })
+
+  it('returns 502 after two storyboards copying the narration and persists nothing', async () => {
+    const copied = structuredClone(storyboardValid)
+    copied.beats[0] = {
+      ...copied.beats[0],
+      visualPrompt: narrative5.beats[0]!.narration,
+    }
+    stub.state.contents = [narrative5, copied, copied]
+    const { repository, post } = setup()
+
+    const response = await post({ premise: PREMISE })
+
+    expect(response.status).toBe(502)
+    expect((response.body as { error?: { code?: string } }).error?.code)
+      .toBe('director-invalid-output')
+    expect(stub.requests).toHaveLength(3)
+    expect(repository.records).toHaveLength(0)
+  })
+
   it('sends the premise verbatim plus the deterministic brief', async () => {
     const { post } = setup()
 
@@ -108,7 +150,7 @@ describe('POST /api/story with a short premise and a real decorated director', (
     const content = body.messages[1]?.content
 
     expect(body.model).toBe('deepseek-flash')
-    expect(body.max_tokens).toBe(6_000)
+    expect(body.max_tokens).toBe(7_000)
     expect(typeof content).toBe('string')
 
     const text = content as string
@@ -130,7 +172,7 @@ describe('POST /api/story with a short premise and a real decorated director', (
     const record = repository.records[0]!
 
     expect(record.plan).not.toBeNull()
-    expect(Object.keys(record.plan ?? {}).sort()).toEqual(['beats', 'logline', 'storyBible', 'title'])
+    expect(Object.keys(record.plan ?? {}).sort()).toEqual(['beats', 'logline', 'storyBible', 'title', 'tone'])
     expect(JSON.stringify(record)).not.toContain('Brief de producción')
     expect(JSON.stringify(response.body)).not.toContain('Brief de producción')
   })
@@ -150,7 +192,7 @@ describe('POST /api/story with a short premise and a real decorated director', (
     expect(second.status).toBe(200)
     expect((second.body as { id: string }).id).toBe((first.body as { id: string }).id)
     expect((second.body as { premise: string }).premise).toBe(PREMISE)
-    expect(stub.requests).toHaveLength(1)
+    expect(stub.requests).toHaveLength(2)
   })
 
   it('never leaks keys, provider hosts or transport URLs', async () => {

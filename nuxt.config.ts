@@ -32,6 +32,9 @@ export default defineNuxtConfig({
     story: {
       maxCostUsd: 8,
       costDirectorUsd: 0.01,
+      costNarrativeUsd: 0.01,
+      costVisualUsd: 0.005,
+      costDirectorRepairUsd: 0.01,
       costKeyframeUsd: 0.05,
       costKeyframeReferenceUsd: 0.08,
       costVideoFastUsd: 0.35,
@@ -52,7 +55,9 @@ export default defineNuxtConfig({
       commandWindowMs: 60_000,
       maxActiveStories: 2,
       directorModel: 'deepseek-flash',
-      directorTimeoutMs: 45_000,
+      narrativeTimeoutMs: 40_000,
+      visualTimeoutMs: 25_000,
+      directorTotalTimeoutMs: 85_000,
       deepseekBaseUrl: 'https://api.deepseek.com',
       falQueueBaseUrl: 'https://queue.fal.run',
       falRunBaseUrl: 'https://fal.run',
@@ -67,7 +72,6 @@ export default defineNuxtConfig({
       qcMinConfidence: 0.7,
       qcRetryLimit: 3,
       qcRetryWindowMs: 3_600_000,
-      qcModel: 'deepseek-flash',
     },
   },
 

@@ -25,6 +25,7 @@ const CREATE: StoryCreateRequest = {
   premise: 'Una repostera descubre que sus postres pueden predecir el futuro.',
   sceneCount: 5,
   preset: 'fast',
+  mode: 'faithful',
   referenceUrl: null,
   referenceExpiresAt: null,
 }
@@ -72,6 +73,7 @@ describe('useStoryApi requests', () => {
     expect(url).toBe('/api/story')
     expect(options.method).toBe('POST')
     expect(options.body).toEqual(CREATE)
+    expect((options.body as StoryCreateRequest).mode).toBe('faithful')
     expect(options.headers).toMatchObject({
       'Content-Type': 'application/json',
       'Idempotency-Key': expect.stringMatching(

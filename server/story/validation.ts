@@ -5,6 +5,7 @@ import type {
   StoryBeatUpdateRequest,
   StoryCreateRequest,
   StoryImageMimeType,
+  StoryMode,
   StoryPreset,
   StoryReferenceUploadRequest,
   StorySceneCount,
@@ -46,6 +47,7 @@ const CREATE_FIELDS = [
   'premise',
   'sceneCount',
   'preset',
+  'mode',
   'referenceUrl',
   'referenceExpiresAt',
 ] as const
@@ -129,6 +131,14 @@ export function validateSceneCount(value: unknown): StorySceneCount {
   return value as StorySceneCount
 }
 
+export function validateStoryMode(value: unknown): StoryMode {
+  if (value === 'faithful' || value === 'creative') {
+    return value
+  }
+
+  throw new StoryError('invalid-mode')
+}
+
 export function validatePreset(value: unknown): StoryPreset {
   if (value === undefined) {
     return 'fast'
@@ -200,12 +210,17 @@ export function validateCreateRequest(
 
   assertKnownFields(payload, CREATE_FIELDS)
 
+  const premise = validatePremise(payload.premise)
+  const sceneCount = validateSceneCount(payload.sceneCount)
+  const preset = validatePreset(payload.preset)
+  const mode = validateStoryMode(payload.mode)
   const reference = validateReference(payload.referenceUrl, payload.referenceExpiresAt, now)
 
   return {
-    premise: validatePremise(payload.premise),
-    sceneCount: validateSceneCount(payload.sceneCount),
-    preset: validatePreset(payload.preset),
+    premise,
+    sceneCount,
+    preset,
+    mode,
     referenceUrl: reference.referenceUrl,
     referenceExpiresAt: reference.referenceExpiresAt,
   }

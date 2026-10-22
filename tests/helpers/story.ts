@@ -1,6 +1,7 @@
 import type {
   SceneStatus,
   StoryErrorCode,
+  StoryMode,
   StoryPlan,
   StoryPreset,
   StorySceneCount,
@@ -17,10 +18,7 @@ import type {
   StoryRecord,
   StoryRepository,
 } from '../../server/story/repository'
-import type {
-  DirectorPlan,
-  StoryDirector,
-} from '../../server/story/director-types'
+import type { StoryDirector } from '../../server/story/director-types'
 import type { StoryAssembler } from '../../server/story/assembly-service'
 import type {
   KeyframeOrchestrator,
@@ -45,7 +43,82 @@ export const PLANS = {
   6: plan6 as StoryPlan,
 } as const
 
-export const DEFAULT_PLAN: DirectorPlan = PLANS[5]
+export const DEFAULT_PLAN: StoryPlan = PLANS[5]
+
+
+export function longGlobalPlan(): StoryPlan {
+  const plan = structuredClone(DEFAULT_PLAN) as StoryPlan
+  const long = 'Palabra '.repeat(25).trim()
+
+  plan.storyBible = {
+    ...plan.storyBible!,
+    style: long.slice(0, 140),
+    theme: long.slice(0, 140),
+    leadCharacterId: 'personaje-1',
+    signaturePropId: 'objeto-1',
+    characters: Array.from({ length: 2 }, (_value, index) => ({
+      id: `personaje-${index + 1}`,
+      name: `Personaje ${index + 1}`,
+      description: long.slice(0, 160),
+      wardrobe: long.slice(0, 120),
+      source: 'premise' as const,
+    })),
+    locations: Array.from({ length: 3 }, (_value, index) => ({
+      id: `lugar-${index + 1}`,
+      name: `Lugar ${index + 1}`,
+      description: long.slice(0, 160),
+      source: 'premise' as const,
+    })),
+    props: Array.from({ length: 3 }, (_value, index) => ({
+      id: `objeto-${index + 1}`,
+      name: `Objeto ${index + 1}`,
+      description: long.slice(0, 120),
+      source: 'premise' as const,
+    })),
+    forbidden: Array.from(
+      { length: 5 },
+      (_value, index) => `Prohibido ${index + 1} ${long.slice(0, 35)}`.slice(0, 50),
+    ),
+    continuityRules: Array.from(
+      { length: 2 },
+      (_value, index) => `Regla ${index + 1} ${long.slice(0, 120)}`.slice(0, 140),
+    ),
+  }
+  plan.beats = plan.beats.map((beat, index) => ({
+    ...beat,
+    locationId: `lugar-${(index % 3) + 1}`,
+    visualPrompt: 'Composición '.repeat(50).slice(0, 600),
+    action: 'Acción '.repeat(80).slice(0, 600),
+    characters: index % 2 === 0
+      ? ['personaje-1', 'personaje-2']
+      : ['personaje-1'],
+    props: [
+      ['objeto-1'],
+      ['objeto-2'],
+      ['objeto-3'],
+      ['objeto-1'],
+      ['objeto-2'],
+    ][index]!,
+  }))
+
+  return plan
+}
+
+export function longVideoPlan(): StoryPlan {
+  const plan = structuredClone(DEFAULT_PLAN) as StoryPlan
+  const beat = plan.beats[1]!
+
+  plan.beats = plan.beats.map((item) => item.order === beat.order
+    ? {
+        ...item,
+        action: 'Acción '.repeat(80).slice(0, 600),
+        visualPrompt: 'Composición '.repeat(50).slice(0, 600),
+    action: 'Acción '.repeat(80).slice(0, 600),
+      }
+    : item)
+
+  return plan
+}
 
 export const STORY_ID = 'story-test-0001'
 export const SESSION_ID = 'story-session-abcdefghijkl'
@@ -124,6 +197,7 @@ export function makeStoryRecord(overrides: Partial<StoryRecord> = {}): StoryReco
     referenceUrl: overrides.referenceUrl ?? null,
     referenceExpiresAt: overrides.referenceExpiresAt ?? null,
     preset,
+    mode: overrides.mode ?? 'faithful',
     sceneCount,
     durationSeconds: overrides.durationSeconds ?? 6,
     aspectRatio: overrides.aspectRatio ?? '9:16',
@@ -249,6 +323,7 @@ export class FakeStoryRepository implements StoryRepository {
       referenceUrl: input.referenceUrl,
       referenceExpiresAt: input.referenceExpiresAt,
       preset: input.preset,
+      mode: input.mode,
       sceneCount: input.sceneCount,
       durationSeconds: input.durationSeconds,
       aspectRatio: input.aspectRatio,
@@ -550,20 +625,21 @@ export class FakeStoryRepository implements StoryRepository {
 export interface DirectorCall {
   readonly premise: string
   readonly sceneCount: number
+  readonly mode: StoryMode
   readonly referenceUrl: string | null
 }
 
 export class FakeStoryDirector implements StoryDirector {
   readonly calls: DirectorCall[] = []
-  plan: DirectorPlan
+  plan: StoryPlan
   error: Error | null
 
-  constructor(plan: DirectorPlan = DEFAULT_PLAN, error: Error | null = null) {
+  constructor(plan: StoryPlan = DEFAULT_PLAN, error: Error | null = null) {
     this.plan = plan
     this.error = error
   }
 
-  async createPlan(input: DirectorCall): Promise<DirectorPlan> {
+  async createPlan(input: DirectorCall): Promise<StoryPlan> {
     this.calls.push(input)
 
     if (this.error) {
@@ -773,6 +849,7 @@ export function makeStoryDto(
     referenceUrl: overrides.referenceUrl ?? null,
     referenceExpiresAt: overrides.referenceExpiresAt ?? null,
     preset,
+    mode: overrides.mode ?? 'faithful',
     modelId: overrides.modelId
       ?? (preset === 'quality' ? 'kling-2.5-turbo-pro' : 'minimax-hailuo-02'),
     sceneCount,

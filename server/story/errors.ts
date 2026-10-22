@@ -45,6 +45,11 @@ const DEFINITIONS: Readonly<Record<StoryErrorCode, StoryErrorDefinition>> = {
     message: 'El estilo de generación no es válido.',
     retryable: false,
   },
+  'invalid-mode': {
+    status: 400,
+    message: 'El modo de la historia no es válido.',
+    retryable: false,
+  },
   'invalid-reference': {
     status: 400,
     message: 'La imagen de referencia no es válida.',
