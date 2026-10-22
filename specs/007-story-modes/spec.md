@@ -1710,3 +1710,12 @@ Confirmación explícita contra `.specify/memory/constitution.md` v1.2.0.
 6. **`Story.tone` sin columna**: el tono vive en `planJson`. Se evita una segunda fuente de verdad; el DTO lo expone.
 7. **Negativo sin lista fija**: 007 elimina `bicycle`/`night`/`rain`/etc. como elementos de historia fijos y los deriva de la escena y del canon.
 8. **QC por escena**: 007 cambia las reglas del comparador para no bloquear historias con cambios de escena. No cambia estados, códigos ni umbrales.
+
+---
+
+## Enmienda — Modo `thinking` explícito (2026-10-23)
+
+| Cláusula | Antes | Enmienda | Efecto |
+|---|---|---|---|
+| **FR-020** | `temperature` 0.4 en `faithful` y 0.7 en `creative`, en ambas pasadas, como constante del servidor. | **Se mantiene el valor** y se añade **`thinking: { type: 'disabled' }`** en ambas pasadas; `directorTemperature()` no cambia. | Los valores 0.4/0.7 dejan de ser inertes: DeepSeek ignora `temperature` con thinking activo. |
+| **Enmienda 2026-10-22 (Checkpoint 2)** | «El diagnóstico de `usage` decide si el problema es reasoning». | **Resuelto.** El razonamiento consume `max_tokens`: con `max_tokens: 200` y thinking activo el contenido quedó vacío con `finish_reason: length` y `reasoning_tokens: 200`. | El truncamiento tenía causa real; los presupuestos de 8 000 se mantienen porque thinking queda desactivado. |

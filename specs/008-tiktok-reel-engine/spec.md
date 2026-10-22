@@ -32,6 +32,18 @@
 | 7 | **Gates**: se ajusta **D4** y **D9** y se añade **D10** (modo Presupuesto). | Gates |
 | 8 | **Tests**: Presupuesto, 90 s budget, 90 s producción, preset inválido en Presupuesto, selector de modo y aviso de coste. | Test Plan |
 
+### Enmienda 2026-10-23 — modo `thinking` explícito
+
+> Medición real (3 llamadas, ≈ 0,0019 USD) sobre el director de planos: DeepSeek razona por defecto (`reasoning_content` presente, 1 277 de 1 958 tokens de salida en razonamiento), el razonamiento consume `max_tokens` (con `max_tokens: 200`: `finish_reason: length`, `reasoning_tokens: 200`, contenido vacío) y `temperature` no tiene efecto con thinking activo. Repetida la llamada con `thinking: { type: 'disabled' }`: JSON válido equivalente, 4,5 s frente a 10,4 s y 660 frente a 1 958 tokens de salida.
+
+| # | Cambio | Dónde se aplica |
+|---|---|---|
+| 1 | **FR-444 / FR-445 se mantienen** (`deepseek-flash`, `json_object`, `stream: false`, temperature 0.4/0.7) y se les añade **`thinking: { type: 'disabled' }`**. | Cliente DeepSeek, directores de canon, escenas y planos |
+| 2 | **El director de planos también lo desactiva.** La medición muestra JSON válido equivalente, 2,3× menos latencia y 2,7× menos coste de tokens. | `reel-shot-director.ts` |
+| 3 | **`max_tokens` y la fórmula de reparación no cambian**: sin razonamiento no se necesita reserva. | FR-446, truncamiento |
+| 4 | **`thinking` es obligatorio en el contrato del cliente**, sin default silencioso; `enabled` con `reasoning_effort` queda disponible si la eval de calidad lo justifica. | `DeepSeekCompletionRequest` |
+| 5 | **Las estimaciones de latencia y caps no se reajustan** en esta enmienda; el smoke real de 15 s budget sigue pendiente. | §Costes y latencia, gates |
+
 ---
 
 ## Contexto y relación con 004/005/006/007

@@ -1681,3 +1681,12 @@ Confirmación explícita contra `.specify/memory/constitution.md` v1.2.0.
 2. **`negative_prompt` derivado**: 005 declaraba fuera de alcance el prompt negativo. 006 lo introduce **derivado en el servidor** y no configurable por el cliente; la elección libre sigue fuera de alcance.
 3. **Nuevos estados y columnas**: 005 afirmaba que no se añadiría ningún campo al schema en v1. 006 lo supersede explícitamente con dos estados y dos columnas, justificados por la necesidad de un gate verificable y persistente.
 4. **QC no perfecto**: se asume y se documenta que el QC puede tener falsos positivos y falsos negativos; por eso hay umbral de confianza, severidades, override humano y un gate de fiabilidad con canario.
+
+---
+
+## Enmienda — Modo `thinking` explícito en el evaluador (2026-10-23)
+
+| Cláusula | Antes | Enmienda | Efecto |
+|---|---|---|---|
+| **FR-242** | `deepseek-flash`, `response_format: { type: 'json_object' }`, `temperature: 0`, `stream: false`, una imagen y `max_tokens` acotado. | Añade **`thinking: { type: 'disabled' }`**, coherente con la Enmienda B de 005. | `temperature: 0` pasa a ser efectivo; DeepSeek lo ignoraba con thinking activo. No cambia el modelo, `baseUrl`, la clave, la imagen ni el esquema. |
+| **Test Plan** (`story-qc-evaluator.spec.ts`) | Afirmaba modelo, `response_format`, `temperature: 0`, una imagen y `max_tokens`. | Añade la afirmación de `thinking: { type: 'disabled' }`. | El contrato del body queda cubierto sin llamadas reales. |

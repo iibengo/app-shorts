@@ -2558,3 +2558,17 @@ Confirmación explícita contra `.specify/memory/constitution.md` v1.1.0:
 2. **Persistencia y reanudación**: 004 las excluía para el Composer. 005 las introduce en un dominio distinto (`Story`) con PostgreSQL, cookie y TTL; no altera el Composer.
 3. **`server/plugins/`**: 004 lo prohibía para su implementación. 005 añade un único plugin de reconciliador, sin middleware ni proxy.
 4. **Multi-instancia**: los leases reducen el riesgo, pero no se promete coordinación perfecta ni rate limit distribuido; se documenta y se prueba la recuperación.
+
+---
+
+## Enmienda B — Modo `thinking` explícito en el cliente DeepSeek (2026-10-23)
+
+> Medición real del 2026-10-23 (3 llamadas, coste ≈ 0,0019 USD): DeepSeek activa `thinking` por defecto. En el director de planos, `usage.reasoning_tokens` fue 1 277 de 1 958 tokens de salida; con `max_tokens: 200` y thinking activo el razonamiento consumió el presupuesto completo (`finish_reason: length`, contenido vacío). La documentación de DeepSeek confirma que `temperature` no tiene efecto mientras thinking está activo.
+
+| Cláusula | Antes | Enmienda | Efecto |
+|---|---|---|---|
+| **FR-020** | `response_format`, `stream: false`, `temperature` fija y `max_tokens` acotado. | Añade **`thinking` obligatorio** en cada petición. Todas las etapas del director lo envían `{ type: 'disabled' }`. | `temperature` recupera su efecto real; no se envía `reasoning_effort`. |
+| **Contrato `DeepSeekChatRequest`** (Data Contract) | Sin campo `thinking`. | Añade `thinking: { type: 'disabled' } \| { type: 'enabled', reasoning_effort: 'low' \| 'high' \| 'max' }`. | El modo se declara por llamada; se elimina el default silencioso del proveedor. |
+| **FR-019 / FR-024** | Modelo `deepseek-flash`, endpoint OpenAI-compatible y timeouts. | **Se mantienen.** | Sin cambios de modelo, endpoint, timeout ni códigos de error. |
+
+`max_tokens` no cambia: con thinking desactivado no se necesita reserva de razonamiento.
