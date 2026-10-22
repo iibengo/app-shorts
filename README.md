@@ -152,7 +152,7 @@ Antes de la Spec 009 (audio, voz, música y subtítulos), lee `AGENTS.md` y las 
 - Spec 005 implementada: Story Composer con `/story`, `/story/[id]`, reconciliador con leases, FFmpeg y persistencia PostgreSQL.
 - Spec 006 implementada: Story Bible, continuidad en prompts, QC de fotogramas y estados `QC`/`WAITING_QC`.
 - Spec 007 implementada: modos `faithful`/`creative`, canon con localizaciones y `source`, dos pasadas de DeepSeek y QC por escena.
-- Spec 008 implementada y validada (`dff2764`): duración como contrato, escenas con varios planos, perfiles budget/standard/production, worker por shot, QC por shot, montaje y UI por plano.
+- Spec 008 implementada (`dff2764`); no validada: smoke real pendiente: duración como contrato, escenas con varios planos, perfiles budget/standard/production, worker por shot, QC por shot, montaje y UI por plano.
 - Prisma 7 + PostgreSQL: `Story`/`Scene`/`Shot`, migraciones hasta `20261022171500_shot_version`, Docker local.
 - Suite automatizada: **2103 tests en verde** (13 skips opt-in, 154 archivos); `npm run build` correcto.
 - 004 sin archivos modificados; la suite 004 reproducible es **605 tests**. La cifra histórica de 613 no es reproducible con el árbol actual.

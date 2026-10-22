@@ -60,7 +60,18 @@ Changes must be verified. The Tester agent must validate implementations with au
 
 ### VI. Specification Closure & Documentation
 A feature is not complete when the tests pass. It is complete when Phase 4 closes it:
-- The spec status is updated to `Implemented` or `Validated` with the commit, date, exact test/build counts and known deviations.
+
+Spec status is a claim about evidence, not intent:
+
+| Status | Evidence required |
+| --- | --- |
+| `Draft` | Spec written; Checkpoint 1 pending. |
+| `Approved` | Human approval recorded; no implementation yet. |
+| `Implemented` | Code merged; full gate green with stubs; docs synced. Records commit, date and exact counts. |
+| `Validated` | `Implemented` **plus** a real-provider smoke and manual QA of the critical paths, with date, provider, budget spent and deviations. Granted only by a human. |
+
+- The spec status is one of those four values, with the commit, date, exact test/build counts and known deviations.
+- A spec with a pending real smoke or pending manual QA MUST stay `Implemented`. "Smoke pending" is incompatible with `Validated`.
 - `AGENTS.md` reflects the current commit, implemented specs, test counts, open gates and next spec.
 - `README.md`, `.env.example`, `nuxt.config.ts` and affected project skills agree on every environment default that changed.
 - Superseded test counts, old defaults and historical status lines are removed or explicitly marked historical.
@@ -104,4 +115,4 @@ The full suite is a final gate, not a development loop:
 ## Governance
 This Constitution supersedes ad-hoc development practices. Every spec, agent prompt and workflow must verify compliance with these principles. Any deviation must be explicit in the spec, justified, and approved at the corresponding checkpoint.
 
-**Version**: 1.3.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-22
+**Version**: 1.4.0 | **Ratified**: 2026-10-18 | **Last Amended**: 2026-10-23

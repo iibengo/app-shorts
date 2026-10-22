@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Implemented and validated (commit `dff2764`, 2026-10-22; enmiendas 2026-10-23 de thinking, errores transitorios/jobs inactivos y composición del keyframe). Tests: **2103 passed / 13 skipped**; build green. Real-provider smoke pending; see “Cierre de 008”.
+**Status**: Implemented — not validated (commit `dff2764`, 2026-10-22; enmiendas 2026-10-23 de thinking, errores transitorios/jobs inactivos y composición del keyframe). Tests: **2103 passed / 13 skipped**; build green. Real-provider smoke and manual QA pending; see “Cierre de 008”.
 
 **Input**: User description: "El motor de 007 hace 4–6 escenas de 6 segundos con un keyframe y un vídeo por escena. El resultado dura 24–36 s, se ve repetitivo y no se parece a un reel de TikTok o Instagram: no hay cambios de localización dentro de la cobertura, no hay varios planos por escena, no hay hook en el primer segundo y no hay forma de elegir la duración. Quiero reels de 15–90 s con escenas narrativas y varios planos visuales por escena, cobertura variada, cambios de localización, ritmo de retención (gancho, conflicto, pattern interrupts, giro y payoff) y la opción de regenerar un plano concreto sin rehacer toda la escena. La duración es un contrato: el Narrador y el Director Visual se adaptan y ningún MP4 puede superar el máximo elegido. El flujo automático sigue siendo el camino por defecto; la edición es opcional. Sin audio, sin subtítulos y sin publicación."
 

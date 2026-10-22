@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Approved at Checkpoint 1 (2026-10-22). Implementation complete; Checkpoint 2 pending.
+**Status**: Implemented (gate with stubs green; real-provider smoke pending; manual QA pending).
 
 **Input**: User description: "El modelo de 006 de una sola localización, una sola hora y un solo clima para toda la historia produce escenas repetidas y no permite historias reales. Quiero un narrador que escriba una historia entretenida y graciosa, con cambios de escena reales (parque, despacho, calle), continuidad causal y no inmovilidad visual. El director debe poder sorprender dentro de la premisa. Usa DeepSeek para la narrativa y no prometas viralidad: garantiza estructura (gancho, complicación, escalada, giro y remate visual). Arquitectura aprobada: dos pasadas de DeepSeek, mismo proveedor, sin nuevas dependencias. La primera pasada es el Narrador y produce el canon y los beats narrativos con contexto por escena. La segunda es el Director Visual y convierte cada beat en `visualPrompt`, `camera`, `continuityFromPrevious` y `transition`, sin cambiar el canon ni la trama. Después, el `StoryPromptComposer` determinista construye los prompts de keyframe y vídeo. El prompt de vídeo debe seguir siendo ≤ 2.000 caracteres. La biblia editable por el usuario sigue fuera de alcance."
 

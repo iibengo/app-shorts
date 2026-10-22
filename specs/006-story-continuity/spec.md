@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-21
 
-**Status**: Draft (Checkpoint 1 pending). No code may be written until human approval.
+**Status**: Implemented (gate with stubs green; real-provider smoke pending; manual QA pending).
 
 **Input**: User description: "La historia «Fuga en el parque» salió técnicamente correcta pero con fallos graves de continuidad: el patinete azul pasó a bicicleta y luego a patinete rosa, el vestuario cambió, apareció un personaje que no estaba en ningún prompt, el clima pasó de día a tormenta y el protagonista desapareció. El plan textual era coherente, pero el director no definía una biblia visual ni invariantes, y los keyframes y vídeos se generaban de forma independiente con un prompt por escena y una frase genérica de «consistent subject». Añadir una Story Bible al director DeepSeek, beats con continuidad explícita, propagación de un bloque global idéntico más negativos por modelo a keyframes y vídeos, y un QC de fotogramas con FFmpeg y DeepSeek Vision antes de ensamblar. Si el QC falla o no está disponible, la historia queda en revisión con acciones de recuperación, sin inventar un PASS. No se rompe 004; 005 se enmienda solo en lo que esta spec declara."
 

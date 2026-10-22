@@ -76,11 +76,13 @@ specs/                    specs 001–008
 
 ## Estado actual (2026-10-22)
 
-- **Spec 004 — Composer real:** implementada.
-- **Spec 005 — Story Composer:** implementada.
-- **Spec 006 — Continuidad:** implementada.
-- **Spec 007 — Modos/canon:** implementada.
-- **Spec 008 — TikTok Reel Engine:** implementada y validada, commit `dff2764 spec 8`.
+- **Estados:** `Draft` → `Approved` → `Implemented` → `Validated`. `Implemented` = gate con stubs en verde. `Validated` = además smoke real y QA manual, concedido solo por el humano.
+- **Spec 004 — Composer real:** `Implemented`.
+- **Spec 005 — Story Composer:** `Implemented`.
+- **Spec 006 — Continuidad:** `Implemented`.
+- **Spec 007 — Modos/canon:** `Implemented`.
+- **Spec 008 — TikTok Reel Engine:** `Implemented` (commit `dff2764` + enmiendas 2026-10-23). No `Validated`: smoke real y QA manual pendientes.
+- **Ninguna spec está `Validated`:** no se ha ejecutado ningún smoke real hasta la fecha.
   - Escenas narrativas + `Shot` como unidad de generación.
   - Duraciones 15/30/45/60/90 s y perfiles budget/standard/production.
   - Directores reales, worker por shot, QC técnico/visual, montaje por shot y UI por plano.
@@ -192,7 +194,7 @@ No mantener una petición HTTP abierta durante minutos. No reconstruir URLs de F
 
 Antes de proponer commit:
 
-1. Spec en `Implemented`/`Validated` con commit, fecha, tests/build y desviaciones.
+1. Spec en `Implemented` con commit, fecha, tests/build y desviaciones. `Validated` solo con smoke real y QA manual aprobados por el humano.
 2. `AGENTS.md` con estado real, gates abiertos y siguiente spec.
 3. README, `.env.example`, `nuxt.config.ts` y skills sincronizados con los defaults.
 4. Recuentos históricos y compatibilidades `legacy` marcados o retirados.
@@ -258,6 +260,7 @@ No escribir la spec todavía. La 008 ya genera el vídeo mudo; la 009 añade la 
 
 - **2026-10-21:** contexto canónico creado tras 004. Se documentan patrones de Fal, subida firmada, job token, keyframe-first, rate limit y testing; se prepara la agenda de Spec 005.
 - **2026-10-22:** Spec 008 implementada y validada (`dff2764`); se actualiza el estado canónico, se documenta la política de ejecución de tests y el cierre obligatorio de spec; se prepara la Spec 009 de audio, voz, música y subtítulos.
+- **2026-10-23:** A3 aplicado. Estados de spec separados en `Implemented` (gate con stubs) y `Validated` (smoke real + QA manual, solo humano); 004–008 reetiquetadas y ninguna en `Validated`. Añadido `typecheck` con `vue-tsc` + `typescript` como comprobación local.
 - **2026-10-23:** B1 confirmado y corregido. DeepSeek razonaba por defecto, consumía `max_tokens` y hacía inerte `temperature`; el cliente exige ahora `thinking` explícito y canon, escenas, planos y QC lo desactivan (`b09584d`). Enmiendas en 005 (B), 006, 007 y 008. Gate: 2090 passed / 13 skipped, build correcto. Smoke real sigue pendiente.
 - **2026-10-23:** B2 corregido. El keyframe se compone en inglés, con el plano primero, solo entidades presentes y 900 caracteres (FLUX/Kontext leen ~512 tokens y no admiten `negative_prompt`). Se elimina `Avoid:` del prompt positivo en keyframe y vídeo, y se restaura `StoryBeat` con `subject`/`framing`. Gate: 2103 passed / 13 skipped, build correcto.
 - **2026-10-23:** B4 corregido (`d96decc`). Los errores transitorios de consulta de estado se reintentan al siguiente tick en vez de fallar el plano; los terminales siguen fallando. Un job activo sin cambios durante 10/20 min se cancela con `cancel_url` y falla con `provider-timeout`. Enmienda en 008. Gate: 2099 passed / 13 skipped, build correcto.
