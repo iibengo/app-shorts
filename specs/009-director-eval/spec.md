@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Draft (Checkpoint 1 pending). No implementation code may be written until human approval.
+**Status**: Implemented (gate with stubs green; **not executed against the real API yet**). Real run pending explicit human authorisation.
 
 **Input**: User description: "No hay evals de la Capa B. Quiero una eval del director de planos de la 008, solo con DeepSeek (nada de Fal). 10-15 premisas versionadas, un runner que mida JSON válido a la primera, tasa de reparación, truncados, latencia y tokens, salidas grabadas como fixtures y tests que las reproduzcan sin red. Tope de 1 USD en la primera ejecución."
 
