@@ -8,6 +8,9 @@ permissions:
   - action: edit
     resource: "specs/**"
     effect: allow
+  - action: subagent
+    resource: "*"
+    effect: deny
 ---
 
 # Role: Architect Agent

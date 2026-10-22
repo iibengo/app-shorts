@@ -1,6 +1,31 @@
 ---
 description: Validates implementation, runs unit/route/component tests and fixes regressions
 mode: subagent
+permissions:
+  - action: edit
+    resource: "specs/**"
+    effect: deny
+  - action: edit
+    resource: ".env"
+    effect: deny
+  - action: edit
+    resource: "package.json"
+    effect: deny
+  - action: edit
+    resource: "tailwind.config.ts"
+    effect: deny
+  - action: edit
+    resource: "vitest.config.ts"
+    effect: deny
+  - action: edit
+    resource: "AGENTS.md"
+    effect: deny
+  - action: edit
+    resource: ".opencode/**"
+    effect: deny
+  - action: subagent
+    resource: "*"
+    effect: deny
 ---
 
 # Role: Tester Agent

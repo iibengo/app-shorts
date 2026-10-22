@@ -1,6 +1,10 @@
 ---
 description: Implements code using Nuxt 4, Vue 3, and Tailwind CSS adhering strictly to Clean Code and modular architecture
 mode: subagent
+permissions:
+  - action: subagent
+    resource: "*"
+    effect: deny
 ---
 
 # Role: Developer Agent
