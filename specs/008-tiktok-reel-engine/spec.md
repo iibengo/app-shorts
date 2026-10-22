@@ -1771,6 +1771,20 @@ si todos PENDING → PENDING
 - `cancel` cancela hasta 30 jobs con presupuesto de 30 s; un fallo no impide `CANCELLED`.
 - No hay worker durable ni cola propia: el reconciliador es un temporizador de proceso.
 
+### Enmienda 2026-10-23 — errores transitorios y jobs inactivos (B4)
+
+> Antes: cualquier excepción al consultar el estado marcaba el plano `*_FAILED` y la historia `FAILED` mientras el job seguía vivo y facturando. Y un job que respondía `IN_PROGRESS` sin terminar dejaba la historia generando indefinidamente, sin error.
+
+| Regla | Contrato |
+|---|---|
+| **Clasificación** | El reconciliador MUST usar `StoryError.retryable`. `provider-busy`, `provider-timeout`, `provider-error`, `provider-invalid-output` y `database-unavailable` son **transitorios**; el resto (`content-blocked`, `provider-rejected`, `story-budget-exhausted`, `internal-error`) son **terminales**. |
+| **Transitorio** | MUST NOT escribir estado del plano ni de la historia. El plano conserva `QUEUED`/`RUNNING` y se reintenta en el siguiente tick. MUST emitir `reel.keyframe.retrying` o `reel.video.retrying` con el `errorCode`. |
+| **Terminal** | MUST marcar el plano `*_FAILED` con el código, como hasta ahora. |
+| **Submit** | MUST NOT reintentarse aunque el código sea transitorio: una petición que pudo llegar al proveedor no se repite para no duplicar el job ni el cobro. El plano falla y el usuario puede usar `/recover`. |
+| **Inactividad** | Un job activo que no cambia de estado durante `keyframeMaxIdleMs` (600 000 ms) o `videoMaxIdleMs` (1 200 000 ms) MUST cancelarse con `cancel_url` de forma best-effort y marcarse `*_FAILED` con `provider-timeout`; la historia pasa a `FAILED` con `provider-timeout`. Un fallo del cancel MUST NOT impedir el fallo del plano. |
+| **Medida** | La inactividad se mide con `Shot.updatedAt` (última escritura de estado) mediante `ReelStoryRepository.shotIdleMs`. No se añade columna ni migración; el tope es temporal, no un contador de reintentos. |
+| **Tests** | `story-reel-worker.spec.ts`: transitorio no rompe y recupera; terminal falla; inactividad cancela y falla; job atascado sin error se cancela; cancel fallido no bloquea; submit no se reintenta. |
+
 ---
 
 ## UI/UX Contract
