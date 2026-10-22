@@ -1,6 +1,13 @@
 ---
 description: Generates technical specifications and SDD workflows
 mode: subagent
+permissions:
+  - action: edit
+    resource: "*"
+    effect: deny
+  - action: edit
+    resource: "specs/**"
+    effect: allow
 ---
 
 # Role: Architect Agent
