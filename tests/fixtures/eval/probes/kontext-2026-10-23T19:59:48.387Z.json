@@ -1,0 +1,14 @@
+{
+  "probe": "kontext",
+  "endpoint": "fal-ai/flux-pro/kontext",
+  "createdAt": "2026-10-23T19:59:48.386Z",
+  "latencyMs": 8093,
+  "prompt": "3D cartoon render, glossy stylized characters, soft studio lighting. Same character as the reference image: keep his face, head shape, blue cap, yellow hi-vis vest and gloves identical. New scene: he kneels on a doorstep at night and opens the taped cardboard package, surprised expression, warm porch light. Medium shot, single instant. Static vertical 9:16 keyframe, no text, no subtitles, no logo, no watermark.",
+  "promptLength": 414,
+  "requestId": "01a16a59-02da-76d3-810e-8cab2b30ff8c",
+  "output": {
+    "imageUrl": "https://v3b.fal.media/files/b/0aaf92de/OR--Djh4zLEuRRFpNKpKY_f9d624a0e0a24118a7117f461c237703.jpg",
+    "width": 752,
+    "height": 1392
+  }
+}

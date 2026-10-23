@@ -1,0 +1,10 @@
+{
+  "probe": "video",
+  "endpoint": "fal-ai/minimax/hailuo-02/standard/image-to-video",
+  "createdAt": "2026-10-23T20:14:12.168Z",
+  "requestId": "01a16a66-4e6e-7592-a094-95e2d4913367",
+  "statusUrl": "https://queue.fal.run/fal-ai/minimax/requests/01a16a66-4e6e-7592-a094-95e2d4913367/status",
+  "responseUrl": "https://queue.fal.run/fal-ai/minimax/requests/01a16a66-4e6e-7592-a094-95e2d4913367",
+  "prompt": "Static camera. The 3D cartoon courier in a blue cap and yellow hi-vis vest kneels on a doorstep at night and unseals the taped cardboard box, lifts the flap and looks inside with a surprised expression. Warm porch light, soft shadows, subtle breathing and hand movement, keep the same character and outfit. No text, no watermark.",
+  "negativePrompt": "blur, distortion, low quality, extra hands"
+}
