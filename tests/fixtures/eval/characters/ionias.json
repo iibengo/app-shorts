@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "id": "ionias",
   "name": "Ionias",
   "role": "Administrador de CafeAndCode",
@@ -19,7 +19,10 @@
     "Las llaves {} y el texto del portatil se anaden en la capa grafica (spec 012), no con el modelo de imagen.",
     "El primer keyframe de Ionias se reutiliza como ancla del personaje en el resto de planos.",
     "La ventana de navegador es abstracta; la UI real de CafeAndCode se compone en la capa grafica (012).",
-    "Version 4 fijada como retrato oficial: look facetado con ojos naranjas. El papercraft literal no funciona en flux/dev; queda aparcado."
+    "Version 4 fijada como retrato oficial: look facetado con ojos naranjas. El papercraft literal no funciona en flux/dev; queda aparcado.",
+    "Ancla oficial generada con Nano Banana: busto, fondo neutro, sin objetos. La ropa de cada plano la decide la escena; el ancla solo fija identidad."
   ],
-  "referenceImageUrl": "https://v3b.fal.media/files/b/0aaf94da/fCzZM9y9tFGzu75S9K0NJ.jpg"
+  "referenceImageUrl": "https://v3b.fal.media/files/b/0aaf94da/fCzZM9y9tFGzu75S9K0NJ.jpg",
+  "anchorImage": "tests/fixtures/eval/characters/ionias-anchor.jpeg",
+  "anchorGeneratedWith": "nano-banana (reference: author photo)"
 }
