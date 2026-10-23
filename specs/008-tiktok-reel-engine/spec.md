@@ -57,6 +57,31 @@
 | 5 | **`StoryBeat` se restaura** en `app/models/story.ts` (fue eliminado en `dff2764` y seguía importándose en 8 ficheros) y gana `subject?` y `framing?` para que el compositor reciba el encuadre real del plano. | Modelo compartido, `storyBeatForShot` |
 | 6 | **Tests**: longitud ≤ 900, orden de bloques, solo entidades presentes, inglés, ausencia de `Avoid:`, degradación determinista y caída a `camera` cuando no hay `framing`. | `story-prompt-composer.spec.ts`, `story-shot-orchestrators.spec.ts` |
 
+### Enmienda 2026-10-23 — robustez del canon, del perfil de planos y reglas duras
+
+> Evidencia: dos ejecuciones reales del director con 12 premisas (spec 009, 98 llamadas, 0,098 USD). Primera: 12/12 inválidas por ids con `_` y por planes de 6-7 planos con mensaje de reparación engañoso. Segunda: canon 12/12 válido, planos 11/12 inválidos, casi todos por exceso de planos.
+
+| Regla | Contrato |
+|---|---|
+| **Ids del canon** | Los ids de personajes, localizaciones y props MUST normalizarse antes de validar: NFD sin diacríticos, minúsculas, cualquier secuencia no alfanumérica → `-`, recorte a 24 caracteres y prefijo `e-` si empieza por dígito. MUST normalizarse también `leadCharacterId` y `signaturePropId`. Dos entidades que colisionen tras normalizar MUST seguir siendo inválidas. |
+| **Referencias** | El canon normalizado es la fuente de verdad: las escenas reciben los ids ya normalizados. |
+| **`forbidden`** | Las entradas duplicadas o que coincidan con una entidad del canon MUST descartarse. Las que coincidan con la hora o el clima de una escena MUST tolerarse: `composeNegative` ya las filtra. Una lista declarada vacía sigue siendo inválida. |
+| **Feedback del perfil** | El validador MUST distinguir número de planos de duración: `plan: N planos fuera del perfil (min-max); elimina o añade planos…` frente a `plan: duración planificada Xs fuera de min-max s; ajusta las duraciones de los planos, no el número`. |
+| **Prompt de planos** | MUST declarar el máximo de planos en el bloque de perfil, pedir que se cuenten todos los planos de todas las escenas y repetir el rango al final del prompt. |
+| **Reglas duras del plan** | Solo MUST bloquear: esquema y tipos, duración por plano, duración total, número de planos, localización del primer plano y máximo de dos localizaciones por escena, apertura con `establishing`/`wide` al entrar en una localización nueva, y `visualPrompt` que copie la narración. |
+| **Reglas de estilo** | **Dejan de bloquear** y pasan a criterio de calidad y QC: mínimo 2 encuadres por escena, no repetir encuadre consecutivo, mínimo 4 encuadres por historia, `detail`/`insert` del prop característico, reacción tras el gag, gancho no `establishing`, gancho de 2–3 s, dos primeros planos ≤6 s y ratios de planos largos/media. Motivo: con ~20 reglas simultáneas el modelo arreglaba una y rompía otra, y la regla de encuadres hacía imposible un plan de 3 escenas con máximo 5 planos (3 × 2 = 6). |
+| **Reparto por escena** | El presupuesto de planos MUST repartirse en código antes de llamar al modelo: `allocateShotsPerScene(plan, scenes)` devuelve exactamente `shotCount.max` planos, entre 1 y 4 por escena. El prompt MUST declarar el reparto escena por escena y prohibir añadir o quitar planos. |
+| **Normalización del plan** | Si el modelo devuelve más planos que el máximo, el validador MUST recortar de forma determinista el plano más corto que no sea el primero ni el último de la historia, renumerar `indexInScene` y estirar las duraciones restantes (hasta el máximo permitido por preset) para volver a la ventana del perfil. MUST NOT fallar por exceso de planos. Si el plan no puede alcanzar la ventana mínima, MUST fallar con el motivo de duración. |
+| **Narración en el prompt visual** | Si `visualPrompt` reproduce la narración, el validador MUST reconstruirlo como `subject: action` en vez de fallar. Solo MUST fallar si el texto reconstruido sigue copiando la narración. |
+| **Posición del giro** | La regla 50–90 % pasa a criterio de calidad. MUST mantenerse exactamente un giro y MUST NOT estar en la primera ni en la última escena. |
+| **Rol de escena** | `sceneRole` MUST derivarse en código de la posición y de `storyFunction`: primera `establishing`, última `resolution`, `twist` → `climax`, `escalation` → `escalation`, resto `development`. MUST NOT validarse como salida libre del modelo. |
+| **Número de escenas** | El prompt de escenas MUST pedir un número exacto (`sceneCount.max`) en lugar de un rango. |
+| **Longitudes de texto** | `subject` (3–80), `action` (20–200) y `visualPrompt` (20–400) MUST recortarse al máximo por palabra y completarse con texto de la propia escena si quedan cortos. Solo MUST fallar si el texto no es una cadena o no se puede ajustar. |
+| **Perfiles** | `shotMax` de Presupuesto 15 s se mantiene en **5**: subirlo a 6 supera el cap de 2,50 USD y el guardián de coste rechaza crear la historia. |
+| **Eval** | El runner de 009 MUST contabilizar tokens y coste de todas las llamadas, incluidas las fallidas. |
+
+Estado: `Implemented`. Tercera ejecución: 6/12 válidas; cuarta: 11/12; quinta: 7/12 con el mismo código, lo que confirma la varianza del modelo. La medición pasa a tres corridas por tanda. Se añaden el reparto por escena y la normalización determinista; la cuarta ejecución midió 11/12; con reparto por escena y normalizaciones, tres corridas dieron **35/36 válidas (97 %)**, 24/36 a la primera, 13 reparaciones, 0 truncamientos y 0,109 USD. Hasta entonces esta enmienda no es `Validated`.
+
 ---
 
 ## Contexto y relación con 004/005/006/007
