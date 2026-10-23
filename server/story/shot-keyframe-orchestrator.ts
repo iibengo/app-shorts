@@ -86,8 +86,11 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
     // always honours image_size 1152x2048. Kontext inherits the reference ratio,
     // so an anchor produced by Kontext could be 3:4 and would propagate a 4:3
     // format to the video stage (seen in the first end-to-end run).
-    const needsSeed = (scene.scene?.characters ?? [])
-      .some((id) => story.anchors[id] === undefined)
+    // Seeding with FLUX only matters when there is no sheet: it guarantees a
+    // vertical 1152x2048 first frame. With a sheet the identity is already in
+    // the references, so every shot uses it from the first frame.
+    const needsSeed = story.characterSheet === null
+      && (scene.scene?.characters ?? []).some((id) => story.anchors[id] === undefined)
     const provider = needsSeed
       ? { kind: 'flux' as const }
       : selectKeyframeProvider({

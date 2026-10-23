@@ -131,3 +131,15 @@ describe('multi-character shots', () => {
     expect(provider.referenceUrls).toHaveLength(1)
   })
 })
+
+describe('sheet bypasses the FLUX seed', () => {
+  it('uses the sheet even when no character has an anchor yet', async () => {
+    const { readFileSync } = await import('node:fs')
+    const source = readFileSync('server/story/shot-keyframe-orchestrator.ts', 'utf8')
+
+    // Seeding with FLUX would ignore the sheet on the first shot and lose the
+    // identity for the whole story.
+    expect(source).toContain('story.characterSheet === null')
+    expect(source).toContain('&& (scene.scene?.characters')
+  })
+})
