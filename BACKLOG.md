@@ -7,14 +7,13 @@ Actualizado: 2026-10-24. Ordenado por prioridad real: primero lo que bloquea, de
 | # | Tarea | Coste | Por qué |
 |---|---|---|---|
 | 1 | **Terminar y ver la historia con hoja de personaje** | ~1,1 USD | Primera historia con identidad real. Sin verla, el resto es teoría. |
-| 2 | **Cancelar una historia debe liberar el cupo de concurrencia** | 0 | Bug real: los planos de historias canceladas siguen contando como jobs activos y bloquean historias nuevas (`keyframeConcurrency`). |
 | 3 | **Cerrar la spec 011** | 0 | Estado, `AGENTS.md`, contadores y notas de cierre. |
 
-### Detalle del bug #2
+### Descartado: cupo de concurrencia y cancelación
 
-Reproducido el 2026-10-24: tras cancelar varias historias, `countActiveProviderJobs` devolvía 6 (el máximo), así que el reconciliador no encolaba ningún keyframe nuevo. Los `Shot` de historias `CANCELLED` seguían en `KEYFRAME_RUNNING`.
+Sospecha revisada el 2026-10-24 y **descartada**. `PrismaReelStoryRepository.cancel` ya marca los planos activos como `CANCELLED` dentro de la misma transacción, así que la cancelación por API libera el cupo.
 
-Arreglo propuesto: al cancelar, marcar los planos activos como `CANCELLED` en la misma transacción; y que `countActiveProviderJobs` excluya historias no activas.
+Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hechas con `UPDATE` directo en SQL durante el trabajo, que no pasan por la transacción. No es un defecto del producto.
 
 ## 🟡 Producto
 
