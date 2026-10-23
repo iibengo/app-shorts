@@ -37,7 +37,13 @@ class FakeQueue implements FalQueueService {
       return { video: { url: 'https://v3.fal.media/files/test/video.mp4' } }
     }
 
-    return { images: [{ url: 'https://v3.fal.media/files/test/image.jpg' }] }
+    return {
+      images: [{
+        url: 'https://v3.fal.media/files/test/image.jpg',
+        width: 1152,
+        height: 2048,
+      }],
+    }
   }
 
   async cancel(): Promise<void> {}

@@ -6,6 +6,7 @@ import {
   readString,
 } from '../types'
 import type { KeyframeAdapter, KeyframeInput, KeyframeOutput } from './types'
+import { isVerticalAspect } from '../../story/aspect-ratio'
 
 function parseOutput(payload: unknown): KeyframeOutput {
   if (!isRecord(payload)) {
@@ -41,11 +42,17 @@ function parseOutput(payload: unknown): KeyframeOutput {
 
   const width = readNumber(image, 'width')
   const height = readNumber(image, 'height')
+  const safeWidth = width === null ? null : Math.max(0, Math.trunc(width))
+  const safeHeight = height === null ? null : Math.max(0, Math.trunc(height))
+
+  if (!isVerticalAspect(safeWidth, safeHeight)) {
+    throw new ComposerError('provider-invalid-output')
+  }
 
   return {
     imageUrl,
-    width: width === null ? null : Math.max(0, Math.trunc(width)),
-    height: height === null ? null : Math.max(0, Math.trunc(height)),
+    width: safeWidth,
+    height: safeHeight,
   }
 }
 

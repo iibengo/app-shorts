@@ -163,6 +163,17 @@ El ancla se genera dentro de `GENERATING_KEYFRAMES` antes del primer plano:
 - Replay: la eval de 009 se re-ejecuta una vez para comprobar que la capa visual en inglés no rompe la validez (objetivo ≥ 11/12).
 - Sondas opt-in: 1 keyframe `cartoon3d`, 1 Kontext con ancla y 1 `max/multi` con dos anclas; cada una mide coste y calidad antes de fijar caps.
 
+## Hallazgo del primer end-to-end (2026-10-23)
+
+El primer run completo real (15 s, `cartoon3d`) falló en el plano 1 por `technical-aspect`: Kontext devolvió un keyframe **1152×1536** (3:4) porque hereda el formato de la referencia, y MiniMax heredó ese formato y devolvió **768×1024** (4:3). El QC lo rechazó con razón.
+
+| Regla | Contrato |
+|---|---|
+| **Puerta de aspecto** | Un keyframe con ratio distinto de 9:16 (±3 %) MUST rechazarse al parsear la respuesta del proveedor, no dos etapas después. Implementado en `parseOutput` de Kontext y Kontext multi. |
+| **Nunca anclar un no vertical** | El ancla MUST provenir de un keyframe validado, así que un ancla 4:3 no puede propagarse al vídeo. |
+| **Diagnóstico** | El clip fallido se conserva y el error queda en `videoError` (`provider-invalid-output`), no se descarta en silencio. |
+| **Semilla FLUX** | El **primer keyframe de un personaje** lo genera siempre FLUX (`image_size 1152×2048`), nunca Kontext, porque Kontext hereda el ratio de la referencia. Kontext solo entra cuando todos los personajes presentes ya tienen ancla vertical validada. |
+
 ## Out of Scope
 
 - Estilo `explainer` abstracto (figuras sin cara, símbolos, planos de 17 s): pertenece a la 012 junto con la capa gráfica.

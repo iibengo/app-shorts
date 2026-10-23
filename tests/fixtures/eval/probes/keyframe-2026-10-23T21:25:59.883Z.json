@@ -1,0 +1,14 @@
+{
+  "probe": "keyframe",
+  "endpoint": "fal-ai/flux/dev",
+  "createdAt": "2026-10-23T21:25:59.882Z",
+  "latencyMs": 11150,
+  "prompt": "paper cutout papercraft, origami, folded cardboard, sharp creases, flat card stock planes, visible paper grain, stop-motion paper puppet, absolutely no smooth plastic, no rounded surfaces, no glossy shading, no 3D toy render. Character Ionias: man in his thirties made of folded card, short dark wavy hair as layered paper strips, trimmed paper beard, thick paper eyebrows, black paper t-shirt, dark brown cardboard apron. He holds a small orange paper coffee mug with a curl of paper steam. Behind him a vertical cardboard panel like a screen, blank, no letters. Muted teal and warm orange light, hard shadows. Medium shot, single instant. Static vertical 9:16 keyframe, no text, no watermark.",
+  "promptLength": 694,
+  "requestId": "01a16aa7-dffc-70d2-9f28-54e7f15011c4",
+  "output": {
+    "imageUrl": "https://v3b.fal.media/files/b/0aaf94e2/V2_E_I0lP1hZQgp5yNuuT.jpg",
+    "width": 1152,
+    "height": 2048
+  }
+}
