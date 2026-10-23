@@ -1,0 +1,195 @@
+# Feature Specification: Estilo visual y consistencia de personajes
+
+**Feature Branch**: `010-visual-style`
+
+**Created**: 2026-10-23
+
+**Status**: Partially implemented. **010a** (contrato, registro de estilos, bloque de estilo, capa visual en inglés) implementada con gate en verde. **010b** (anclas de personaje, Kontext/multi y selector de UI) pendiente.
+
+**Input**: User description: "Voy a usar esto para vídeos de personajes digitales, no realistas. Quiero poder elegir el estilo (3D cartoon, clay, anime…) desde la interfaz y que los personajes sean el mismo de escena a escena."
+
+## Contexto y evidencia
+
+Dos sondas reales de keyframe (fal-ai/flux/dev, ~0,03 USD cada una) con el mismo plano:
+
+| | Sonda 1: prompt mixto ES/EN, sin estilo | Sonda 2: todo EN, estilo 3D al inicio |
+|---|---|---|
+| Estilo | fotorrealista | **3D cartoon** |
+| Prop característico | ausente | **presente** |
+| Acción (correr) | ignorada | **cumplida** |
+| Longitud | 812 caracteres | 484 caracteres |
+
+Conclusiones medidas:
+1. El modelo cumple lo que está en inglés; lo que queda en español se diluye.
+2. Sin estilo explícito, FLUX elige fotorrealismo.
+3. El campo `storyBible.style` lo escribe el LLM y describe cámara y ritmo, no un look: no sirve como contrato de estilo.
+
+## Relación con las specs previas
+
+- **004/005/006/007:** sin cambios.
+- **008:** el compositor de keyframe (B2) se mantiene; esta spec añade el bloque de estilo y el ancla de personaje. Se enmienda el contrato de prompts y el Data Contract.
+- **009:** la eval sigue siendo la herramienta de medida; sus fixtures no cambian.
+- **Renumeración (2026-10-23):** audio pasa a **011** y gráficos/overlays a **012**.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Elegir el estilo del canal (Priority: P1)
+
+Como creador, quiero elegir entre 3D cartoon, papercraft, clay, anime o fotorrealista, con 3D cartoon por defecto, sin configurar nada más.
+
+**Acceptance Scenarios**:
+
+1. **Given** una historia nueva sin tocar el panel avanzado, **When** se crea, **Then** `visualStyle` es `cartoon3d`.
+2. **Given** que elijo `anime` o `papercraft`, **When** se generan los planos, **Then** el prompt de cada keyframe empieza por el bloque de estilo correspondiente en inglés.
+3. **Given** un cliente que envía un `visualStyle` desconocido, **When** llama a `POST /api/story`, **Then** recibe 400 `invalid-visual-style`.
+
+### User Story 2 - El mismo personaje en todos los planos (Priority: P1)
+
+Como creador, quiero que el protagonista tenga la misma cara y proporciones en todos los planos, aunque cambie de ropa y de localización.
+
+**Acceptance Scenarios**:
+
+1. **Given** una historia con protagonista, **When** empieza la fase de keyframes, **Then** se genera **un ancla de identidad** por personaje relevante (máximo 2) y se persiste con su URL y caducidad.
+2. **Given** un ancla disponible, **When** se genera un keyframe con un solo personaje, **Then** se usa `fal-ai/flux-pro/kontext` con esa ancla.
+3. **Given** un plano con dos personajes, **When** se genera el keyframe, **Then** se usa `fal-ai/flux-pro/kontext/max/multi` con las dos anclas en `image_urls`.
+4. **Given** un plano sin personajes, **When** se genera el keyframe, **Then** se usa `fal-ai/flux/dev` con el bloque de estilo.
+5. **Given** que un ancla falla o caduca antes de usarse, **When** se procesa un plano, **Then** se regenera una sola vez; si vuelve a fallar, la historia falla con un código estable.
+
+### User Story 3 - La capa visual va en inglés (Priority: P1)
+
+Como sistema, necesito que el texto que llega al proveedor esté en inglés, y que la interfaz siga en español.
+
+**Acceptance Scenarios**:
+
+1. **Given** una historia en español, **When** se genera el canon, **Then** `description`, `wardrobe`, `style`, `theme`, `action`, `visualPrompt`, `subject` y las descripciones de localizaciones y props están en inglés.
+2. **Given** la misma historia, **When** se muestra en la interfaz, **Then** `title`, `logline` y `narration` siguen en español.
+3. **Given** un campo visual con texto en español, **When** se valida, **Then** no se rechaza por idioma: la validación no depende del idioma, solo la instrucción del prompt.
+
+### User Story 4 - Consistencia comprobable (Priority: P2)
+
+Como responsable de calidad, quiero medir si el personaje se mantiene entre planos.
+
+**Acceptance Scenarios**:
+
+1. **Given** dos keyframes de la misma historia, **When** se comparan, **Then** el QC de visión puede evaluar rostro, vestuario y prop característico contra el canon.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+- **FR-001**: MUST existir `StoryVisualStyle = 'cartoon3d' | 'papercraft' | 'clay' | 'anime' | 'photo'` en `app/models/`.
+- **FR-002**: El default MUST ser `cartoon3d`. El cliente MUST enviar un id, nunca texto de estilo.
+- **FR-003**: `POST /api/story` MUST aceptar `visualStyle?` y MUST persistirlo en `Story.visualStyle`.
+- **FR-004**: El servidor MUST mapear cada id a un bloque de estilo en inglés mediante un **registro** en `server/story/visual-style.ts`. Añadir un estilo nuevo MUST ser una entrada del registro, no una spec nueva; el cliente nunca envía texto.
+- **FR-005**: El bloque de estilo MUST ser la **primera** parte del prompt de keyframe, antes del plano.
+- **FR-006**: El prompt de vídeo MUST incluir el mismo bloque de estilo, para que el movimiento no cambie el look.
+- **FR-007**: Los prompts de canon, escenas y planos MUST pedir los campos visuales en inglés; `title`, `logline` y `narration` MUST seguir en español.
+- **FR-008**: MUST generarse **una ancla de identidad por personaje relevante (máximo 2)**: cabeza y cara reconocibles, fondo neutro y sin ropa de escena. La ropa la fija el prompt de cada plano.
+- **FR-009**: Las anclas MUST persistirse en `Story` (`anchorsJson`, `anchorExpiresAt`, `anchorStatus`) y reutilizarse en todos los planos.
+- **FR-010**: La selección de endpoint MUST ser determinista: `fal-ai/flux-pro/kontext` con una ancla; `fal-ai/flux-pro/kontext/max/multi` con dos anclas en `image_urls`; `fal-ai/flux/dev` sin personajes en el plano.
+- **FR-010b**: El endpoint `fal-ai/flux-pro/kontext/max/multi` MUST añadirse a la allowlist de endpoints del servidor (`ComposerEndpointId`).
+- **FR-011**: Un fallo del ancla MUST reintentarse una vez; después, `provider-rejected` o `provider-timeout` según corresponda.
+- **FR-012**: El ancla MUST respetar el lifecycle de la referencia (misma política de caducidad) y regenerarse si caduca antes de terminar.
+- **FR-013**: La UI MUST ofrecer las cuatro opciones en el panel avanzado, con `cartoon3d` preseleccionado y sin pasos extra en el camino por defecto.
+- **FR-014**: Los caps por perfil MUST revisarse con la medición real: `kontext/max/multi` cuesta **0,08 USD por imagen** (verificado en la página del modelo) y `kontext` pro menos, pero más que FLUX dev. El perfil Presupuesto 15 s (cap 2,50) queda muy justo con 5 keyframes multi (~0,40) más 5 vídeos, así que el cap MUST subirse o el perfil MUST limitar los planos con dos personajes. El guardián de coste sigue siendo la autoridad.
+- **FR-015**: Tests deterministas: mapeo de estilos, orden del prompt, selección de adaptador con y sin ancla, fallo y reintento del ancla, y componente del selector.
+
+## Data Contract
+
+```ts
+export type StoryVisualStyle = 'cartoon3d' | 'clay' | 'anime' | 'photo'
+
+export interface StoryCreateRequest {
+  // ...
+  readonly visualStyle?: StoryVisualStyle
+}
+
+export interface Story {
+  // ...
+  readonly visualStyle: StoryVisualStyle
+  readonly anchorStatus: 'pending' | 'ready' | 'failed'
+}
+```
+
+`anchorUrl` y `anchorExpiresAt` son server-only (no se exponen en el DTO público salvo `anchorStatus`).
+
+## API Contract
+
+- `POST /api/story`: nuevo campo opcional `visualStyle`; 400 `invalid-visual-style` si no es un id permitido.
+- `GET /api/story/{id}`: `visualStyle` y `anchorStatus` en el DTO; nunca `anchorUrl` firmada.
+- Sin rutas nuevas.
+
+## Server Architecture / SOLID
+
+```text
+server/story/visual-style.ts            map id → bloque EN; única fuente de estilo
+server/story/anchor-orchestrator.ts     genera y persiste el ancla con el adapter de keyframe
+server/story/shot-keyframe-orchestrator.ts  elige Kontext si hay ancla
+server/story/story-prompt-composer.ts    estilo primero, plano después
+```
+
+Reutiliza `server/fal/` (queue, adapters, storage) y el reconciler de 008. No crea transporte nuevo.
+
+## State Machine
+
+El ancla se genera dentro de `GENERATING_KEYFRAMES` antes del primer plano:
+`anchorStatus: pending → ready` (o `failed`). No añade estados nuevos a la historia. Un fallo del ancla que agota el reintento hace fallar la historia con el código del proveedor.
+
+## UI/UX
+
+- Selector "Estilo" en el panel avanzado: cinco tarjetas con nombre y miniatura. `papercraft` reproduce el look low-poly de papel con paleta azul noche y neón.
+- Valor por defecto `cartoon3d`; no se pide al usuario.
+- Copy: "Estilo visual — 3D cartoon, Papercraft, Clay, Anime, Realista".
+- Accesible: radiogroup, foco visible, `data-testid="story-style-option-<id>"`.
+- El resultado MUST indicar el estilo usado.
+
+## Security & Operations
+
+- El cliente nunca envía texto de prompt ni un endpoint.
+- El ancla es una imagen generada: mismo lifecycle y allowlist de CDN que los keyframes.
+- No se registra el prompt ni el ancla en logs.
+
+## Costes
+
+- Ancla: 1 imagen FLUX por historia (~0,03 USD).
+- Keyframes con Kontext: más caros que FLUX dev; estimación +0,10-0,25 USD por historia de 5 planos.
+- Los caps actuales (2,50 / 5 / 7 / 9 / 11 / 7 / 15) se revisan con una sonda real antes de cerrar la spec.
+
+## Test Plan
+
+- Unit: `visual-style.ts` (ids válidos, bloque EN, longitud), orden del prompt (estilo antes del plano), matriz de selección (0 anclas → FLUX dev; 1 → kontext; 2 → max/multi), reintento del ancla, DTO sin URLs.
+- Rutas: `POST /api/story` con estilo válido, inválido y ausente; `GET` expone `visualStyle`/`anchorStatus`.
+- Componentes: selector, default, accesibilidad, copy.
+- Replay: la eval de 009 se re-ejecuta una vez para comprobar que la capa visual en inglés no rompe la validez (objetivo ≥ 11/12).
+- Sondas opt-in: 1 keyframe `cartoon3d`, 1 Kontext con ancla y 1 `max/multi` con dos anclas; cada una mide coste y calidad antes de fijar caps.
+
+## Out of Scope
+
+- Estilo `explainer` abstracto (figuras sin cara, símbolos, planos de 17 s): pertenece a la 012 junto con la capa gráfica.
+- Consistencia de varios personajes en el mismo plano (una referencia).
+- LoRA o entrenamiento por personaje.
+- Audio, subtítulos y gráficos (011 y 012).
+- Estilo por escena: el estilo es de la historia.
+
+## Decisiones cerradas (2026-10-23)
+
+0. **Estilos iniciales:** `cartoon3d` (vídeo 1 de referencia) y `papercraft` (vídeo 2, low-poly con neón). `explainer` (vídeo 3) se pospone a la 012 porque depende de la capa gráfica. El registro permite añadir más sin spec nueva.
+1. **Varios personajes:** soportados con `kontext/max/multi` y hasta dos anclas. Verificado en el vídeo de referencia: dos personajes en el mismo plano y cambios de ropa y localización entre escenas.
+2. **El ancla es identidad, no vestuario:** cabeza y cara con fondo neutro; la ropa la pone la escena.
+3. **El estilo se muestra** en el resultado como etiqueta, además del panel avanzado.
+4. **Caps:** se suben tras la sonda de Kontext; no se implementa un cap nuevo a ciegas.
+
+## Open Questions
+
+1. ¿La segunda ancla se genera siempre o solo cuando el guion incluye un antagonista con plano propio?
+2. ¿`kontext/max/multi` acepta una sola imagen? Si no, el camino de un personaje se queda en `kontext` pro.
+
+## Implementation Phases
+
+1. Contrato, enum, migración y validación.
+2. `visual-style.ts` + compositor (estilo primero) + capa visual en inglés.
+3. Ancla: orquestador, persistencia, selección de Kontext y reintento.
+4. API, DTO y tests.
+5. UI del selector + accesibilidad.
+6. Gate, una corrida de eval y tres sondas opt-in (FLUX con estilo, Kontext, max/multi).
+7. Cierre y enmienda de 008.

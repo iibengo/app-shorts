@@ -1809,6 +1809,18 @@ si todos PENDING → PENDING
 - `cancel` cancela hasta 30 jobs con presupuesto de 30 s; un fallo no impide `CANCELLED`.
 - No hay worker durable ni cola propia: el reconciliador es un temporizador de proceso.
 
+### Enmienda 2026-10-23 — estilo visual e idioma de los prompts (010a)
+
+> Evidencia: dos sondas de keyframe con el mismo plano. La primera, con el prompt mezclado español/inglés y sin estilo, salió fotorrealista, sin el prop característico y sin la acción. La segunda, todo en inglés y con estilo al principio, cumplió estilo, prop y acción con 328 caracteres menos.
+
+| Regla | Contrato |
+|---|---|
+| **Estilo** | Todo prompt de keyframe y de vídeo MUST empezar por el bloque de estilo del canal, resuelto en servidor desde `Story.visualStyle`. El cliente MUST enviar un id, nunca texto. |
+| **Idioma** | Los campos visuales (`style`, `theme`, `description`, `wardrobe`, `action`, `visualPrompt`, `subject`, `forbidden`) MUST generarse en inglés. `title`, `logline`, `narration` y `sceneRole` MUST seguir en español. |
+| **Negativos** | El negativo de estilo MUST añadirse al `negative_prompt` solo donde el modelo lo admite (Kling). MUST NOT escribirse en el prompt positivo. |
+| **Presupuesto** | El bloque de estilo consume presupuesto del keyframe; el compositor MUST descontarlo antes de la escalera de degradación para seguir por debajo de 900 caracteres. |
+| **Compatibilidad** | Las filas sin `visualStyle` MUST leerse como `cartoon3d`. |
+
 ### Enmienda 2026-10-23 — errores transitorios y jobs inactivos (B4)
 
 > Antes: cualquier excepción al consultar el estado marcaba el plano `*_FAILED` y la historia `FAILED` mientras el job seguía vivo y facturando. Y un job que respondía `IN_PROGRESS` sin terminar dejaba la historia generando indefinidamente, sin error.

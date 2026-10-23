@@ -60,6 +60,7 @@ model Story {
   referenceUrl        String?     @db.Text
   referenceExpiresAt  DateTime?
   preset              String
+  visualStyle         String      @default("cartoon3d")
   mode                StoryMode  @default(faithful)
   platform            StoryPlatform @default(tiktok)
   costMode            StoryCostMode @default(standard)

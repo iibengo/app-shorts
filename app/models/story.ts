@@ -25,6 +25,19 @@ export type SceneStatus =
 
 export type StoryPreset = 'fast' | 'quality'
 
+/** Look visual del canal. El cliente envía el id; el texto vive en el servidor. */
+export type StoryVisualStyle = 'cartoon3d' | 'papercraft' | 'clay' | 'anime' | 'photo'
+
+export const STORY_VISUAL_STYLES: readonly StoryVisualStyle[] = [
+  'cartoon3d',
+  'papercraft',
+  'clay',
+  'anime',
+  'photo',
+]
+
+export const DEFAULT_STORY_VISUAL_STYLE: StoryVisualStyle = 'cartoon3d'
+
 export type StoryMode = 'faithful' | 'creative'
 
 export type StoryPlatform = 'tiktok' | 'reels'
@@ -355,6 +368,7 @@ export interface StoryQC {
 
 export type StoryErrorCode =
   | 'invalid-request'
+  | 'invalid-visual-style'
   | 'premise-required'
   | 'premise-too-long'
   | 'invalid-premise'
@@ -433,6 +447,7 @@ export interface Story {
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: string | null
   readonly preset: StoryPreset
+  readonly visualStyle: StoryVisualStyle
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode
@@ -467,6 +482,8 @@ export interface StoryCreateRequest {
   readonly targetDurationSeconds: StoryDurationSeconds
   readonly maxDurationSeconds: StoryDurationSeconds
   readonly preset: StoryPreset
+  /** Opcional: por defecto `cartoon3d`. */
+  readonly visualStyle?: StoryVisualStyle
   /** Obligatorio desde 007. */
   readonly mode: StoryMode
   readonly referenceUrl: string | null
