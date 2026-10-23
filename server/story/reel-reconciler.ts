@@ -11,7 +11,10 @@ import type {
 } from './reel-repository'
 import type { ShotAssembler } from './shot-assembly-service'
 import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
-import type { CharacterSheetOrchestrator } from './character-sheet-orchestrator'
+import type {
+  CharacterSheetOrchestrator,
+  CharacterSheetSubmission,
+} from './character-sheet-orchestrator'
 import type { ConsistencyChecker } from './consistency-check'
 import type { ShotQCService } from './shot-qc-service'
 import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
@@ -98,6 +101,7 @@ export class ReelStoryReconciler {
   private readonly onEvent: ReelReconcilerOptions['onEvent']
   private readonly keyframeMaxIdleMs: number
   private readonly videoMaxIdleMs: number
+  private readonly sheetSubmissions = new Map<string, CharacterSheetSubmission>()
   private assemblyInFlight = false
   private qcInFlight = false
 
@@ -207,6 +211,11 @@ export class ReelStoryReconciler {
       return
     }
 
+    // The sheet is the identity source for every keyframe, so it is built
+    // before the first shot. Without a reference there is nothing to derive it
+    // from, and the pipeline falls back to the old anchor logic.
+    if (!(await this.ensureCharacterSheet(story))) return
+
     const deadline = this.now() + this.config.tickBudgetMs
 
     for (const initial of story.shots) {
@@ -236,6 +245,50 @@ export class ReelStoryReconciler {
    * No extra provider call: the same image is reused by Kontext for the rest
    * of the story, which is what keeps the character consistent.
    */
+  /**
+   * Builds the character sheet once per story from the user reference. Returns
+   * false while it is not ready, so no keyframe is generated without identity.
+   */
+  private async ensureCharacterSheet(story: ReelStoryRecord): Promise<boolean> {
+    if (story.characterSheet !== null) return true
+    if (this.characterSheet === null || story.referenceUrl === null) return true
+
+    const pending = this.sheetSubmissions.get(story.id)
+
+    if (pending === undefined) {
+      try {
+        const submission = await this.characterSheet.submit(story.referenceUrl, story.visualStyle)
+        this.sheetSubmissions.set(story.id, submission)
+      } catch {
+        return true
+      }
+
+      return false
+    }
+
+    try {
+      const result = await this.characterSheet.poll(
+        pending,
+        story.referenceUrl,
+        story.visualStyle,
+      )
+
+      if (result.state !== 'COMPLETED') return false
+
+      await this.repository.updateCharacterSheet(story.id, result.sheet)
+      this.sheetSubmissions.delete(story.id)
+      this.onEvent?.({ event: 'story.sheet.ready', storyId: story.id })
+
+      return true
+    } catch {
+      // A failed sheet must not block the story: the reference still works.
+      this.sheetSubmissions.delete(story.id)
+      this.onEvent?.({ event: 'story.sheet.failed', storyId: story.id })
+
+      return true
+    }
+  }
+
   private async rememberAnchors(
     story: ReelStoryRecord,
     scene: ReelSceneRecord,

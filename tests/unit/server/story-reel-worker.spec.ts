@@ -176,6 +176,7 @@ async function setup(options: {
   readonly qcEnabled?: boolean
   readonly qcService?: ShotQCService | null
   readonly request?: StoryCreateRequest
+  readonly withReference?: boolean
 } = {}) {
   const repository = new FakeReelStoryRepository()
   const rateLimiter = createStoryRateLimiter({
@@ -211,7 +212,9 @@ async function setup(options: {
   })
   const created = await service.create({
     sessionId: 'reel-worker-session',
-    request: options.request ?? request(),
+    request: options.request ?? (options.withReference === true
+      ? request('standard', 30, true)
+      : request()),
     idempotencyKey: null,
     bodyHash: 'worker-body',
   })
@@ -245,6 +248,7 @@ async function setup(options: {
     videos,
     assembler,
     reconciler,
+    costGuard,
     story: created.story,
   }
 }
@@ -536,5 +540,65 @@ describe('shot reconciler', () => {
 
     expect(cancelled.status).toBe('CANCELLED')
     expect(ctx.keyframes.cancelled.length).toBeGreaterThan(0)
+  })
+})
+
+describe('character sheet before keyframes', () => {
+  it('builds the sheet first and only then queues keyframes', async () => {
+    const ctx = await setup({ withReference: true })
+    const calls: string[] = []
+    const sheetQueue = {
+      async submit() {
+        calls.push('sheet:submit')
+        return {
+          requestId: 'sheet-1',
+          statusUrl: 'https://queue.fal.run/test/sheet/status',
+          responseUrl: 'https://queue.fal.run/test/sheet',
+          cancelUrl: 'https://queue.fal.run/test/sheet/cancel',
+        }
+      },
+      async poll() {
+        calls.push('sheet:poll')
+        return {
+          state: 'COMPLETED' as const,
+          sheet: {
+            front: 'https://v3.fal.media/files/x/sheet.jpeg',
+            'three-quarter': 'https://v3.fal.media/files/x/sheet.jpeg',
+            profile: 'https://v3.fal.media/files/x/sheet.jpeg',
+            smile: 'https://v3.fal.media/files/x/sheet.jpeg',
+          },
+        }
+      },
+    }
+    const { createReelStoryReconciler } = await import('../../../server/story/reel-reconciler')
+    const reconciler = createReelStoryReconciler({
+      repository: ctx.repository,
+      keyframes: ctx.keyframes,
+      videos: ctx.videos,
+      assembler: ctx.assembler,
+      qcService: null,
+      costGuard: ctx.costGuard,
+      characterSheet: sheetQueue,
+      qcEnabled: false,
+      owner: 'sheet-test',
+      now: () => NOW + 1_000,
+      config: {
+        leaseMs: 60_000,
+        assemblyLeaseMs: 480_000,
+        qcLeaseMs: 720_000,
+        tickBudgetMs: 45_000,
+        keyframeConcurrency: 50,
+        videoConcurrency: 50,
+        claimLimit: 5,
+      },
+    })
+
+    await reconciler.runOnce()
+    expect(calls).toEqual(['sheet:submit'])
+    expect(ctx.keyframes.submitted).toHaveLength(0)
+
+    await reconciler.runOnce()
+    expect((await ctx.repository.findById(ctx.story.id))?.characterSheet).not.toBeNull()
+    expect(ctx.keyframes.submitted.length).toBeGreaterThan(0)
   })
 })
