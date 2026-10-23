@@ -6,6 +6,7 @@ import type { Story } from '~/models/story'
 import {
   formatStoryDuration,
   getStoryPreset,
+  getStoryVisualStyle,
   storyPosterUrl,
   storyReferenceLabel,
 } from '~/utils/story'
@@ -22,6 +23,7 @@ const heading = ref<HTMLHeadingElement | null>(null)
 
 const poster = computed(() => storyPosterUrl(props.story.scenes))
 const preset = computed(() => getStoryPreset(props.story.preset))
+const styleLabel = computed(() => getStoryVisualStyle(props.story.visualStyle).label)
 const isReel = computed(() => props.story.shotCount > 0)
 const duration = computed(() => formatStoryDuration(
   props.story.finalDurationSeconds
@@ -87,6 +89,11 @@ onMounted(() => {
       <div>
         <dt class="text-brand-muted">{{ STORY_COPY.resultFormat }}</dt>
         <dd data-testid="story-result-format" class="text-brand-text">9:16</dd>
+      </div>
+
+      <div>
+        <dt class="text-brand-muted">{{ STORY_COPY.resultVisualStyle }}</dt>
+        <dd data-testid="story-result-visual-style" class="text-brand-text">{{ styleLabel }}</dd>
       </div>
 
       <div>

@@ -9,6 +9,7 @@ import StoryHeader from '~/components/story/StoryHeader.vue'
 import StoryModePicker from '~/components/story/StoryModePicker.vue'
 import StoryPlanProgress from '~/components/story/StoryPlanProgress.vue'
 import StoryPresetPicker from '~/components/story/StoryPresetPicker.vue'
+import StoryStylePicker from '~/components/story/StoryStylePicker.vue'
 import StoryReferencePicker from '~/components/story/StoryReferencePicker.vue'
 import StoryCostModePicker from '~/components/story/StoryCostModePicker.vue'
 import StoryCostSummary from '~/components/story/StoryCostSummary.vue'
@@ -25,6 +26,7 @@ import {
   STORY_DEFAULT_MODE,
   STORY_DEFAULT_PLATFORM,
   STORY_DEFAULT_PRESET,
+  STORY_DEFAULT_VISUAL_STYLE,
 } from '~/data/story'
 import type {
   StoryCostMode,
@@ -33,6 +35,7 @@ import type {
   StoryMode,
   StoryPlatform,
   StoryPreset,
+  StoryVisualStyle,
 } from '~/models/story'
 import { useStory } from '~/composables/useStory'
 import { useStoryApi } from '~/composables/useStoryApi'
@@ -83,6 +86,7 @@ const platform = ref<StoryPlatform>(STORY_DEFAULT_PLATFORM)
 const costMode = ref<StoryCostMode>(STORY_DEFAULT_COST_MODE)
 const targetDurationSeconds = ref<StoryDurationSeconds>(STORY_DEFAULT_DURATION)
 const preset = ref<StoryPreset>(STORY_DEFAULT_PRESET)
+const visualStyle = ref<StoryVisualStyle>(STORY_DEFAULT_VISUAL_STYLE)
 const form = ref<{ focusPremise: () => void } | null>(null)
 const premiseIssue = ref<StoryJobError | null>(null)
 
@@ -123,6 +127,7 @@ async function handleSubmit(): Promise<void> {
     targetDurationSeconds: targetDurationSeconds.value,
     maxDurationSeconds: targetDurationSeconds.value,
     preset: preset.value,
+    visualStyle: visualStyle.value,
     mode: mode.value,
     referenceUrl: reference.value?.fileUrl ?? null,
     referenceExpiresAt: reference.value?.expiresAt ?? null,
@@ -280,6 +285,13 @@ function handleReset(): void {
           <StoryCostSummary
             :cost-mode="costMode"
             :target-duration-seconds="targetDurationSeconds"
+          />
+        </template>
+
+        <template #style>
+          <StoryStylePicker
+            :visual-style="visualStyle"
+            @update:visual-style="visualStyle = $event"
           />
         </template>
 

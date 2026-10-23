@@ -1,0 +1,14 @@
+{
+  "probe": "keyframe",
+  "endpoint": "fal-ai/flux/dev",
+  "createdAt": "2026-10-23T20:49:09.054Z",
+  "latencyMs": 15003,
+  "prompt": "3D cartoon render, glossy stylized characters, Pixar-like proportions, soft studio lighting, clean pastel palette. Wide shot of Repartidor corriendo por la acera con el paquete y el móvil: El repartidor corre por la acera con el paquete en una mano y el móvil en la otra, mirando el reloj y resoplando. Composition: Plano vertical en movimiento de un repartidor joven con chaqueta reflectante y gorra corriendo por una acera urbana estrecha con portal al fondo, luz de tarde, paquete de cartón…. Characters: Repartidor. Props: Paquete. Location: Calle urbana. Time: afternoon. Weather: clear sky. Style: Comedia urbana rápida, cámara vertical pegada al repartidor, ritmo de entrega…. Tone: humor. Theme: El trabajo rutinario se rompe cuando algo inesperado pide atención.. Static vertical 9:16 keyframe, single instant, no motion, no text, no subtitles, no logo, no watermark.",
+  "promptLength": 876,
+  "requestId": "01a16a86-1a75-7ac1-83a3-15405f55e2ca",
+  "output": {
+    "imageUrl": "https://v3b.fal.media/files/b/0aaf9405/9b98wSIlENvv_D3Urevka.jpg",
+    "width": 1152,
+    "height": 2048
+  }
+}

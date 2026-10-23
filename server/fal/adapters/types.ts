@@ -6,6 +6,8 @@ import type {
 export interface KeyframeInput {
   readonly prompt: string
   readonly referenceUrl: string | null
+  /** Kontext multi: one reference per character present in the shot. */
+  readonly referenceUrls?: readonly string[]
 }
 
 export interface KeyframeOutput {

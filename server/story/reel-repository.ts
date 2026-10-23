@@ -76,6 +76,8 @@ export interface ReelStoryRecord {
   readonly referenceExpiresAt: Date | null
   readonly preset: StoryPreset
   readonly visualStyle: StoryVisualStyle
+  /** Keyframe URL used as identity anchor per character id. */
+  readonly anchors: Readonly<Record<string, string>>
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode
@@ -233,6 +235,7 @@ export interface ReelStoryRepository {
   ): Promise<boolean>
   countActiveProviderJobs(stage: 'keyframe' | 'video'): Promise<number>
   shotIdleMs(storyId: string, shotId: string, now: number): Promise<number | null>
+  updateStoryAnchors(storyId: string, anchors: Readonly<Record<string, string>>): Promise<boolean>
   cancel(id: string, sessionId: string, now: Date): Promise<boolean>
 }
 
@@ -242,6 +245,18 @@ type SceneRow = NonNullable<NonNullable<StoryRow>['scenes']>[number]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseAnchors(value: unknown): Readonly<Record<string, string>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+
+  const anchors: Record<string, string> = {}
+
+  for (const [id, url] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof url === 'string' && url.length > 0) anchors[id] = url
+  }
+
+  return anchors
 }
 
 function parsePlan(value: unknown): StoryPlan {
@@ -380,6 +395,7 @@ function mapStory(row: NonNullable<StoryRow>): ReelStoryRecord {
     referenceExpiresAt: row.referenceExpiresAt,
     preset: row.preset === 'quality' ? 'quality' : 'fast',
     visualStyle: isStoryVisualStyle(row.visualStyle) ? row.visualStyle : 'cartoon3d',
+    anchors: parseAnchors(row.anchorsJson),
     mode: row.mode,
     platform: row.platform as StoryPlatform,
     costMode: row.costMode as StoryCostMode,
@@ -850,6 +866,18 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
     })
 
     return row === null ? null : Math.max(0, now - row.updatedAt.getTime())
+  }
+
+  async updateStoryAnchors(
+    storyId: string,
+    anchors: Readonly<Record<string, string>>,
+  ): Promise<boolean> {
+    const updated = await this.client.story.updateMany({
+      where: { id: storyId },
+      data: { anchorsJson: anchors as unknown as never },
+    })
+
+    return updated.count > 0
   }
 
   async cancel(id: string, sessionId: string, now: Date): Promise<boolean> {

@@ -2,6 +2,7 @@ import type { StoryBeat } from '~/models/story'
 import type { FalQueueService } from '../fal/queue-service'
 import { FluxImageAdapter } from '../fal/adapters/flux-image-adapter'
 import { FluxKontextAdapter } from '../fal/adapters/flux-kontext-adapter'
+import { FluxKontextMultiAdapter } from '../fal/adapters/flux-kontext-multi-adapter'
 import type { KeyframeAdapter } from '../fal/adapters/types'
 import { StoryError, toStoryError } from './errors'
 import type { ReelSceneRecord, ReelShotRecord, ReelStoryRecord } from './reel-repository'
@@ -9,6 +10,7 @@ import {
   STORY_PROMPT_MAX_LENGTH,
   storyPromptComposer,
 } from './story-prompt-composer'
+import { selectKeyframeProvider } from './anchor-selection'
 
 export interface ShotProviderSubmission {
   readonly requestId: string
@@ -62,11 +64,13 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
   private readonly queue: FalQueueService
   private readonly flux: KeyframeAdapter
   private readonly kontext: KeyframeAdapter
+  private readonly kontextMulti: KeyframeAdapter
 
   constructor(queue: FalQueueService) {
     this.queue = queue
     this.flux = new FluxImageAdapter()
     this.kontext = new FluxKontextAdapter()
+    this.kontextMulti = new FluxKontextMultiAdapter()
   }
 
   async submit(
@@ -74,22 +78,34 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
     scene: ReelSceneRecord,
     story: ReelStoryRecord,
   ): Promise<ShotProviderSubmission> {
-    const adapter = story.referenceUrl ? this.kontext : this.flux
+    const provider = selectKeyframeProvider({
+      userReferenceUrl: story.referenceUrl,
+      presentCharacterIds: scene.scene?.characters ?? [],
+      anchors: story.anchors,
+    })
+    const adapter = provider.kind === 'flux'
+      ? this.flux
+      : provider.kind === 'kontext'
+        ? this.kontext
+        : this.kontextMulti
     const beat = storyBeatForShot(shot, scene)
     const composed = storyPromptComposer.composeKeyframe({
       bible: story.plan.storyBible,
       beat,
-      hasReference: story.referenceUrl !== null,
+      hasReference: provider.kind !== 'flux',
       visualStyle: story.visualStyle,
       maxLength: STORY_PROMPT_MAX_LENGTH,
     })
 
     try {
       const submission = await this.queue.submit(
-        adapter.modelId,
+        adapter.modelId as Parameters<FalQueueService['submit']>[0],
         adapter.buildInput({
           prompt: composed.prompt,
-          referenceUrl: story.referenceUrl,
+          referenceUrl: provider.kind === 'kontext' ? provider.referenceUrl : null,
+          ...(provider.kind === 'kontext-multi'
+            ? { referenceUrls: provider.referenceUrls }
+            : {}),
         }),
       )
 

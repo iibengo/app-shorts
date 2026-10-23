@@ -138,12 +138,14 @@ describe.skipIf(probe.length === 0)('provider probes (opt-in)', () => {
   it.skipIf(probe !== 'keyframe')('generates one keyframe with FLUX dev', async () => {
     const { plan, beat } = await planFromRecording()
     const override = (process.env.PROBE_PROMPT ?? '').trim()
+    const visualStyle = process.env.PROBE_STYLE
     const composed = override.length > 0
       ? { prompt: override }
       : storyPromptComposer.composeKeyframe({
           bible: plan.storyBible,
           beat,
           hasReference: false,
+          ...(visualStyle === undefined ? {} : { visualStyle: visualStyle as never }),
           maxLength: STORY_PROMPT_MAX_LENGTH,
         })
     const adapter = new FluxImageAdapter()

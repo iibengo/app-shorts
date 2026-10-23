@@ -96,6 +96,7 @@ defineExpose({ focusPremise })
     </div>
 
     <slot name="mode" />
+    <slot name="style" />
     <slot name="platform" />
     <slot name="costMode" />
     <slot name="duration" />

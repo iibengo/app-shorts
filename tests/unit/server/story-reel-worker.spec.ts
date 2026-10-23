@@ -306,6 +306,21 @@ describe('shot reconciler', () => {
     expect(ctx.assembler.calls[0]?.maxDurationSeconds).toBe(30)
   })
 
+  it('records the first keyframe as the identity anchor of its characters', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.anchors).toBeTruthy()
+    const anchorIds = Object.keys(story?.anchors ?? {})
+
+    expect(anchorIds.length).toBeGreaterThan(0)
+    for (const id of anchorIds) {
+      expect(story?.anchors[id]).toContain('v3.fal.media')
+    }
+  })
+
   it('fails the story when a keyframe provider poll fails', async () => {
     const ctx = await setup()
     ctx.keyframes.failPoll = true

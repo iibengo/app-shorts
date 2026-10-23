@@ -1,12 +1,14 @@
 export type ComposerEndpointId =
   | 'fal-ai/flux/dev'
   | 'fal-ai/flux-pro/kontext'
+  | 'fal-ai/flux-pro/kontext/max/multi'
   | 'fal-ai/minimax/hailuo-02/standard/image-to-video'
   | 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video'
 
 export const COMPOSER_ENDPOINT_IDS: readonly ComposerEndpointId[] = [
   'fal-ai/flux/dev',
   'fal-ai/flux-pro/kontext',
+  'fal-ai/flux-pro/kontext/max/multi',
   'fal-ai/minimax/hailuo-02/standard/image-to-video',
   'fal-ai/kling-video/v2.5-turbo/pro/image-to-video',
 ]

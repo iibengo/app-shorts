@@ -11,6 +11,7 @@ import type {
   StoryTimeOfDay,
   StoryTone,
   StoryWeather,
+  StoryVisualStyle,
 } from '~/models/story'
 
 export const STORY_MIN_PREMISE_LENGTH = 10
@@ -64,6 +65,42 @@ export const STORY_PRESETS: readonly StoryPresetOption[] = [
     description: 'Kling 2.5 Turbo Pro. Más detalle y coste.',
   },
 ]
+
+export interface StoryVisualStyleOption {
+  readonly visualStyle: StoryVisualStyle
+  readonly label: string
+  readonly description: string
+}
+
+export const STORY_VISUAL_STYLE_OPTIONS: readonly StoryVisualStyleOption[] = [
+  {
+    visualStyle: 'cartoon3d',
+    label: '3D cartoon',
+    description: 'Personajes 3D brillantes, estilo Pixar. El look por defecto.',
+  },
+  {
+    visualStyle: 'papercraft',
+    label: 'Papercraft',
+    description: 'Low-poly de papel, fondo oscuro con neón.',
+  },
+  {
+    visualStyle: 'clay',
+    label: 'Clay',
+    description: 'Plastilina y stop-motion, luz cálida de maqueta.',
+  },
+  {
+    visualStyle: 'anime',
+    label: 'Anime',
+    description: 'Cel shading limpio, colores vivos.',
+  },
+  {
+    visualStyle: 'photo',
+    label: 'Realista',
+    description: 'Fotografía cinematográfica, luz natural.',
+  },
+]
+
+export const STORY_DEFAULT_VISUAL_STYLE: StoryVisualStyle = 'cartoon3d'
 
 export const STORY_DEFAULT_PRESET: StoryPreset = 'fast'
 
@@ -242,6 +279,9 @@ export const STORY_COPY = {
   sceneCountLegend: 'Escenas',
   sceneCountHelp: 'Cada escena dura 6 segundos.',
   presetLegend: 'Calidad de vídeo',
+  visualStyleLegend: 'Estilo visual',
+  resultStyle: 'Calidad',
+  resultVisualStyle: 'Estilo visual',
   referenceTitle: 'Imagen de referencia (opcional)',
   referenceHelp:
     'Una imagen PNG, JPG o WebP de hasta 8 MB. Se usa para el guion y para las imágenes de todas las escenas. Se envía a DeepSeek y a Fal; Fal la elimina en 1 hora.',
@@ -316,7 +356,8 @@ export const STORY_COPY = {
   resultScenes: 'Escenas',
   resultDuration: 'Duración',
   resultFormat: 'Formato',
-  resultStyle: 'Estilo',
+  resultStyle: 'Calidad',
+  resultVisualStyle: 'Estilo visual',
   resultReference: 'Referencia',
   resultReferenceZero: 'Sin referencia',
   resultReferenceOne: '1 imagen',

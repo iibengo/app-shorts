@@ -210,13 +210,35 @@ export class ReelStoryReconciler {
     await this.finalizeKeyframes(story.id)
   }
 
+  /**
+   * The first keyframe that shows a character becomes its identity anchor.
+   * No extra provider call: the same image is reused by Kontext for the rest
+   * of the story, which is what keeps the character consistent.
+   */
+  private async rememberAnchors(
+    story: ReelStoryRecord,
+    scene: ReelSceneRecord,
+    keyframeUrl: string,
+  ): Promise<void> {
+    const characters = scene.scene?.characters ?? []
+    const missing = characters.filter((id) => story.anchors[id] === undefined)
+
+    if (missing.length === 0) return
+
+    const anchors: Record<string, string> = { ...story.anchors }
+
+    for (const id of missing) anchors[id] = keyframeUrl
+
+    await this.repository.updateStoryAnchors(story.id, anchors)
+  }
+
   private async processKeyframeShot(
     story: ReelStoryRecord,
     shot: ReelShotRecord,
     scene: ReelSceneRecord,
   ): Promise<void> {
     if (shot.keyframeRequestId && KEYFRAME_ACTIVE.includes(shot.status)) {
-      await this.pollKeyframeShot(story, shot)
+      await this.pollKeyframeShot(story, shot, scene)
       return
     }
 
@@ -291,6 +313,7 @@ export class ReelStoryReconciler {
   private async pollKeyframeShot(
     story: ReelStoryRecord,
     shot: ReelShotRecord,
+    scene: ReelSceneRecord,
   ): Promise<void> {
     if (await this.idleExceeded(story.id, shot.id, this.keyframeMaxIdleMs)) {
       await this.cancelIdleJob(story, shot, 'keyframe')
@@ -330,6 +353,7 @@ export class ReelStoryReconciler {
         { statuses: ['KEYFRAME_QUEUED', 'KEYFRAME_RUNNING'] },
         { status: 'KEYFRAME_READY', keyframeUrl: result.keyframeUrl, keyframeError: null },
       )
+      await this.rememberAnchors(story, scene, result.keyframeUrl)
       this.onEvent?.({
         event: 'reel.keyframe.succeeded',
         storyId: story.id,

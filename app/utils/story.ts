@@ -19,6 +19,8 @@ import {
   STORY_TIME_OF_DAY_LABELS,
   STORY_WEATHER_LABELS,
   type StoryStepId,
+  STORY_VISUAL_STYLE_OPTIONS,
+  type StoryVisualStyleOption,
 } from '~/data/story'
 import type {
   SceneStatus,
@@ -40,6 +42,7 @@ import type {
   StoryWeather,
   StoryEntitySource,
   StoryStatus,
+  StoryVisualStyle,
 } from '~/models/story'
 
 export interface StoryFileLike {
@@ -190,6 +193,11 @@ export function formatStoryFileSize(sizeBytes: number): string {
 
 export function storyModelIdForPreset(preset: StoryPreset): StoryModelId {
   return preset === 'quality' ? 'kling-2.5-turbo-pro' : 'minimax-hailuo-02'
+}
+
+export function getStoryVisualStyle(value: StoryVisualStyle): StoryVisualStyleOption {
+  return STORY_VISUAL_STYLE_OPTIONS.find((option) => option.visualStyle === value)
+    ?? STORY_VISUAL_STYLE_OPTIONS[0]!
 }
 
 export function getStoryPreset(preset: StoryPreset): (typeof STORY_PRESETS)[number] {
