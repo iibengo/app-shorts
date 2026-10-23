@@ -24,9 +24,14 @@ export interface KeyframeProviderInput {
 }
 
 export function selectKeyframeProvider(input: KeyframeProviderInput): KeyframeProvider {
-  // The sheet is the richest identity available, so it wins over a single photo.
+  // The sheet is the richest identity available, but a multi-paragraph prompt
+  // plus four references is more than Nano Banana handles for a two-character
+  // shot: those fall back to the single front view.
   if (input.characterSheet !== undefined && input.characterSheet !== null && input.characterSheet.length > 0) {
-    return { kind: 'nano-banana', referenceUrls: input.characterSheet.slice(0, 4) }
+    const multi = new Set(input.presentCharacterIds).size > 1
+    const urls = multi ? input.characterSheet.slice(0, 1) : input.characterSheet.slice(0, 4)
+
+    return { kind: 'nano-banana', referenceUrls: urls }
   }
 
   if (input.userReferenceUrl !== null) {

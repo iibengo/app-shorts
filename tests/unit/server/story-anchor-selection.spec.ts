@@ -115,3 +115,19 @@ describe('character sheet priority', () => {
     expect(provider.kind).toBe('kontext')
   })
 })
+
+describe('multi-character shots', () => {
+  it('sends one sheet view when two characters share the frame', () => {
+    const provider = selectKeyframeProvider({
+      characterSheet: [ANCHOR_A, ANCHOR_B, ANCHOR_A, ANCHOR_B],
+      userReferenceUrl: null,
+      presentCharacterIds: ['ionias', 'coffee-bot'],
+      anchors: {},
+      preferred: 'nano-banana',
+    })
+
+    expect(provider.kind).toBe('nano-banana')
+    if (provider.kind !== 'nano-banana') return
+    expect(provider.referenceUrls).toHaveLength(1)
+  })
+})

@@ -64,6 +64,16 @@ Dos cambios, ninguno reescribe el motor:
 - **FR-008**: Nada de esto MUST bloquear la historia ni los estados existentes.
 - **FR-009**: Tests: hoja válida, fallo de la hoja, check `match`/`drift`/`unknown`, un solo reintento, marcado de revisión, coste.
 
+## Hallazgo real (2026-10-24)
+
+Con la hoja, **3 de 4 planos mantienen la identidad** (front, reaction, wide). El plano `two-shot` falló en bucle: se enviaban las 4 vistas de un solo personaje a un plano con dos, y el proveedor devolvía una salida que el adaptador rechazaba.
+
+| Regla | Contrato |
+|---|---|
+| **Planos de un personaje** | MUST enviar la hoja completa (4 vistas). |
+| **Planos de varios personajes** | MUST enviar una sola vista de la hoja; el segundo personaje se describe en el prompt. Más referencias degradan la salida. |
+| **Reintentos con actividad** | El tope de inactividad no frena un bucle de intentos fallidos, porque cada intento cuenta como actividad. Pendiente: tope por número de fallos consecutivos. |
+
 ## Fuera de alcance
 
 - Entrenamiento LoRA por personaje.
