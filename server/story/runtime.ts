@@ -51,6 +51,7 @@ import { createShotAssembler } from './shot-assembly-service'
 import type { ShotAssembler } from './shot-assembly-service'
 import { createShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
 import { createCharacterSheetOrchestrator } from './character-sheet-orchestrator'
+import { createConsistencyChecker } from './consistency-check'
 import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
 import { createShotQCService } from './shot-qc-service'
 import type { ShotQCService } from './shot-qc-service'
@@ -569,6 +570,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     ? createReelStoryReconciler({
         repository: reelRepository,
         keyframes: reelKeyframes,
+        consistency: deepseekClient === null ? null : createConsistencyChecker({ client: deepseekClient }),
         videos: reelVideos,
         assembler: reelAssembler,
         qcService: reelQcService,

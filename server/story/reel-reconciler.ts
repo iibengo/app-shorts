@@ -12,6 +12,7 @@ import type {
 import type { ShotAssembler } from './shot-assembly-service'
 import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
 import type { CharacterSheetOrchestrator } from './character-sheet-orchestrator'
+import type { ConsistencyChecker } from './consistency-check'
 import type { ShotQCService } from './shot-qc-service'
 import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
 
@@ -63,6 +64,7 @@ export interface ReelReconcilerOptions {
   readonly repository: ReelStoryRepository
   readonly keyframes: ShotKeyframeOrchestrator
   readonly characterSheet?: CharacterSheetOrchestrator | null
+  readonly consistency?: ConsistencyChecker | null
   readonly videos: ShotVideoOrchestrator
   readonly assembler: ShotAssembler
   readonly qcService: ShotQCService | null
@@ -84,6 +86,7 @@ export class ReelStoryReconciler {
   private readonly repository: ReelStoryRepository
   private readonly keyframes: ShotKeyframeOrchestrator
   private readonly characterSheet: CharacterSheetOrchestrator | null
+  private readonly consistency: ConsistencyChecker | null
   private readonly videos: ShotVideoOrchestrator
   private readonly assembler: ShotAssembler
   private readonly qcService: ShotQCService | null
@@ -102,6 +105,7 @@ export class ReelStoryReconciler {
     this.repository = options.repository
     this.keyframes = options.keyframes
     this.characterSheet = options.characterSheet ?? null
+    this.consistency = options.consistency ?? null
     this.videos = options.videos
     this.assembler = options.assembler
     this.qcService = options.qcService
@@ -254,6 +258,64 @@ export class ReelStoryReconciler {
     await this.repository.updateStoryAnchors(story.id, anchors)
   }
 
+  /**
+   * Compares a fresh keyframe with the character sheet. Only a confident drift
+   * is regenerated once; a second drift leaves the shot for a human, and a
+   * doubtful answer costs nothing.
+   */
+  private async checkConsistency(
+    story: ReelStoryRecord,
+    shot: ReelShotRecord,
+    keyframeUrl: string,
+  ): Promise<void> {
+    if (this.consistency === null || story.characterSheet === null) return
+
+    const reference = story.characterSheet.front
+
+    try {
+      const result = await this.consistency.check(reference, keyframeUrl, 'front')
+
+      this.onEvent?.({
+        event: 'reel.keyframe.consistency',
+        storyId: story.id,
+        shotId: shot.id,
+        order: shot.order,
+        errorCode: result.verdict === 'drift' ? 'consistency-drift' : result.verdict,
+      })
+
+      if (result.verdict !== 'drift') return
+
+      const attempts = shot.keyframeAttempts
+
+      if (attempts >= 2) {
+        await this.repository.updateShot(
+          story.id,
+          shot.id,
+          { statuses: ['KEYFRAME_READY'], version: shot.version },
+          { status: 'KEYFRAME_FAILED', keyframeError: 'provider-invalid-output' },
+        )
+        return
+      }
+
+      await this.repository.updateShot(
+        story.id,
+        shot.id,
+        { statuses: ['KEYFRAME_READY'], version: shot.version },
+        {
+          status: 'KEYFRAME_QUEUED',
+          keyframeUrl: null,
+          keyframeRequestId: null,
+          keyframeStatusUrl: null,
+          keyframeResponseUrl: null,
+          keyframeCancelUrl: null,
+          keyframeAttempts: attempts + 1,
+        },
+      )
+    } catch {
+      // A checker failure must never block the story.
+    }
+  }
+
   private async processKeyframeShot(
     story: ReelStoryRecord,
     shot: ReelShotRecord,
@@ -376,6 +438,7 @@ export class ReelStoryReconciler {
         { status: 'KEYFRAME_READY', keyframeUrl: result.keyframeUrl, keyframeError: null },
       )
       await this.rememberAnchors(story, scene, shot, result.keyframeUrl)
+      await this.checkConsistency(story, shot, result.keyframeUrl)
       this.onEvent?.({
         event: 'reel.keyframe.succeeded',
         storyId: story.id,

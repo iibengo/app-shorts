@@ -88,3 +88,30 @@ describe('first keyframe must seed the anchor with FLUX', () => {
       .toEqual({ kind: 'kontext-multi', referenceUrls: [ANCHOR_A, ANCHOR_B] })
   })
 })
+
+describe('character sheet priority', () => {
+  it('sends every sheet view and wins over the single reference', () => {
+    const provider = selectKeyframeProvider({
+      characterSheet: [ANCHOR_A, ANCHOR_B, ANCHOR_A, ANCHOR_B],
+      userReferenceUrl: 'https://v3.fal.media/files/user.jpg',
+      presentCharacterIds: ['clara'],
+      anchors: { clara: ANCHOR_A },
+      preferred: 'nano-banana',
+    })
+
+    expect(provider.kind).toBe('nano-banana')
+    if (provider.kind !== 'nano-banana') return
+    expect(provider.referenceUrls).toHaveLength(4)
+  })
+
+  it('falls back to the single reference when there is no sheet', () => {
+    const provider = selectKeyframeProvider({
+      characterSheet: null,
+      userReferenceUrl: 'https://v3.fal.media/files/user.jpg',
+      presentCharacterIds: ['clara'],
+      anchors: {},
+    })
+
+    expect(provider.kind).toBe('kontext')
+  })
+})

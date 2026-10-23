@@ -14,6 +14,8 @@ export type KeyframeProvider =
   | { readonly kind: 'nano-banana'; readonly referenceUrls: readonly string[] }
 
 export interface KeyframeProviderInput {
+  /** Sheet views first: they give the model every angle of the character. */
+  readonly characterSheet?: readonly string[] | null
   readonly userReferenceUrl: string | null
   readonly presentCharacterIds: readonly string[]
   readonly anchors: Readonly<Record<string, string>>
@@ -22,6 +24,11 @@ export interface KeyframeProviderInput {
 }
 
 export function selectKeyframeProvider(input: KeyframeProviderInput): KeyframeProvider {
+  // The sheet is the richest identity available, so it wins over a single photo.
+  if (input.characterSheet !== undefined && input.characterSheet !== null && input.characterSheet.length > 0) {
+    return { kind: 'nano-banana', referenceUrls: input.characterSheet.slice(0, 4) }
+  }
+
   if (input.userReferenceUrl !== null) {
     return { kind: 'kontext', referenceUrl: input.userReferenceUrl }
   }

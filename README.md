@@ -154,7 +154,7 @@ Antes de la Spec 009 (audio, voz, música y subtítulos), lee `AGENTS.md` y las 
 - Spec 007 implementada: modos `faithful`/`creative`, canon con localizaciones y `source`, dos pasadas de DeepSeek y QC por escena.
 - Spec 008 implementada (`dff2764`); no validada: smoke real pendiente: duración como contrato, escenas con varios planos, perfiles budget/standard/production, worker por shot, QC por shot, montaje y UI por plano.
 - Prisma 7 + PostgreSQL: `Story`/`Scene`/`Shot`, migraciones hasta `20261022171500_shot_version`, Docker local.
-- Suite automatizada: **2161 tests en verde** (21 skips opt-in, 155 archivos); `npm run build` correcto.
+- Suite automatizada: **2168 tests en verde** (21 skips opt-in, 155 archivos); `npm run build` correcto.
 - 004 sin archivos modificados; la suite 004 reproducible es **605 tests**. La cifra histórica de 613 no es reproducible con el árbol actual.
 - Smoke real opt-in (`RUN_STORY_SMOKE=1`, `RUN_FAL_SMOKE=1`), no ejecutado en esta validación. Fal disponible: ~5 USD; no gastar sin aprobación.
 - Pendiente: QA manual de accesibilidad/navegador, smoke real 15 s budget, CORS/lifecycle/cancelación y gates D1–D10/G1–G8.
@@ -237,5 +237,5 @@ La Spec 008 sustituye la escena de 6 s como unidad de generación por el **plano
 - Montaje por plano con duración exacta, 720×1280, 30 fps y sin audio.
 - UI con selector de plataforma/coste/duración, revisión, regeneración por plano, progreso, QC y resultado.
 - Spec: `specs/008-tiktok-reel-engine/spec.md`. Commit: `dff2764`.
-- Validación: 2161 tests / 21 skipped; build correcto; 004 sin archivos modificados.
+- Validación: 2168 tests / 21 skipped; build correcto; 004 sin archivos modificados.
 - Pendiente: smoke real 15 s budget, QA de navegador y gates D1–D10/G1–G8.

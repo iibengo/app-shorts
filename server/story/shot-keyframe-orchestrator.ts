@@ -12,6 +12,7 @@ import {
   storyPromptComposer,
 } from './story-prompt-composer'
 import { selectKeyframeProvider } from './anchor-selection'
+import { sheetUrls } from './character-sheet'
 
 export interface ShotProviderSubmission {
   readonly requestId: string
@@ -90,6 +91,9 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
     const provider = needsSeed
       ? { kind: 'flux' as const }
       : selectKeyframeProvider({
+          characterSheet: story.characterSheet === null
+            ? null
+            : sheetUrls(story.characterSheet),
           userReferenceUrl: story.referenceUrl,
           presentCharacterIds: scene.scene?.characters ?? [],
           anchors: story.anchors,
