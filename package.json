@@ -17,7 +17,8 @@
     "db:studio": "prisma studio",
     "db:validate": "prisma validate",
     "typecheck": "nuxi typecheck",
-    "eval:director": "vitest run tests/eval/director-eval.spec.ts"
+    "eval:director": "vitest run tests/eval/director-eval.spec.ts",
+    "probe": "vitest run tests/eval/provider-probe.spec.ts"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",

@@ -1,0 +1,14 @@
+{
+  "probe": "keyframe",
+  "endpoint": "fal-ai/flux/dev",
+  "createdAt": "2026-10-23T19:39:39.359Z",
+  "latencyMs": 13815,
+  "prompt": "3D cartoon render, glossy stylized characters, soft studio lighting, clean pastel background. Wide shot: a young delivery courier wearing a bright yellow hi-vis vest, blue cap and grey gloves, running along a narrow European cobblestone street at golden hour, out of breath, glancing at his watch, holding a taped cardboard package in one hand and a smartphone in the other. Mid-stride pose, single instant. Static vertical 9:16 keyframe, no text, no subtitles, no logo, no watermark.",
+  "promptLength": 484,
+  "requestId": "01a16a46-83ac-7ae0-a6d6-1c1ae1abc10b",
+  "output": {
+    "imageUrl": "https://v3b.fal.media/files/b/0aaf9264/YYPIjgaOJXuE21ZdOp-XV.jpg",
+    "width": 1152,
+    "height": 2048
+  }
+}
