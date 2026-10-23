@@ -11,6 +11,7 @@ import type {
 } from './reel-repository'
 import type { ShotAssembler } from './shot-assembly-service'
 import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
+import type { CharacterSheetOrchestrator } from './character-sheet-orchestrator'
 import type { ShotQCService } from './shot-qc-service'
 import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
 
@@ -61,6 +62,7 @@ export const DEFAULT_REEL_RECONCILER_CONFIG: ReelReconcilerConfig = {
 export interface ReelReconcilerOptions {
   readonly repository: ReelStoryRepository
   readonly keyframes: ShotKeyframeOrchestrator
+  readonly characterSheet?: CharacterSheetOrchestrator | null
   readonly videos: ShotVideoOrchestrator
   readonly assembler: ShotAssembler
   readonly qcService: ShotQCService | null
@@ -81,6 +83,7 @@ export interface ReelReconcilerOptions {
 export class ReelStoryReconciler {
   private readonly repository: ReelStoryRepository
   private readonly keyframes: ShotKeyframeOrchestrator
+  private readonly characterSheet: CharacterSheetOrchestrator | null
   private readonly videos: ShotVideoOrchestrator
   private readonly assembler: ShotAssembler
   private readonly qcService: ShotQCService | null
@@ -98,6 +101,7 @@ export class ReelStoryReconciler {
   constructor(options: ReelReconcilerOptions) {
     this.repository = options.repository
     this.keyframes = options.keyframes
+    this.characterSheet = options.characterSheet ?? null
     this.videos = options.videos
     this.assembler = options.assembler
     this.qcService = options.qcService

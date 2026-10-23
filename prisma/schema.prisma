@@ -62,6 +62,7 @@ model Story {
   preset              String
   visualStyle         String      @default("cartoon3d")
   anchorsJson         Json?
+  characterSheetJson  Json?
   mode                StoryMode  @default(faithful)
   platform            StoryPlatform @default(tiktok)
   costMode            StoryCostMode @default(standard)

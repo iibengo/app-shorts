@@ -438,6 +438,11 @@ export interface StoryApiError {
   }
 }
 
+export type StoryCharacterView = 'front' | 'three-quarter' | 'profile' | 'smile'
+
+/** Character sheet: one URL per view. Server-only in the DTO. */
+export type StoryCharacterSheet = Readonly<Record<StoryCharacterView, string>>
+
 export interface Story {
   readonly id: string
   readonly status: StoryStatus
@@ -448,6 +453,8 @@ export interface Story {
   readonly referenceExpiresAt: string | null
   readonly preset: StoryPreset
   readonly visualStyle: StoryVisualStyle
+  /** `ready` when the sheet exists; a single anchor is the fallback. */
+  readonly characterSheetStatus: 'none' | 'ready' | 'failed'
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode

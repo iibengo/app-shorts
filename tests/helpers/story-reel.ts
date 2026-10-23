@@ -293,6 +293,7 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
       preset: input.preset,
       visualStyle: input.visualStyle ?? 'cartoon3d',
       anchors: input.anchors ?? {},
+      characterSheet: null,
       mode: input.mode,
       platform: input.platform,
       costMode: input.costMode,
@@ -566,6 +567,16 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
           : shot.videoRequestId !== null)).length,
       0,
     )
+  }
+
+  async updateCharacterSheet(storyId: string, sheet: null | Record<string, string>): Promise<boolean> {
+    const story = this.records.find((record) => record.id === storyId)
+
+    if (!story) return false
+
+    story.characterSheet = sheet as never
+
+    return true
   }
 
   async updateStoryAnchors(

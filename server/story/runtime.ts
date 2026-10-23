@@ -50,6 +50,7 @@ import type { ReelStoryReconciler } from './reel-reconciler'
 import { createShotAssembler } from './shot-assembly-service'
 import type { ShotAssembler } from './shot-assembly-service'
 import { createShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
+import { createCharacterSheetOrchestrator } from './character-sheet-orchestrator'
 import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
 import { createShotQCService } from './shot-qc-service'
 import type { ShotQCService } from './shot-qc-service'
@@ -411,6 +412,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
   const keyframes = hasFalKey ? createKeyframeOrchestrator(queue) : null
   const videos = hasFalKey ? createVideoOrchestrator(queue) : null
   const reelKeyframes = hasFalKey ? createShotKeyframeOrchestrator(queue) : null
+  const reelCharacterSheet = hasFalKey ? createCharacterSheetOrchestrator(queue) : null
   const reelVideos = hasFalKey ? createShotVideoOrchestrator(queue) : null
   const mediaStorage = hasFalKey
     ? createMediaStorage({ client, storageBaseUrl })
@@ -515,6 +517,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         repository: reelRepository,
         director: reelDirector,
         keyframes: reelKeyframes,
+        characterSheet: reelCharacterSheet,
         videos: reelVideos,
         costGuard: reelCostGuard,
         qcEnabled,
