@@ -1,16 +1,17 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "ionias",
   "name": "Ionias",
   "role": "Administrador de CafeAndCode",
   "visualStyle": "papercraft",
-  "description": "Low-poly papercraft barista-programmer. Faceted geometric head, square dark glasses, short dark hair. Brown apron over a cream shirt with rolled sleeves. Holds a steaming orange coffee mug in one hand and a small open laptop in the other.",
-  "wardrobe": "brown papercraft apron, cream shirt, dark trousers",
-  "palette": ["#3b2416", "#efe2c8", "#e8842c"],
-  "mood": "mysterious but friendly: glowing orange eyes, cold rim light from below, hard shadows, steam curling around the mug",
-  "prompt": "low-poly papercraft 3D render, faceted geometric shapes, matte paper texture, dark navy background with neon orange accents, dramatic rim light. Character Ionias, the CafeAndCode administrator: faceted head, square dark glasses, short dark hair, brown apron over a cream shirt, holding a steaming orange coffee mug and a small open laptop. Glowing orange eyes, cold light from below, hard shadows, curling steam. Medium shot, single instant. Static vertical 9:16 keyframe, no text, no subtitles, no logo, no watermark.",
+  "description": "Low-poly papercraft man in his thirties: short dark-brown wavy hair with volume on top, short trimmed beard and moustache, thick dark eyebrows. Black t-shirt under a brown apron, dark trousers. Holds a steaming orange coffee mug in one hand and a small open laptop in the other. Developer studio background: teal neon circuit panels and a code screen.",
+  "wardrobe": "black t-shirt, brown papercraft apron, dark trousers",
+  "palette": ["#3b2416", "#efe2c8", "#e8842c", "#2bd4d4"],
+  "mood": "mysterious but friendly: glowing orange eyes, teal neon rim light from the screens, hard shadows, curling steam",
+  "prompt": "low-poly papercraft 3D render, faceted geometric shapes, matte paper texture, dark background with teal and orange neon accents, dramatic rim light. Character Ionias, the CafeAndCode administrator: man in his thirties, short dark-brown wavy hair, short trimmed beard and moustache, thick eyebrows, black t-shirt under a brown apron. He holds a steaming orange coffee mug and a small open laptop. Glowing orange eyes, teal light from a code screen behind him, hard shadows, curling steam. Medium shot, single instant. Static vertical 9:16 keyframe, no text, no subtitles, no logo, no watermark.",
   "notes": [
-    "Las llaves {} y el texto del portátil se añaden en la capa gráfica (spec 012), no con el modelo de imagen.",
+    "Rasgos tomados de dos fotos del autor, sin enviarlas a ningun proveedor.",
+    "Las llaves {} y el texto del portatil se anaden en la capa grafica (spec 012), no con el modelo de imagen.",
     "El primer keyframe de Ionias se reutiliza como ancla del personaje en el resto de planos."
   ]
 }
