@@ -21,6 +21,7 @@ import {
   validateStoryMode,
   validateVisualPrompt,
 } from './validation'
+import { validateVisualStyle } from './visual-style'
 
 export const REEL_CREATE_FIELDS = [
   'premise',
@@ -30,6 +31,7 @@ export const REEL_CREATE_FIELDS = [
   'maxDurationSeconds',
   'sceneCount',
   'preset',
+  'visualStyle',
   'mode',
   'referenceUrl',
   'referenceExpiresAt',
@@ -146,6 +148,7 @@ export function validateReelCreateRequest(
   const costMode = validateReelCostMode(payload.costMode)
   const preset = validatePreset(payload.preset)
   const mode = validateStoryMode(payload.mode)
+  const visualStyle = validateVisualStyle(payload.visualStyle)
   const duration = validateReelDuration(costMode, payload.targetDurationSeconds, payload.maxDurationSeconds)
   const profile = costProfile(costMode, duration.target)
 
@@ -170,6 +173,7 @@ export function validateReelCreateRequest(
       targetDurationSeconds: duration.target,
       maxDurationSeconds: duration.max,
       preset,
+      visualStyle,
       mode,
       referenceUrl: reference.referenceUrl,
       referenceExpiresAt: reference.referenceExpiresAt,

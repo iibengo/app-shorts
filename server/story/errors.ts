@@ -65,6 +65,11 @@ const DEFINITIONS: Readonly<Record<StoryErrorCode, StoryErrorDefinition>> = {
     message: 'El modo de producción no es válido para esta duración o preset.',
     retryable: false,
   },
+  'invalid-visual-style': {
+    status: 400,
+    message: 'El estilo visual no es válido.',
+    retryable: false,
+  },
   'invalid-shot-duration': {
     status: 400,
     message: 'La duración del plano no es válida o supera la duración máxima de la historia.',

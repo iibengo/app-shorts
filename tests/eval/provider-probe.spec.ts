@@ -19,7 +19,7 @@ import { createFalQueueService } from '../../server/fal/queue-service'
 import type { FalQueueService } from '../../server/fal/queue-service'
 import { FluxImageAdapter } from '../../server/fal/adapters/flux-image-adapter'
 import { FluxKontextAdapter } from '../../server/fal/adapters/flux-kontext-adapter'
-import { KlingVideoAdapter } from '../../server/fal/adapters/kling-video-adapter'
+import { ModelRegistry } from '../../server/composer/model-registry'
 import { storyPromptComposer, STORY_PROMPT_MAX_LENGTH } from '../../server/story/story-prompt-composer'
 import { buildDirector, loadPremises, planFor, RECORDED_PATH } from './director-harness'
 
@@ -27,7 +27,7 @@ const probe = process.env.RUN_PROBE ?? ''
 const falKey = process.env.NUXT_FAL_KEY ?? ''
 const PROBE_DIR = join(process.cwd(), 'tests/fixtures/eval/probes')
 const POLL_INTERVAL_MS = 3_000
-const PROBE_TIMEOUT_MS = 240_000
+const PROBE_TIMEOUT_MS = 720_000
 
 interface ProbePlan {
   readonly plan: StoryPlan
@@ -177,12 +177,15 @@ describe.skipIf(probe.length === 0)('provider probes (opt-in)', () => {
     expect(reference, 'PROBE_REFERENCE_URL es obligatoria para la sonda kontext').toContain('http')
 
     const { plan, beat } = await planFromRecording()
-    const composed = storyPromptComposer.composeKeyframe({
-      bible: plan.storyBible,
-      beat,
-      hasReference: true,
-      maxLength: STORY_PROMPT_MAX_LENGTH,
-    })
+    const override = (process.env.PROBE_PROMPT ?? '').trim()
+    const composed = override.length > 0
+      ? { prompt: override }
+      : storyPromptComposer.composeKeyframe({
+          bible: plan.storyBible,
+          beat,
+          hasReference: true,
+          maxLength: STORY_PROMPT_MAX_LENGTH,
+        })
     const adapter = new FluxKontextAdapter()
     const queue = queueService()
     const started = Date.now()
@@ -209,22 +212,27 @@ describe.skipIf(probe.length === 0)('provider probes (opt-in)', () => {
     expect(output.imageUrl).toContain('http')
   }, PROBE_TIMEOUT_MS + 60_000)
 
-  it.skipIf(probe !== 'video')('generates one 6 s clip with Kling from a keyframe', async () => {
+  it.skipIf(probe !== 'video')('generates one 6 s clip with the fast video model from a keyframe', async () => {
     const keyframeUrl = process.env.PROBE_KEYFRAME_URL ?? ''
 
     expect(keyframeUrl, 'PROBE_KEYFRAME_URL es obligatoria para la sonda video').toContain('http')
 
     const { plan, beat } = await planFromRecording()
-    const composed = storyPromptComposer.composeVideo({
-      bible: plan.storyBible,
-      beat,
-      preset: 'fast',
-    })
-    const adapter = new KlingVideoAdapter()
+    const override = (process.env.PROBE_PROMPT ?? '').trim()
+    const composed = override.length > 0
+      ? { prompt: override, negativePrompt: 'blur, distortion, low quality, extra hands' }
+      : storyPromptComposer.composeVideo({
+          bible: plan.storyBible,
+          beat,
+          preset: 'fast',
+        })
+    const registry = new ModelRegistry()
+    const adapter = registry.getVideoAdapter('fast')
+    const endpoint = registry.getVideoEndpoint('fast')
     const queue = queueService()
     const started = Date.now()
     const submission = await queue.submit(
-      adapter.modelId,
+      endpoint,
       adapter.buildInput({
         prompt: composed.prompt,
         keyframeUrl,
@@ -233,12 +241,30 @@ describe.skipIf(probe.length === 0)('provider probes (opt-in)', () => {
       }),
     )
 
-    await waitForResult(queue, submission.statusUrl)
+    // Persist the handle before waiting: a slow job must stay recoverable.
+    const submitted = record('video-submitted', {
+      probe: 'video',
+      endpoint,
+      createdAt: new Date().toISOString(),
+      requestId: submission.requestId,
+      statusUrl: submission.statusUrl,
+      responseUrl: submission.responseUrl,
+      prompt: composed.prompt,
+      negativePrompt: composed.negativePrompt,
+    })
+
+    try {
+      await waitForResult(queue, submission.statusUrl)
+    } catch (error) {
+      throw new Error(
+        `${(error as Error).message} (requestId ${submission.requestId}, estado en ${submitted})`,
+      )
+    }
     const payload = await queue.getResult(submission.responseUrl)
     const output = adapter.parseOutput(payload, 6)
     const file = record('video', {
       probe: 'video',
-      endpoint: adapter.modelId,
+      endpoint,
       createdAt: new Date().toISOString(),
       latencyMs: Date.now() - started,
       prompt: composed.prompt,

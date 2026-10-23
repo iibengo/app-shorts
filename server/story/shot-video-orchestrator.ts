@@ -78,6 +78,7 @@ export class NativeShotVideoOrchestrator implements ShotVideoOrchestrator {
           bible: story.plan.storyBible,
           beat,
           preset: story.preset,
+          visualStyle: story.visualStyle,
         })
         prompt = compactPrompt(composed.prompt)
         negativePrompt = composed.negativePrompt

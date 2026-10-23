@@ -102,6 +102,7 @@ export function canonicalReelStoryBody(request: StoryCreateRequest): string {
     request.targetDurationSeconds,
     request.maxDurationSeconds,
     request.preset,
+    request.visualStyle ?? 'cartoon3d',
     request.mode,
     request.referenceUrl,
     request.referenceExpiresAt,
@@ -116,6 +117,7 @@ function sameRequest(record: ReelStoryRecord, request: StoryCreateRequest): bool
     && record.targetDurationSeconds === request.targetDurationSeconds
     && record.maxDurationSeconds === request.maxDurationSeconds
     && record.preset === request.preset
+    && (record.visualStyle ?? 'cartoon3d') === (request.visualStyle ?? 'cartoon3d')
     && record.mode === request.mode
     && record.referenceUrl === request.referenceUrl
     && record.referenceExpiresAt?.toISOString() === (request.referenceExpiresAt ?? undefined)
@@ -291,6 +293,7 @@ export function toReelStoryDto(
       ? record.referenceExpiresAt.toISOString()
       : null,
     preset: record.preset,
+    visualStyle: record.visualStyle,
     mode: record.mode,
     platform: record.platform,
     costMode: record.costMode,
@@ -406,6 +409,7 @@ export class ReelStoryServiceImpl implements ReelStoryService {
           ? new Date(input.request.referenceExpiresAt)
           : null,
         preset: input.request.preset,
+        visualStyle: input.request.visualStyle ?? 'cartoon3d',
         mode: input.request.mode,
         platform: input.request.platform,
         costMode: input.request.costMode,

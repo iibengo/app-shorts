@@ -238,3 +238,44 @@ describe('POST /api/story with 008 fields', () => {
     expect(director.calls).toHaveLength(0)
   })
 })
+
+describe('POST /api/story — visual style', () => {
+  it('defaults to cartoon3d without asking the client', async () => {
+    const { post } = setup()
+    const response = await post({ premise: PREMISE, preset: 'fast', mode: 'faithful' })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toMatchObject({ visualStyle: 'cartoon3d' })
+  })
+
+  it('accepts every registered style id', async () => {
+    for (const visualStyle of ['cartoon3d', 'papercraft', 'clay', 'anime', 'photo']) {
+      const { post } = setup()
+      const response = await post({
+        premise: PREMISE,
+        preset: 'fast',
+        mode: 'faithful',
+        visualStyle,
+      })
+
+      expect(response.status, visualStyle).toBe(201)
+      expect(response.body).toMatchObject({ visualStyle })
+    }
+  })
+
+  it('rejects an unknown style and never calls the director', async () => {
+    const { post, runtime } = setup()
+    const director = runtime.director as { readonly calls?: readonly unknown[] }
+    const before = director.calls?.length ?? 0
+    const response = await post({
+      premise: PREMISE,
+      preset: 'fast',
+      mode: 'faithful',
+      visualStyle: 'vaporwave',
+    })
+
+    expect(response.status).toBe(400)
+    expect(errorCode(response)).toBe('invalid-visual-style')
+    expect(director.calls?.length ?? 0).toBe(before)
+  })
+})

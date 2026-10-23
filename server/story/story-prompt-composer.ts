@@ -11,15 +11,19 @@ import type {
   StoryShotFraming,
   StoryStoryFunction,
   StoryTimeOfDay,
+  StoryVisualStyle,
   StoryTone,
   StoryWeather,
 } from '~/models/story'
 import { StoryError } from './errors'
+import { styleBlockFor, styleNegativeFor } from './visual-style'
 
 export interface KeyframePromptInput {
   readonly bible: StoryBible | null
   readonly beat: StoryBeat
   readonly hasReference: boolean
+  /** 010: look of the channel, prepended to the prompt. */
+  readonly visualStyle?: StoryVisualStyle
   /** 008 passes 4.000 to bound the final keyframe prompt deterministically. */
   readonly maxLength?: number
 }
@@ -28,6 +32,8 @@ export interface VideoPromptInput {
   readonly bible: StoryBible | null
   readonly beat: StoryBeat
   readonly preset: StoryPreset
+  /** 010: look of the channel, prepended to the prompt. */
+  readonly visualStyle?: StoryVisualStyle
 }
 
 export interface ComposedKeyframePrompt {
@@ -438,15 +444,19 @@ export function storyVideoLegacyPrompt(visualPrompt: string): string {
 }
 
 export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePrompt {
-  const prompt = input.bible === null
-    ? input.hasReference
-      ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
-      : storyKeyframeFluxPrompt(input.beat.visualPrompt)
-    : composeCanonKeyframePrompt(input.bible, input.beat)
-
   const budget = input.maxLength === undefined
     ? KEYFRAME_PROMPT_MAX_CHARS
     : Math.min(input.maxLength, KEYFRAME_PROMPT_MAX_CHARS)
+  const stylePrefix = input.visualStyle === undefined
+    ? ''
+    : `${styleBlockFor(input.visualStyle)}. `
+  const bodyBudget = Math.max(0, budget - stylePrefix.length)
+  const body = input.bible === null
+    ? input.hasReference
+      ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
+      : storyKeyframeFluxPrompt(input.beat.visualPrompt)
+    : composeCanonKeyframePrompt(input.bible, input.beat, bodyBudget)
+  const prompt = `${stylePrefix}${body}`
 
   if (prompt.length > budget) {
     throw new StoryError('invalid-visual-prompt')
@@ -520,7 +530,11 @@ function keyframeStyle(bible: StoryBible, withRules: boolean): string {
  * location, and the style last. The degradation ladder is deterministic so a
  * long canon never truncates the shot-specific text.
  */
-function composeCanonKeyframePrompt(bible: StoryBible, beat: StoryBeat): string {
+function composeCanonKeyframePrompt(
+  bible: StoryBible,
+  beat: StoryBeat,
+  maxChars: number = KEYFRAME_PROMPT_MAX_CHARS,
+): string {
   const head = keyframeShotLine(beat)
   const composition = keyframeComposition(beat)
   const context = keyframeContext(bible, beat)
@@ -536,7 +550,7 @@ function composeCanonKeyframePrompt(bible: StoryBible, beat: StoryBeat): string 
     [head, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
   ].map((parts) => parts.filter((part) => part.length > 0).join(' '))
 
-  return candidates.find((candidate) => candidate.length <= KEYFRAME_PROMPT_MAX_CHARS)
+  return candidates.find((candidate) => candidate.length <= maxChars)
     ?? candidates[candidates.length - 1]!
 }
 
@@ -549,8 +563,12 @@ function joinVideoPrompt(
 }
 
 export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
+  const stylePrefix = input.visualStyle === undefined
+    ? ''
+    : `${styleBlockFor(input.visualStyle)}. `
+
   if (input.bible === null) {
-    const prompt = storyVideoLegacyPrompt(input.beat.visualPrompt)
+    const prompt = `${stylePrefix}${storyVideoLegacyPrompt(input.beat.visualPrompt)}`
 
     if (prompt.length > STORY_VIDEO_PROMPT_MAX_LENGTH) {
       throw new StoryError('invalid-visual-prompt')
@@ -558,11 +576,15 @@ export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
 
     return {
       prompt,
-      negativePrompt: KLING_LEGACY_NEGATIVE_PROMPT,
+      negativePrompt: input.visualStyle === undefined
+        ? KLING_LEGACY_NEGATIVE_PROMPT
+        : `${KLING_LEGACY_NEGATIVE_PROMPT}, ${styleNegativeFor(input.visualStyle)}`,
     }
   }
 
-  const negativePrompt = composeNegative(input.bible, input.beat)
+  const negativePrompt = input.visualStyle === undefined
+    ? composeNegative(input.bible, input.beat)
+    : `${composeNegative(input.bible, input.beat)}, ${styleNegativeFor(input.visualStyle)}`
   const globalBlock = composeVideoGlobalBlock(input.bible, input.beat)
   const minimalGlobal = composeVideoGlobalBlock(input.bible, input.beat, { minimal: true })
   const fullScene = composeSceneBlock(input.bible, input.beat)
@@ -575,7 +597,8 @@ export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
     joinVideoPrompt(globalBlock, sceneWithoutContinuity, stageBlock),
     joinVideoPrompt(minimalGlobal, sceneWithoutContinuity, stageBlock),
   ]
-  const prompt = candidates.find(
+  const styledCandidates = candidates.map((candidate) => `${stylePrefix}${candidate}`)
+  const prompt = styledCandidates.find(
     (candidate) => candidate.length <= STORY_VIDEO_PROMPT_MAX_LENGTH,
   )
 

@@ -70,7 +70,8 @@ export function reelCanonSystemPrompt(
     + 'El protagonista y el prop característico deben existir en el canon y ser premise. '
     + 'forbidden tiene como máximo 10 elementos de 2–50 caracteres y solo contiene elementos ajenos al canon; nunca un personaje, localización o prop del canon ni una hora o clima que vaya a aparecer. '
     + 'Valores de tone: humor|aventura|absurdo|heartwarming|dramatic. '
-    + 'Escribe en español, sin HTML, sin Markdown, sin URLs y sin texto que deba aparecer en pantalla fuera de narration. '
+    + 'Escribe en INGLÉS los campos visuales: style, theme, name y description de personajes, localizaciones y props, wardrobe y forbidden. '
+    + 'Escribe en ESPAÑOL title, logline y tone. Sin HTML, sin Markdown, sin URLs. '
     + 'Sé conciso: style y theme 10–120, descripciones de personaje 20–90, vestuario 10–80, localización 10–90, prop 10–70, máximo 10 prohibiciones y máximo 5 reglas. '
     + 'El canon completo debe caber en el bloque global. '
     + `${reelProfileBlock(plan)} `
@@ -126,7 +127,8 @@ export function reelScenesSystemPrompt(
     + 'El protagonista y el prop característico aparecen al menos una vez. Cada personaje, localización y prop del canon aparece al menos una vez. '
     + 'La narración es texto en pantalla: no hay audio, voz ni música. '
     + 'Incluye gags visuales solo cuando encajen; no prometas gracia. '
-    + 'Escribe en español, sin HTML, sin Markdown, sin URLs y sin texto fuera de narration. '
+    + 'Escribe en INGLÉS action y la description implícita de la escena; escribe en ESPAÑOL narration. '
+    + 'Sin HTML, sin Markdown, sin URLs y sin texto fuera de narration. '
     + narrativeModeBlock(mode)
 }
 

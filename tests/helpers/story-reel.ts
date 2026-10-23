@@ -291,6 +291,7 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
       referenceUrl: input.referenceUrl,
       referenceExpiresAt: input.referenceExpiresAt,
       preset: input.preset,
+      visualStyle: input.visualStyle ?? 'cartoon3d',
       mode: input.mode,
       platform: input.platform,
       costMode: input.costMode,

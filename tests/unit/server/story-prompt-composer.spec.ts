@@ -17,6 +17,7 @@ import {
 } from '../../../server/story/story-prompt-composer'
 import type { StoryPlan } from '~/models/story'
 import { StoryError } from '../../../server/story/errors'
+import { styleBlockFor, styleNegativeFor } from '../../../server/story/visual-style'
 import plan5 from '../../fixtures/deepseek/deepseek-plan-5.json'
 import creative from '../../fixtures/story/plan-creative-scene-changes.json'
 
@@ -241,5 +242,28 @@ describe('story-prompt-composer: keyframe layout', () => {
     }).prompt
 
     expect(prompt.startsWith('Wide shot: Clara bate el merengue')).toBe(true)
+  })
+})
+
+describe('story-prompt-composer: visual style', () => {
+  it('opens the keyframe with the style block and keeps the budget', () => {
+    const beat = beats(PLAN)[0]!
+    const prompt = composeKeyframe({
+      bible: BIBLE,
+      beat,
+      hasReference: false,
+      visualStyle: 'papercraft',
+    }).prompt
+
+    expect(prompt.startsWith(styleBlockFor('papercraft'))).toBe(true)
+    expect(prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
+  })
+
+  it('opens the video prompt with the style block and adds the style negative', () => {
+    const beat = beats(PLAN)[0]!
+    const video = composeVideo({ bible: BIBLE, beat, preset: 'fast', visualStyle: 'anime' })
+
+    expect(video.prompt.startsWith(styleBlockFor('anime'))).toBe(true)
+    expect(video.negativePrompt).toContain(styleNegativeFor('anime'))
   })
 })

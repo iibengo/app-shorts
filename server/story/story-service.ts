@@ -294,6 +294,7 @@ export function toStoryDto(story: StoryRecord, pollAfterMs: number, now: number)
       ? story.referenceExpiresAt.toISOString()
       : null,
     preset: story.preset,
+    visualStyle: 'cartoon3d',
     mode: story.mode,
     modelId: story.preset === 'quality' ? 'kling-2.5-turbo-pro' : 'minimax-hailuo-02',
     sceneCount: toSceneCount(story.sceneCount),

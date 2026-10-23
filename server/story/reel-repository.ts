@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { isStoryVisualStyle } from './visual-style'
 import type {
   SceneStatus,
   StoryCostMode,
@@ -74,6 +75,7 @@ export interface ReelStoryRecord {
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: Date | null
   readonly preset: StoryPreset
+  readonly visualStyle: StoryVisualStyle
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode
@@ -113,6 +115,7 @@ export interface CreateReelStoryInput {
   readonly referenceUrl: string | null
   readonly referenceExpiresAt: Date | null
   readonly preset: StoryPreset
+  readonly visualStyle: StoryVisualStyle
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode
@@ -376,6 +379,7 @@ function mapStory(row: NonNullable<StoryRow>): ReelStoryRecord {
     referenceUrl: row.referenceUrl,
     referenceExpiresAt: row.referenceExpiresAt,
     preset: row.preset === 'quality' ? 'quality' : 'fast',
+    visualStyle: isStoryVisualStyle(row.visualStyle) ? row.visualStyle : 'cartoon3d',
     mode: row.mode,
     platform: row.platform as StoryPlatform,
     costMode: row.costMode as StoryCostMode,
@@ -513,6 +517,7 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
           referenceUrl: input.referenceUrl,
           referenceExpiresAt: input.referenceExpiresAt,
           preset: input.preset,
+          visualStyle: input.visualStyle,
           mode: input.mode,
           platform: input.platform,
           costMode: input.costMode,

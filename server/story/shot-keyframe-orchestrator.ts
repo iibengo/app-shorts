@@ -80,6 +80,7 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
       bible: story.plan.storyBible,
       beat,
       hasReference: story.referenceUrl !== null,
+      visualStyle: story.visualStyle,
       maxLength: STORY_PROMPT_MAX_LENGTH,
     })
 

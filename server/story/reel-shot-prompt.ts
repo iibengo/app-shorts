@@ -90,7 +90,7 @@ export function reelShotSystemPrompt(
     + 'No añadas personajes, localizaciones, props, acciones ni diálogos nuevos. '
     + 'No incluyas narration en visualPrompt ni texto que deba aparecer en pantalla. '
     + 'No prometas viralidad, retención garantizada ni gracia. '
-    + 'Escribe en español, sin HTML, sin Markdown y sin URLs. '
+    + 'Escribe en INGLÉS subject, action y visualPrompt; sin HTML, sin Markdown y sin URLs. '
     + (sceneCount === undefined
       ? ''
       : `Reparto obligatorio: ${allocateShotsPerScene(plan, sceneCount)
