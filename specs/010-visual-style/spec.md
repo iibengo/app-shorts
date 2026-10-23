@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Partially implemented. **010a** (contrato, registro de estilos, bloque de estilo, capa visual en inglés) implementada con gate en verde. **010b** (anclas de personaje, Kontext/multi y selector de UI) pendiente.
+**Status**: Implemented. **010a** (contrato, registro de estilos, bloque de estilo, capa visual en inglés) y **010b** (anclas por primer keyframe, selección FLUX/Kontext/multi y selector de UI) implementadas. Pendiente de validación con una historia completa real.
 
 **Input**: User description: "Voy a usar esto para vídeos de personajes digitales, no realistas. Quiero poder elegir el estilo (3D cartoon, clay, anime…) desde la interfaz y que los personajes sean el mismo de escena a escena."
 
@@ -84,8 +84,8 @@ Como responsable de calidad, quiero medir si el personaje se mantiene entre plan
 - **FR-005**: El bloque de estilo MUST ser la **primera** parte del prompt de keyframe, antes del plano.
 - **FR-006**: El prompt de vídeo MUST incluir el mismo bloque de estilo, para que el movimiento no cambie el look.
 - **FR-007**: Los prompts de canon, escenas y planos MUST pedir los campos visuales en inglés; `title`, `logline` y `narration` MUST seguir en español.
-- **FR-008**: MUST generarse **una ancla de identidad por personaje relevante (máximo 2)**: cabeza y cara reconocibles, fondo neutro y sin ropa de escena. La ropa la fija el prompt de cada plano.
-- **FR-009**: Las anclas MUST persistirse en `Story` (`anchorsJson`, `anchorExpiresAt`, `anchorStatus`) y reutilizarse en todos los planos.
+- **FR-008**: El ancla MUST ser **el primer keyframe que muestra a cada personaje**, no una imagen extra: el reconciliador MUST guardar esa URL al completarse el plano y reutilizarla en el resto de la historia. Evidencia: la sonda de Kontext confirmó que el primer keyframe sirve como ancla y mantiene cara, ropa y estilo.
+- **FR-009**: Las anclas MUST persistirse en `Story.anchorsJson` como mapa `characterId → url`, sin exponerse en el DTO público. No hay estado `anchorStatus`: se deriva de las claves presentes.
 - **FR-010**: La selección de endpoint MUST ser determinista: `fal-ai/flux-pro/kontext` con una ancla; `fal-ai/flux-pro/kontext/max/multi` con dos anclas en `image_urls`; `fal-ai/flux/dev` sin personajes en el plano.
 - **FR-010b**: El endpoint `fal-ai/flux-pro/kontext/max/multi` MUST añadirse a la allowlist de endpoints del servidor (`ComposerEndpointId`).
 - **FR-011**: Un fallo del ancla MUST reintentarse una vez; después, `provider-rejected` o `provider-timeout` según corresponda.
