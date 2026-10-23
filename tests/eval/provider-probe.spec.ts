@@ -20,6 +20,7 @@ import type { FalQueueService } from '../../server/fal/queue-service'
 import { FluxImageAdapter } from '../../server/fal/adapters/flux-image-adapter'
 import { FluxKontextAdapter } from '../../server/fal/adapters/flux-kontext-adapter'
 import { ModelRegistry } from '../../server/composer/model-registry'
+import { NanoBananaAdapter } from '../../server/fal/adapters/nano-banana-adapter'
 import { storyPromptComposer, STORY_PROMPT_MAX_LENGTH } from '../../server/story/story-prompt-composer'
 import { buildDirector, loadPremises, planFor, RECORDED_PATH } from './director-harness'
 
@@ -284,4 +285,35 @@ describe.skipIf(probe.length === 0)('provider probes (opt-in)', () => {
       'probe qc: requiere un strip de fotogramas en PROBE_FRAMES_URL; pendiente de implementar',
     )
   })
+  it.skipIf(probe !== 'nano-banana')('generates one keyframe with Nano Banana and a reference', async () => {
+    const reference = process.env.PROBE_REFERENCE_URL ?? ''
+    const override = (process.env.PROBE_PROMPT ?? '').trim()
+
+    expect(reference, 'PROBE_REFERENCE_URL es obligatoria').toContain('http')
+
+    const adapter = new NanoBananaAdapter()
+    const queue = queueService()
+    const started = Date.now()
+    const submission = await queue.submit(
+      adapter.modelId as ComposerEndpointId,
+      adapter.buildInput({ prompt: override, referenceUrl: reference }),
+    )
+
+    await waitForResult(queue, submission.statusUrl)
+    const payload = await queue.getResult(submission.responseUrl)
+    const output = adapter.parseOutput(payload)
+    const file = record('nano-banana', {
+      probe: 'nano-banana',
+      endpoint: adapter.modelId,
+      createdAt: new Date().toISOString(),
+      latencyMs: Date.now() - started,
+      prompt: override,
+      promptLength: override.length,
+      requestId: submission.requestId,
+      output,
+    })
+
+    console.log(`nano-banana ok: ${output.imageUrl} -> ${file}`)
+    expect(output.imageUrl).toContain('http')
+  }, PROBE_TIMEOUT_MS + 60_000)
 })

@@ -1,0 +1,14 @@
+{
+  "probe": "nano-banana",
+  "endpoint": "fal-ai/nano-banana/edit",
+  "createdAt": "2026-10-23T22:27:19.598Z",
+  "latencyMs": 11028,
+  "prompt": "Keep the exact same character and low-poly papercraft style from the reference: identical faceted face, same short wavy dark hair, same trimmed beard, same thick eyebrows, same bright blue eyes. New scene: Ionias stands on a rooftop terrace at night in a city, wearing a dark jacket over a black t-shirt, hands in pockets, neon signs glowing behind him. Medium shot, calm expression looking at camera. Vertical 9:16, no text, no logos, no watermark.",
+  "promptLength": 449,
+  "requestId": "01a16ae0-05ef-7bc3-ad9f-151f9d4716f9",
+  "output": {
+    "imageUrl": "https://v3b.fal.media/files/b/0aaf9652/Jka66FP0rFOLT_vOohUoy_NF2BaOAp.jpg",
+    "width": 768,
+    "height": 1344
+  }
+}

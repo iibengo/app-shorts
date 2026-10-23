@@ -11,11 +11,14 @@ export type KeyframeProvider =
   | { readonly kind: 'flux' }
   | { readonly kind: 'kontext'; readonly referenceUrl: string }
   | { readonly kind: 'kontext-multi'; readonly referenceUrls: readonly string[] }
+  | { readonly kind: 'nano-banana'; readonly referenceUrls: readonly string[] }
 
 export interface KeyframeProviderInput {
   readonly userReferenceUrl: string | null
   readonly presentCharacterIds: readonly string[]
   readonly anchors: Readonly<Record<string, string>>
+  /** `nano-banana` keeps identity and style better and costs less per image. */
+  readonly preferred?: 'flux' | 'nano-banana'
 }
 
 export function selectKeyframeProvider(input: KeyframeProviderInput): KeyframeProvider {
@@ -29,6 +32,10 @@ export function selectKeyframeProvider(input: KeyframeProviderInput): KeyframePr
     const url = input.anchors[id]
 
     if (url !== undefined && url.length > 0) urls.push(url)
+  }
+
+  if (urls.length >= 1 && input.preferred === 'nano-banana') {
+    return { kind: 'nano-banana', referenceUrls: urls.slice(0, 2) }
   }
 
   if (urls.length >= 2) {

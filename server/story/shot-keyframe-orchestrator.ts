@@ -3,6 +3,7 @@ import type { FalQueueService } from '../fal/queue-service'
 import { FluxImageAdapter } from '../fal/adapters/flux-image-adapter'
 import { FluxKontextAdapter } from '../fal/adapters/flux-kontext-adapter'
 import { FluxKontextMultiAdapter } from '../fal/adapters/flux-kontext-multi-adapter'
+import { NanoBananaAdapter } from '../fal/adapters/nano-banana-adapter'
 import type { KeyframeAdapter } from '../fal/adapters/types'
 import { StoryError, toStoryError } from './errors'
 import type { ReelSceneRecord, ReelShotRecord, ReelStoryRecord } from './reel-repository'
@@ -65,12 +66,14 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
   private readonly flux: KeyframeAdapter
   private readonly kontext: KeyframeAdapter
   private readonly kontextMulti: KeyframeAdapter
+  private readonly nanoBanana: KeyframeAdapter
 
   constructor(queue: FalQueueService) {
     this.queue = queue
     this.flux = new FluxImageAdapter()
     this.kontext = new FluxKontextAdapter()
     this.kontextMulti = new FluxKontextMultiAdapter()
+    this.nanoBanana = new NanoBananaAdapter()
   }
 
   async submit(
@@ -90,12 +93,15 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
           userReferenceUrl: story.referenceUrl,
           presentCharacterIds: scene.scene?.characters ?? [],
           anchors: story.anchors,
+          preferred: 'nano-banana',
         })
     const adapter = provider.kind === 'flux'
       ? this.flux
       : provider.kind === 'kontext'
         ? this.kontext
-        : this.kontextMulti
+        : provider.kind === 'kontext-multi'
+          ? this.kontextMulti
+          : this.nanoBanana
     const beat = storyBeatForShot(shot, scene)
     const composed = storyPromptComposer.composeKeyframe({
       bible: story.plan.storyBible,
@@ -111,7 +117,7 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
         adapter.buildInput({
           prompt: composed.prompt,
           referenceUrl: provider.kind === 'kontext' ? provider.referenceUrl : null,
-          ...(provider.kind === 'kontext-multi'
+          ...(provider.kind === 'kontext-multi' || provider.kind === 'nano-banana'
             ? { referenceUrls: provider.referenceUrls }
             : {}),
         }),

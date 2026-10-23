@@ -175,6 +175,23 @@ El primer run completo real (15 s, `cartoon3d`) falló en el plano 1 por `techni
 | **Reintento con keyframe inválido** | Si al reintentar un plano su keyframe guardado no es vertical, el servicio MUST leer sus dimensiones y **regenerar el keyframe** en lugar de relanzar el vídeo sobre una referencia rota. Coste: una imagen en vez de un vídeo perdido. |
 | **Semilla FLUX** | El **primer keyframe de un personaje** lo genera siempre FLUX (`image_size 1152×2048`), nunca Kontext, porque Kontext hereda el ratio de la referencia. Kontext solo entra cuando todos los personajes presentes ya tienen ancla vertical validada. |
 
+## Proveedor de keyframes con ancla (2026-10-23)
+
+Dos sondas reales con el ancla de Ionias (`fal-ai/nano-banana/edit`, 0,0398 USD por imagen):
+
+| Prueba | Escena | Ropa | Resultado |
+|---|---|---|---|
+| 1 | Mesa de café, mañana | Camiseta negra | Misma cara, estilo low-poly, sin arrastrar objetos del ancla |
+| 2 | Azotea nocturna con neones | Chaqueta oscura | Misma cara, **ojos azules**, ropa nueva, estilo intacto |
+
+| Regla | Contrato |
+|---|---|
+| **Nano Banana primero** | Con al menos un ancla disponible, el keyframe MUST generarse con `fal-ai/nano-banana/edit` y `aspect_ratio: 9:16`. MUST NOT usarse Kontext salvo fallback explícito. |
+| **Motivo** | 0,0398 USD por imagen (más barato que Kontext), admite varias referencias, devuelve `width`/`height` y mantiene identidad y estilo con ropa y escena distintas. |
+| **Formato** | El adaptador MUST rechazar una respuesta no vertical, igual que Kontext. |
+| **Semilla** | FLUX sigue generando el primer keyframe cuando no hay ancla, para garantizar 1152×2048. |
+| **Fallback** | Kontext y Kontext multi se conservan en el registro para los perfiles que los necesiten; Nano Banana es la opción por defecto con ancla. |
+
 ## Out of Scope
 
 - Estilo `explainer` abstracto (figuras sin cara, símbolos, planos de 17 s): pertenece a la 012 junto con la capa gráfica.

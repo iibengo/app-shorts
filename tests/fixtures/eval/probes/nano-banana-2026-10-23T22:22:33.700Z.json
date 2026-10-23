@@ -1,0 +1,14 @@
+{
+  "probe": "nano-banana",
+  "endpoint": "fal-ai/nano-banana/edit",
+  "createdAt": "2026-10-23T22:22:33.699Z",
+  "latencyMs": 12434,
+  "prompt": "Keep the exact same character and low-poly papercraft style from the reference: same faceted face, same short wavy dark hair, same trimmed beard, same eyebrows. New scene: Ionias sits at a wooden cafe table in the morning, holding a plain grey mug, brick wall behind him, warm window light. He wears a black t-shirt. Medium shot, calm friendly expression looking at camera. Vertical 9:16, no text, no logos, no watermark.",
+  "promptLength": 421,
+  "requestId": "01a16adb-a990-77d2-8d0b-090ccb116b63",
+  "output": {
+    "imageUrl": "https://v3b.fal.media/files/b/0aaf9636/Zq3cFGXM80h10Ypzl8Oqx_AZe9ZBo4.jpg",
+    "width": 768,
+    "height": 1344
+  }
+}
