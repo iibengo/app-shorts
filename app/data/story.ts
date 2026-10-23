@@ -280,8 +280,6 @@ export const STORY_COPY = {
   sceneCountHelp: 'Cada escena dura 6 segundos.',
   presetLegend: 'Calidad de vídeo',
   visualStyleLegend: 'Estilo visual',
-  resultStyle: 'Calidad',
-  resultVisualStyle: 'Estilo visual',
   referenceTitle: 'Imagen de referencia (opcional)',
   referenceHelp:
     'Una imagen PNG, JPG o WebP de hasta 8 MB. Se usa para el guion y para las imágenes de todas las escenas. Se envía a DeepSeek y a Fal; Fal la elimina en 1 hora.',

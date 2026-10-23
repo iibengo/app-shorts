@@ -10,7 +10,7 @@
  * waits for the final MP4. Hard profile cap: 2,50 USD. Never runs by default.
  */
 import { describe, expect, it } from 'vitest'
-import { fetch, setup } from '@nuxt/test-utils/e2e'
+import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import type { Story, StoryJob } from '~/models/story'
 
 const enabled = process.env.RUN_REEL_SMOKE === '1'
@@ -21,20 +21,35 @@ const enabled = process.env.RUN_REEL_SMOKE === '1'
 if (enabled) {
   await setup({ server: true })
 }
-
-const BASE = 'http://localhost'
 const PREMISE = 'Un repartidor descubre que el paquete que lleva contiene un gato que habla.'
 
-function cookieFrom(response: Response): string {
-  return (response.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
+interface CallResult<T> {
+  readonly body: T
+  readonly cookie: string
+}
+
+async function request<T>(
+  path: string,
+  options: { readonly method?: 'GET' | 'POST'; readonly body?: unknown; readonly cookie?: string } = {},
+): Promise<CallResult<T>> {
+  let cookie = ''
+
+  const body = await $fetch<T>(path, {
+    method: options.method ?? 'GET',
+    ...(options.body === undefined ? {} : { body: options.body as Record<string, unknown> }),
+    ...(options.cookie === undefined ? {} : { headers: { cookie: options.cookie } }),
+    onResponse(context) {
+      const raw = context.response.headers.get('set-cookie')
+
+      if (raw !== null) cookie = raw.split(';')[0] ?? ''
+    },
+  })
+
+  return { body, cookie }
 }
 
 async function getStory(id: string, cookie: string): Promise<Story> {
-  const response = await fetch(`${BASE}/api/story/${id}`, { headers: { cookie } })
-
-  expect(response.status).toBe(200)
-
-  return await response.json() as Story
+  return (await request<Story>(`/api/story/${id}`, { cookie })).body
 }
 
 async function waitFor(
@@ -62,10 +77,9 @@ async function waitFor(
 
 describe.skipIf(!enabled)('Reel end-to-end smoke (RUN_REEL_SMOKE=1)', () => {
   it('creates, approves and assembles a 15 s cartoon3d story', async () => {
-    const created = await fetch(`${BASE}/api/story`, {
+    const created = await request<Story>('/api/story', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
+      body: {
         premise: PREMISE,
         costMode: 'budget',
         targetDurationSeconds: 15,
@@ -75,13 +89,10 @@ describe.skipIf(!enabled)('Reel end-to-end smoke (RUN_REEL_SMOKE=1)', () => {
         visualStyle: 'cartoon3d',
         referenceUrl: null,
         referenceExpiresAt: null,
-      }),
+      },
     })
-
-    expect(created.status).toBe(201)
-
-    const cookie = cookieFrom(created)
-    const story = await created.json() as Story
+    const cookie = created.cookie
+    const story = created.body
 
     expect(cookie).toContain('story_sid=')
     expect(story.visualStyle).toBe('cartoon3d')
@@ -98,13 +109,12 @@ describe.skipIf(!enabled)('Reel end-to-end smoke (RUN_REEL_SMOKE=1)', () => {
     expect(review.scenes.flatMap((scene) => scene.shots)
       .every((shot) => shot.status === 'KEYFRAME_READY')).toBe(true)
 
-    const approve = await fetch(`${BASE}/api/story/${story.id}/approve`, {
+    const approve = await request<StoryJob>(`/api/story/${story.id}/approve`, {
       method: 'POST',
-      headers: { cookie },
+      cookie,
     })
 
-    expect(approve.status).toBe(202)
-    expect((await approve.json() as StoryJob).status).toBe('GENERATING_VIDEOS')
+    expect(approve.body.status).toBe('GENERATING_VIDEOS')
 
     const ready = await waitFor(
       story.id,
