@@ -123,6 +123,7 @@ export interface CreateReelStoryInput {
   readonly costMode: StoryCostMode
   readonly targetDurationSeconds: number
   readonly maxDurationSeconds: number
+  readonly anchors?: Readonly<Record<string, string>>
   readonly plan: StoryPlan
   readonly shotPlan: ShotPlan
   readonly idempotencyKey: string | null
@@ -534,6 +535,7 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
           referenceExpiresAt: input.referenceExpiresAt,
           preset: input.preset,
           visualStyle: input.visualStyle,
+          anchorsJson: input.anchors ?? {},
           mode: input.mode,
           platform: input.platform,
           costMode: input.costMode,

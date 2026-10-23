@@ -192,6 +192,16 @@ Dos sondas reales con el ancla de Ionias (`fal-ai/nano-banana/edit`, 0,0398 USD 
 | **Semilla** | FLUX sigue generando el primer keyframe cuando no hay ancla, para garantizar 1152×2048. |
 | **Fallback** | Kontext y Kontext multi se conservan en el registro para los perfiles que los necesiten; Nano Banana es la opción por defecto con ancla. |
 
+## Hallazgo del segundo end-to-end (2026-10-23)
+
+La historia de presentación de Ionias generó 4 keyframes y **los planos 3 y 4 no eran el personaje**: uno salió sin barba y otro como un maniquí blanco. Causa: el plano 1 (un `wide` de espaldas) se guardó como ancla de Ionias, así que los planos siguientes intentaron parecerse a una nuca.
+
+| Regla | Contrato |
+|---|---|
+| **Ancla desde la referencia** | Si el usuario sube una referencia, MUST usarse como ancla inicial del protagonista al crear la historia, antes de generar ningún keyframe. |
+| **Ancla solo con cara** | El reconciliador MUST guardar un keyframe como ancla únicamente si su `framing` muestra la cara: `medium`, `close-up`, `extreme-close-up`, `reaction` o `two-shot`. `establishing`, `wide`, `detail`, `insert` y `over-the-shoulder` MUST NOT convertirse en ancla. |
+| **Motivo** | El modelo no puede mantener una identidad que no ve. Un ancla de espaldas degrada todos los planos posteriores y se paga entera. |
+
 ## Out of Scope
 
 - Estilo `explainer` abstracto (figuras sin cara, símbolos, planos de 17 s): pertenece a la 012 junto con la capa gráfica.

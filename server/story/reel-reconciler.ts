@@ -14,6 +14,19 @@ import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
 import type { ShotQCService } from './shot-qc-service'
 import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
 
+const IDENTITY_FRAMINGS: readonly string[] = [
+  'medium',
+  'close-up',
+  'extreme-close-up',
+  'reaction',
+  'two-shot',
+]
+
+/** Only a framing that shows the face can seed a character identity anchor. */
+export function isIdentityFraming(framing: string): boolean {
+  return IDENTITY_FRAMINGS.includes(framing)
+}
+
 const KEYFRAME_ACTIVE: readonly SceneStatus[] = ['KEYFRAME_QUEUED', 'KEYFRAME_RUNNING']
 const VIDEO_ACTIVE: readonly SceneStatus[] = ['VIDEO_QUEUED', 'VIDEO_RUNNING']
 
@@ -218,8 +231,13 @@ export class ReelStoryReconciler {
   private async rememberAnchors(
     story: ReelStoryRecord,
     scene: ReelSceneRecord,
+    shot: ReelShotRecord,
     keyframeUrl: string,
   ): Promise<void> {
+    // A back view, a wide shot or a detail cannot be somebody's identity anchor:
+    // every later frame would try to look like a person whose face is unseen.
+    if (!isIdentityFraming(shot.framing)) return
+
     const characters = scene.scene?.characters ?? []
     const missing = characters.filter((id) => story.anchors[id] === undefined)
 
@@ -353,7 +371,7 @@ export class ReelStoryReconciler {
         { statuses: ['KEYFRAME_QUEUED', 'KEYFRAME_RUNNING'] },
         { status: 'KEYFRAME_READY', keyframeUrl: result.keyframeUrl, keyframeError: null },
       )
-      await this.rememberAnchors(story, scene, result.keyframeUrl)
+      await this.rememberAnchors(story, scene, shot, result.keyframeUrl)
       this.onEvent?.({
         event: 'reel.keyframe.succeeded',
         storyId: story.id,

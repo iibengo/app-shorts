@@ -454,6 +454,13 @@ export class ReelStoryServiceImpl implements ReelStoryService {
         durationPlan,
         referenceUrl: input.request.referenceUrl,
       })
+
+      // A user reference is the strongest identity we have. It becomes the
+      // anchor of the lead character up front, so a later back view or wide
+      // shot can never be mistaken for the character's identity.
+      const seedAnchors = input.request.referenceUrl === null
+        ? {}
+        : { [reel.plan.storyBible?.leadCharacterId ?? 'lead']: input.request.referenceUrl }
       const now = new Date(this.now())
       const expiresAt = new Date(now.getTime() + this.config.storyTtlMs)
       const record = await this.repository.createStory({
@@ -468,6 +475,7 @@ export class ReelStoryServiceImpl implements ReelStoryService {
           : null,
         preset: input.request.preset,
         visualStyle: input.request.visualStyle ?? 'cartoon3d',
+        anchors: seedAnchors,
         mode: input.request.mode,
         platform: input.request.platform,
         costMode: input.request.costMode,
