@@ -89,8 +89,9 @@ specs/                    specs 001–008
   - `legacy: true` sigue como escape hatch explícito para 005–007; es una desviación conocida.
 - **Typecheck (2026-10-23):** `npm run typecheck` (`nuxi typecheck` con `vue-tsc` + `typescript`) está instalado y **falla hoy con 268 errores**. No está en el gate. Baseline: 229 en `server/`, 39 en `app/`; predominan `TS2339` (propiedades de `StoryScene`/`StoryBeat` que ya no existen), `TS7006` (parámetros implícitos `any`) y `TS2322`. Cubre `app/`, `server/`, `shared/` y `nuxt.config`, **no** `tests/**`. Se arregla en un pase propio; no entra en el gate hasta llegar a cero.
 - **Prisma/PostgreSQL:** Prisma 7 + `@prisma/adapter-pg`; migraciones hasta `20261022171500_shot_version`; Docker local; `db:generate` es obligatorio antes de build/test cuando Story importe Prisma.
-- **Tests:** 2116 passed / 14 skipped opt-in, 155 archivos; `npm run build` correcto.
+- **Tests:** 2124 passed / 19 skipped opt-in, 155 archivos; `npm run build` correcto.
 - **DeepSeek thinking (2026-10-23):** el cliente exige `thinking` explícito en cada petición; canon, escenas, planos y QC envían `{ type: 'disabled' }`. Medido: DeepSeek razona por defecto, consume `max_tokens` y `temperature` no tiene efecto con thinking activo. Ver Enmienda B de 005 y la enmienda 2026-10-23 de 008.
+- **Estilo visual (2026-10-23, 010a):** `Story.visualStyle` con cinco estilos (`cartoon3d` por defecto, `papercraft`, `clay`, `anime`, `photo`), resueltos en servidor desde un registro en inglés. El bloque de estilo abre los prompts de keyframe y vídeo. Los campos visuales se piden en inglés; título, logline y narración siguen en español. Migración `20261023220000_story_visual_style`.
 - **Keyframe (2026-10-23, B2):** el prompt de FLUX/Kontext va en inglés, empieza por el plano, incluye solo las entidades presentes y se acota a 900 caracteres (límite T5 de ~512 tokens). Sin `Avoid:` en el prompt positivo: ninguno de los dos endpoints admite `negative_prompt`. `StoryBeat` restaurado con `subject`/`framing`.
 - **Reconciliador (2026-10-23, B4):** los errores de consulta de estado se clasifican con `StoryError.retryable`; los transitorios no cambian el estado y se reintentan al siguiente tick. Un job activo sin cambios durante 10 min (keyframe) o 20 min (vídeo) se cancela con `cancel_url` y falla con `provider-timeout`. Los submit no se reintentan para no duplicar job ni cobro.
 - **004:** sin archivos modificados. La suite 004 reproducible es **605 tests**; la cifra histórica de 613 no es reproducible con el árbol actual.
@@ -102,7 +103,7 @@ specs/                    specs 001–008
   - El fallback de `qc-frames` con `filePath === null` debe reforzarse.
   - Los 007 migrados con shots reales no siempre muestran `Plano heredado`.
   - `legacy: true` debe retirarse o quedar con condición de retirada explícita.
-- **Siguiente:** Spec 009 — director eval (DeepSeek, opt-in); Spec 010 — audio, voz, música y subtítulos; Spec 011 — consistencia de personajes/3D.
+- **Siguiente:** Spec 009 — director eval (DeepSeek, opt-in); Spec 010 — estilo visual y personajes; Spec 011 — audio, voz, música y subtítulos; Spec 012 — gráficos y overlays.
 
 ## Patrones reutilizables de 004
 
@@ -262,7 +263,7 @@ No escribir la spec todavía. La 008 ya genera el vídeo mudo; la 009 añade la 
 - **2026-10-21:** contexto canónico creado tras 004. Se documentan patrones de Fal, subida firmada, job token, keyframe-first, rate limit y testing; se prepara la agenda de Spec 005.
 - **2026-10-22:** Spec 008 implementada y validada (`dff2764`); se actualiza el estado canónico, se documenta la política de ejecución de tests y el cierre obligatorio de spec; se prepara la Spec 009 de audio, voz, música y subtítulos.
 - **2026-10-23:** Director de 008 endurecido tras la eval: ids normalizados, `forbidden` tolerante, feedback de perfil separado, reparto de planos por escena en código, recorte determinista, `sceneRole` derivado y longitudes ajustadas. Tres corridas: 35/36 válidas (97 %), 0 truncamientos, 0,109 USD. Enmienda en 008.
-- **2026-10-23:** Spec 009 (director eval) implementada: 12 premisas versionadas, runner opt-in solo DeepSeek con tope de 1 USD, informe y grabación en `tests/fixtures/eval/`, y replay determinista sin red. Ejecutada contra la API: tres corridas finales dieron 35/36 planes válidos. Gate: 2116 passed / 14 skipped, build correcto.
+- **2026-10-23:** Spec 009 (director eval) implementada: 12 premisas versionadas, runner opt-in solo DeepSeek con tope de 1 USD, informe y grabación en `tests/fixtures/eval/`, y replay determinista sin red. Ejecutada contra la API: tres corridas finales dieron 35/36 planes válidos. Gate: 2124 passed / 19 skipped, build correcto.
 - **2026-10-23:** A3 aplicado. Estados de spec separados en `Implemented` (gate con stubs) y `Validated` (smoke real + QA manual, solo humano); 004–008 reetiquetadas y ninguna en `Validated`. Añadido `typecheck` con `vue-tsc` + `typescript` como comprobación local; revela 268 errores previos y no entra en el gate hasta llegar a cero.
 - **2026-10-23:** B1 confirmado y corregido. DeepSeek razonaba por defecto, consumía `max_tokens` y hacía inerte `temperature`; el cliente exige ahora `thinking` explícito y canon, escenas, planos y QC lo desactivan (`b09584d`). Enmiendas en 005 (B), 006, 007 y 008. Gate: 2090 passed / 13 skipped, build correcto. Smoke real sigue pendiente.
 - **2026-10-23:** B2 corregido. El keyframe se compone en inglés, con el plano primero, solo entidades presentes y 900 caracteres (FLUX/Kontext leen ~512 tokens y no admiten `negative_prompt`). Se elimina `Avoid:` del prompt positivo en keyframe y vídeo, y se restaura `StoryBeat` con `subject`/`framing`. Gate: 2103 passed / 13 skipped, build correcto.
