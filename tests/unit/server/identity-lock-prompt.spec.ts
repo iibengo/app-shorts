@@ -71,8 +71,29 @@ describe('identity lock', () => {
   })
 
   it('adapts the block to framings that hide the face', () => {
-    expect(identityLockFor('wide')).toContain('wide shot')
-    expect(identityLockFor('over-the-shoulder')).toContain('from behind')
+    expect(identityLockFor('wide')).toContain('face is clearly visible')
+    expect(identityLockFor('over-the-shoulder')).toContain('three-quarters')
     expect(identityLockFor('close-up')).toBe(IDENTITY_LOCK_BLOCK)
+  })
+})
+
+describe('identity lock budget degradation', () => {
+  it('never fails for a long framing: it degrades instead', () => {
+    const longBible = {
+      ...BIBLE,
+      style: 'extremely detailed ' .repeat(20),
+      theme: 'a long theme '.repeat(20),
+    } as unknown as StoryBible
+
+    const prompt = composeKeyframe({
+      bible: longBible,
+      beat: beat('establishing'),
+      hasReference: true,
+      visualStyle: 'papercraft',
+      withIdentityLock: true,
+    }).prompt
+
+    expect(prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
+    expect(prompt).toContain('reference')
   })
 })

@@ -20,6 +20,15 @@ const STYLE_BLOCKS: Readonly<Record<StoryVisualStyle, string>> = {
     'photorealistic cinematic still, natural lighting, shallow depth of field, 35mm lens, high detail',
 }
 
+/** Short form of each style block, used when the prompt budget is tight. */
+const STYLE_BLOCKS_SHORT: Readonly<Record<StoryVisualStyle, string>> = {
+  cartoon3d: '3D cartoon render, glossy stylized characters, soft studio lighting',
+  papercraft: 'low-poly papercraft 3D render, faceted paper planes, neon accents',
+  clay: 'claymation look, handmade plasticine characters, warm soft light',
+  anime: 'anime illustration, clean cel shading, vibrant colors',
+  photo: 'photorealistic cinematic still, natural lighting',
+}
+
 const NEGATIVE_BY_STYLE: Readonly<Record<StoryVisualStyle, string>> = {
   cartoon3d: 'photorealistic, live action, gritty texture',
   papercraft: 'photorealistic, smooth plastic, glossy reflections',
@@ -43,6 +52,10 @@ export function validateVisualStyle(value: unknown): StoryVisualStyle {
 /** English style block that opens every keyframe and video prompt. */
 export function styleBlockFor(style: StoryVisualStyle): string {
   return STYLE_BLOCKS[style]
+}
+
+export function styleBlockShort(style: StoryVisualStyle): string {
+  return STYLE_BLOCKS_SHORT[style]
 }
 
 /** Terms that fight the chosen look, for models that accept a negative prompt. */

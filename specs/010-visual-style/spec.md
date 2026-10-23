@@ -210,7 +210,7 @@ Tercer hallazgo del end-to-end: con la referencia bien enviada, el plano 4 (`clo
 |---|---|
 | **Bloque de identidad** | Con referencia, el prompt MUST incluir un bloque explícito que ordene usar la imagen como el mismo personaje: cara, pelo, barba, cejas, ojos y tono de piel idénticos. |
 | **Orden** | Estilo → identidad → composición del plano → contexto → escenario. Debe seguir cabiendo en 900 caracteres. |
-| **Por encuadre** | El bloque MUST adaptarse: en `wide`/`establishing` añade "silhouette and outfit", en `over-the-shoulder` añade "from behind". |
+| **Por encuadre** | El bloque MUST adaptarse **sin esconder la cara**: en `wide`/`establishing` exige "the face is clearly visible and readable"; en `over-the-shoulder` exige que la cara gire tres cuartos hacia cámara. MUST NOT pedir "in the distance" ni "from behind", porque el modelo no puede mantener una cara que no ve. |
 | **Sin referencia** | MUST NOT incluirse. |
 
 ## Out of Scope

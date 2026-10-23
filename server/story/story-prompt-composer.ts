@@ -16,7 +16,7 @@ import type {
   StoryWeather,
 } from '~/models/story'
 import { StoryError } from './errors'
-import { styleBlockFor, styleNegativeFor } from './visual-style'
+import { styleBlockFor, styleBlockShort, styleNegativeFor } from './visual-style'
 
 export interface KeyframePromptInput {
   readonly bible: StoryBible | null
@@ -455,17 +455,24 @@ export const IDENTITY_LOCK_BLOCK =
 
 /** Per framing, so a three-quarter or profile shot does not invent a new face. */
 const IDENTITY_LOCK_BY_FRAMING: Readonly<Record<StoryShotFraming, string>> = {
-  establishing: `${IDENTITY_LOCK_BLOCK} Seen in the distance, keeping the same silhouette and outfit.`,
-  wide: `${IDENTITY_LOCK_BLOCK} Seen in a wide shot, keeping the same silhouette and outfit.`,
+  // A wide or establishing frame cannot preserve a face it barely shows, so the
+  // identity block asks for the framing that does: the face stays readable even
+  // if the scene is wide.
+  establishing: `${IDENTITY_LOCK_BLOCK} The face is clearly visible and readable in the frame.`,
+  wide: `${IDENTITY_LOCK_BLOCK} The face is clearly visible and readable in the frame.`,
   medium: IDENTITY_LOCK_BLOCK,
   'close-up': IDENTITY_LOCK_BLOCK,
   'extreme-close-up': IDENTITY_LOCK_BLOCK,
   reaction: IDENTITY_LOCK_BLOCK,
-  'over-the-shoulder': `${IDENTITY_LOCK_BLOCK} Seen from behind, keeping hair and outfit identical.`,
+  'over-the-shoulder': `${IDENTITY_LOCK_BLOCK} The face is turned three-quarters toward the camera so it stays readable.`,
   'two-shot': IDENTITY_LOCK_BLOCK,
   detail: IDENTITY_LOCK_BLOCK,
   insert: IDENTITY_LOCK_BLOCK,
 }
+
+/** Short form, used when the full identity block does not fit the budget. */
+export const IDENTITY_LOCK_COMPACT =
+  'Keep the exact same face, hair, beard and eyes as the reference character.'
 
 export function identityLockFor(framing: StoryShotFraming | undefined): string {
   return IDENTITY_LOCK_BY_FRAMING[framing ?? 'medium']
@@ -478,16 +485,44 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
   const stylePrefix = input.visualStyle === undefined
     ? ''
     : `${styleBlockFor(input.visualStyle)}. `
-  const identityPrefix = input.withIdentityLock === true
-    ? `${identityLockFor(input.beat.framing)} `
+  const identity = input.withIdentityLock === true
+    ? identityLockFor(input.beat.framing)
     : ''
-  const bodyBudget = Math.max(0, budget - stylePrefix.length - identityPrefix.length)
-  const body = input.bible === null
-    ? input.hasReference
-      ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
-      : storyKeyframeFluxPrompt(input.beat.visualPrompt)
-    : composeCanonKeyframePrompt(input.bible, input.beat, bodyBudget)
-  const prompt = `${stylePrefix}${identityPrefix}${body}`
+  // The identity block is non-negotiable, but the style and the scene can
+  // degrade: try the full version, then a compact identity line, then a
+  // shorter style block. Never fail because the sum does not fit.
+  const identityVariants = identity.length === 0
+    ? ['']
+    : [identity, IDENTITY_LOCK_COMPACT]
+  let prompt = ''
+
+  for (const identityVariant of identityVariants) {
+    const identityPrefix = identityVariant.length === 0 ? '' : `${identityVariant} `
+    const styleVariants = input.visualStyle === undefined
+      ? ['']
+      : [`${styleBlockFor(input.visualStyle)}. `, `${styleBlockShort(input.visualStyle)}. `]
+
+    for (const styleVariant of styleVariants) {
+      const bodyBudget = Math.max(0, budget - styleVariant.length - identityPrefix.length)
+      const body = input.bible === null
+        ? input.hasReference
+          ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
+          : storyKeyframeFluxPrompt(input.beat.visualPrompt)
+        : composeCanonKeyframePrompt(input.bible, input.beat, bodyBudget)
+      const candidate = `${styleVariant}${identityPrefix}${body}`
+
+      if (candidate.length <= budget) {
+        prompt = candidate
+        break
+      }
+    }
+
+    if (prompt.length > 0) break
+  }
+
+  if (prompt.length === 0) {
+    throw new StoryError('invalid-visual-prompt')
+  }
 
   if (prompt.length > budget) {
     throw new StoryError('invalid-visual-prompt')
