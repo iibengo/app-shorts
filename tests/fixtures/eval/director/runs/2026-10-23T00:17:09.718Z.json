@@ -1,0 +1,224 @@
+{
+  "runId": "2026-10-23T00:17:09.718Z",
+  "model": "deepseek-flash",
+  "thinking": "disabled",
+  "budgetUsd": 1,
+  "budgetExhausted": false,
+  "totals": {
+    "premises": 12,
+    "calls": 48,
+    "costUsd": 0.044818,
+    "p50Ms": 4606,
+    "p95Ms": 9114
+  },
+  "premises": [
+    {
+      "id": "p01",
+      "ok": true,
+      "firstPassValid": true,
+      "repairs": 0,
+      "truncations": 0,
+      "latencyMs": 13126,
+      "calls": 3,
+      "tokens": {
+        "prompt": 4948,
+        "completion": 2031,
+        "reasoning": 0
+      },
+      "costUsd": 0.0019607999999999995,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p02",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 2,
+      "truncations": 0,
+      "latencyMs": 21092,
+      "calls": 5,
+      "tokens": {
+        "prompt": 11441,
+        "completion": 3694,
+        "reasoning": 0
+      },
+      "costUsd": 0.00393255,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p03",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 22937,
+      "calls": 4,
+      "tokens": {
+        "prompt": 8502,
+        "completion": 4674,
+        "reasoning": 0
+      },
+      "costUsd": 0.0040796999999999995,
+      "scenes": 5,
+      "shots": 12
+    },
+    {
+      "id": "p04",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 17304,
+      "calls": 4,
+      "tokens": {
+        "prompt": 8837,
+        "completion": 3131,
+        "reasoning": 0
+      },
+      "costUsd": 0.00320415,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p05",
+      "ok": true,
+      "firstPassValid": true,
+      "repairs": 0,
+      "truncations": 0,
+      "latencyMs": 19867,
+      "calls": 3,
+      "tokens": {
+        "prompt": 5363,
+        "completion": 3372,
+        "reasoning": 0
+      },
+      "costUsd": 0.0028276499999999997,
+      "scenes": 4,
+      "shots": 12
+    },
+    {
+      "id": "p06",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 16075,
+      "calls": 4,
+      "tokens": {
+        "prompt": 7642,
+        "completion": 2757,
+        "reasoning": 0
+      },
+      "costUsd": 0.0028005,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p07",
+      "ok": true,
+      "firstPassValid": true,
+      "repairs": 0,
+      "truncations": 0,
+      "latencyMs": 18126,
+      "calls": 3,
+      "tokens": {
+        "prompt": 5146,
+        "completion": 3514,
+        "reasoning": 0
+      },
+      "costUsd": 0.0028803,
+      "scenes": 4,
+      "shots": 16
+    },
+    {
+      "id": "p08",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 15564,
+      "calls": 4,
+      "tokens": {
+        "prompt": 8367,
+        "completion": 2902,
+        "reasoning": 0
+      },
+      "costUsd": 0.00299625,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p09",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 23515,
+      "calls": 4,
+      "tokens": {
+        "prompt": 10167,
+        "completion": 5396,
+        "reasoning": 0
+      },
+      "costUsd": 0.004762649999999999,
+      "scenes": 4,
+      "shots": 12
+    },
+    {
+      "id": "p10",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 2,
+      "truncations": 0,
+      "latencyMs": 18878,
+      "calls": 5,
+      "tokens": {
+        "prompt": 10839,
+        "completion": 3571,
+        "reasoning": 0
+      },
+      "costUsd": 0.00376845,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p11",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 27545,
+      "calls": 4,
+      "tokens": {
+        "prompt": 10005,
+        "completion": 5877,
+        "reasoning": 0
+      },
+      "costUsd": 0.00502695,
+      "scenes": 4,
+      "shots": 16
+    },
+    {
+      "id": "p12",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 2,
+      "truncations": 0,
+      "latencyMs": 31846,
+      "calls": 5,
+      "tokens": {
+        "prompt": 14503,
+        "completion": 7338,
+        "reasoning": 0
+      },
+      "costUsd": 0.00657825,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    }
+  ]
+}

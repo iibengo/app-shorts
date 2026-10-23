@@ -1,0 +1,244 @@
+{
+  "runId": "2026-10-23T00:07:08.313Z",
+  "model": "deepseek-flash",
+  "thinking": "disabled",
+  "budgetUsd": 1,
+  "budgetExhausted": false,
+  "totals": {
+    "premises": 12,
+    "calls": 49,
+    "costUsd": 0.047169,
+    "p50Ms": 5120,
+    "p95Ms": 9727
+  },
+  "premises": [
+    {
+      "id": "p01",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 17445,
+      "calls": 4,
+      "tokens": {
+        "prompt": 8219,
+        "completion": 2935,
+        "reasoning": 0
+      },
+      "costUsd": 0.0029938499999999997,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p02",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 2,
+      "truncations": 0,
+      "latencyMs": 21809,
+      "calls": 5,
+      "tokens": {
+        "prompt": 11590,
+        "completion": 3802,
+        "reasoning": 0
+      },
+      "costUsd": 0.0040197,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p03",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 21811,
+      "calls": 4,
+      "tokens": {
+        "prompt": 9505,
+        "completion": 4439,
+        "reasoning": 0
+      },
+      "costUsd": 0.00408915,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p04",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 18431,
+      "calls": 4,
+      "tokens": {
+        "prompt": 8438,
+        "completion": 3088,
+        "reasoning": 0
+      },
+      "costUsd": 0.0031185,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p05",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 16179,
+      "calls": 3,
+      "tokens": {
+        "prompt": 5492,
+        "completion": 2612,
+        "reasoning": 0
+      },
+      "costUsd": 0.002391,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "scenes",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p06",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 2,
+      "truncations": 0,
+      "latencyMs": 21912,
+      "calls": 5,
+      "tokens": {
+        "prompt": 11281,
+        "completion": 3904,
+        "reasoning": 0
+      },
+      "costUsd": 0.0040345500000000005,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p07",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 32769,
+      "calls": 4,
+      "tokens": {
+        "prompt": 11035,
+        "completion": 6098,
+        "reasoning": 0
+      },
+      "costUsd": 0.005314049999999999,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p08",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 18433,
+      "calls": 4,
+      "tokens": {
+        "prompt": 8564,
+        "completion": 3083,
+        "reasoning": 0
+      },
+      "costUsd": 0.0031343999999999994,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p09",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 28260,
+      "calls": 4,
+      "tokens": {
+        "prompt": 10392,
+        "completion": 5921,
+        "reasoning": 0
+      },
+      "costUsd": 0.0051113999999999995,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p10",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 18124,
+      "calls": 4,
+      "tokens": {
+        "prompt": 8736,
+        "completion": 3086,
+        "reasoning": 0
+      },
+      "costUsd": 0.003162,
+      "scenes": 3,
+      "shots": 5
+    },
+    {
+      "id": "p11",
+      "ok": true,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 24883,
+      "calls": 4,
+      "tokens": {
+        "prompt": 9820,
+        "completion": 5326,
+        "reasoning": 0
+      },
+      "costUsd": 0.0046686,
+      "scenes": 5,
+      "shots": 16
+    },
+    {
+      "id": "p12",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 37273,
+      "calls": 4,
+      "tokens": {
+        "prompt": 10891,
+        "completion": 5831,
+        "reasoning": 0
+      },
+      "costUsd": 0.00513225,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    }
+  ]
+}

@@ -1,0 +1,268 @@
+{
+  "runId": "2026-10-22T23:43:07.373Z",
+  "model": "deepseek-flash",
+  "thinking": "disabled",
+  "budgetUsd": 1,
+  "budgetExhausted": false,
+  "totals": {
+    "premises": 12,
+    "calls": 46,
+    "costUsd": 0,
+    "p50Ms": 5529,
+    "p95Ms": 11467
+  },
+  "premises": [
+    {
+      "id": "p01",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 18651,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p02",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 2,
+      "truncations": 0,
+      "latencyMs": 23347,
+      "calls": 5,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p03",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 21913,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p04",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 22615,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p05",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 8404,
+      "calls": 2,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "canon",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p06",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 20999,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p07",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 32256,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p08",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 25190,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p09",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 2,
+      "truncations": 0,
+      "latencyMs": 36249,
+      "calls": 5,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p10",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 8601,
+      "calls": 2,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "canon",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p11",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 29082,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    },
+    {
+      "id": "p12",
+      "ok": false,
+      "firstPassValid": false,
+      "repairs": 1,
+      "truncations": 0,
+      "latencyMs": 30721,
+      "calls": 4,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "reasoning": 0
+      },
+      "costUsd": 0,
+      "scenes": null,
+      "shots": null,
+      "failure": {
+        "stage": "shots",
+        "code": "director-invalid-output"
+      }
+    }
+  ]
+}
