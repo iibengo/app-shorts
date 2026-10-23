@@ -570,6 +570,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     ? createReelStoryReconciler({
         repository: reelRepository,
         keyframes: reelKeyframes,
+        characterSheet: reelCharacterSheet,
         consistency: deepseekClient === null ? null : createConsistencyChecker({ client: deepseekClient }),
         videos: reelVideos,
         assembler: reelAssembler,

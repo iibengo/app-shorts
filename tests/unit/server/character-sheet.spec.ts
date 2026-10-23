@@ -37,3 +37,14 @@ describe('character sheet', () => {
     expect(sheetUrls(SHEET)).toEqual([URL, URL, URL, URL])
   })
 })
+
+describe('runtime wiring', () => {
+  it('passes the sheet orchestrator to the reconciler, not only to the service', async () => {
+    const { readFileSync } = await import('node:fs')
+    const source = readFileSync('server/story/runtime.ts', 'utf8')
+
+    // The reconciler generates keyframes; without the dependency there the
+    // sheet is silently skipped.
+    expect(source.split('characterSheet: reelCharacterSheet').length - 1).toBeGreaterThanOrEqual(2)
+  })
+})
