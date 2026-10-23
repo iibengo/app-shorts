@@ -92,6 +92,64 @@ export interface ReelStoryServiceOptions {
   readonly now?: () => number
 }
 
+/**
+ * A stored keyframe that is not vertical can only produce a non-vertical video,
+ * which the technical QC rejects. Retrying must rebuild it instead of burning
+ * another video attempt on a broken reference.
+ */
+async function keyframeIsNotVertical(keyframeUrl: string | null): Promise<boolean> {
+  if (keyframeUrl === null) return false
+
+  try {
+    const response = await fetch(keyframeUrl, { signal: AbortSignal.timeout(5_000) })
+
+    if (!response.ok) return false
+
+    const buffer = await response.arrayBuffer()
+    const size = readJpegSize(new Uint8Array(buffer))
+
+    if (size === null) return false
+
+    return !isVerticalAspect(size.width, size.height)
+  } catch {
+    return false
+  }
+}
+
+/** Minimal JPEG/PNG header reader: no dependency, no full decode. */
+function readJpegSize(bytes: Uint8Array): { readonly width: number; readonly height: number } | null {
+  // PNG
+  if (bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+
+    return { width: view.getUint32(16), height: view.getUint32(20) }
+  }
+
+  // JPEG: walk the markers until a SOFn frame header.
+  let offset = 2
+
+  while (offset + 9 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1
+      continue
+    }
+
+    const marker = bytes[offset + 1]!
+    const length = (bytes[offset + 2]! << 8) | bytes[offset + 3]!
+
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      const height = (bytes[offset + 5]! << 8) | bytes[offset + 6]!
+      const width = (bytes[offset + 7]! << 8) | bytes[offset + 8]!
+
+      return { width, height }
+    }
+
+    offset += 2 + length
+  }
+
+  return null
+}
+
 const ACTIVE_POLL_MS = 2_500
 
 export function canonicalReelStoryBody(request: StoryCreateRequest): string {
@@ -1000,6 +1058,14 @@ export class ReelStoryServiceImpl implements ReelStoryService {
       await this.assertBudgetForShotAttempt(story, shot, 'video')
     }
 
+    // A non-vertical keyframe cannot produce a valid vertical video. Rebuilding
+    // it costs one image and saves the video attempt that would be wasted.
+    const rebuild = new Set<string>()
+
+    for (const shot of shots) {
+      if (await keyframeIsNotVertical(shot.keyframeUrl)) rebuild.add(shot.id)
+    }
+
     const storyUpdated = await this.repository.updateStory(
       story.id,
       { statuses: [story.status], version: story.version },
@@ -1018,14 +1084,30 @@ export class ReelStoryServiceImpl implements ReelStoryService {
         story.id,
         shot.id,
         { statuses: ['VIDEO_FAILED'], version: shot.version },
-        {
-          status: 'VIDEO_QUEUED',
-          videoRequestId: null,
-          videoStatusUrl: null,
-          videoResponseUrl: null,
-          videoCancelUrl: null,
-          videoError: null,
-        },
+        rebuild.has(shot.id)
+          ? {
+              status: 'KEYFRAME_QUEUED',
+              keyframeUrl: null,
+              keyframeRequestId: null,
+              keyframeStatusUrl: null,
+              keyframeResponseUrl: null,
+              keyframeCancelUrl: null,
+              keyframeError: null,
+              videoUrl: null,
+              videoRequestId: null,
+              videoStatusUrl: null,
+              videoResponseUrl: null,
+              videoCancelUrl: null,
+              videoError: null,
+            }
+          : {
+              status: 'VIDEO_QUEUED',
+              videoRequestId: null,
+              videoStatusUrl: null,
+              videoResponseUrl: null,
+              videoCancelUrl: null,
+              videoError: null,
+            },
       )
     }
 

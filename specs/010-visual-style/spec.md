@@ -172,6 +172,7 @@ El primer run completo real (15 s, `cartoon3d`) falló en el plano 1 por `techni
 | **Puerta de aspecto** | Un keyframe con ratio distinto de 9:16 (±3 %) MUST rechazarse al parsear la respuesta del proveedor, no dos etapas después. Implementado en `parseOutput` de Kontext y Kontext multi. |
 | **Nunca anclar un no vertical** | El ancla MUST provenir de un keyframe validado, así que un ancla 4:3 no puede propagarse al vídeo. |
 | **Diagnóstico** | El clip fallido se conserva y el error queda en `videoError` (`provider-invalid-output`), no se descarta en silencio. |
+| **Reintento con keyframe inválido** | Si al reintentar un plano su keyframe guardado no es vertical, el servicio MUST leer sus dimensiones y **regenerar el keyframe** en lugar de relanzar el vídeo sobre una referencia rota. Coste: una imagen en vez de un vídeo perdido. |
 | **Semilla FLUX** | El **primer keyframe de un personaje** lo genera siempre FLUX (`image_size 1152×2048`), nunca Kontext, porque Kontext hereda el ratio de la referencia. Kontext solo entra cuando todos los personajes presentes ya tienen ancla vertical validada. |
 
 ## Out of Scope
