@@ -72,6 +72,7 @@ Con la hoja, **3 de 4 planos mantienen la identidad** (front, reaction, wide). E
 |---|---|
 | **Planos de un personaje** | MUST enviar la hoja completa (4 vistas). |
 | **Planos de varios personajes** | MUST enviar una sola vista de la hoja; el segundo personaje se describe en el prompt. Más referencias degradan la salida. |
+| **Lectura tras guardar** | Al guardar la hoja, el tick MUST terminar sin generar keyframes: el registro en memoria aún tiene `characterSheet: null` y el orquestador caería al ancla del primer plano, copiando una imagen sin cara a todos los siguientes. Evidencia: el plano 1 envió como referencia su propio keyframe, no la hoja. |
 | **Reintentos con actividad** | El tope de inactividad no frena un bucle de intentos fallidos, porque cada intento cuenta como actividad. Pendiente: tope por número de fallos consecutivos. |
 
 ## Fuera de alcance

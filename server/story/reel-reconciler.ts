@@ -279,7 +279,11 @@ export class ReelStoryReconciler {
       this.sheetSubmissions.delete(story.id)
       this.onEvent?.({ event: 'story.sheet.ready', storyId: story.id })
 
-      return true
+      // The caller still holds the record it read at the start of the tick,
+      // where `characterSheet` is null. Continuing with it would make the
+      // orchestrator fall back to the first keyframe as the identity anchor and
+      // copy a face-less frame into every later shot.
+      return false
     } catch {
       // A failed sheet must not block the story: the reference still works.
       this.sheetSubmissions.delete(story.id)

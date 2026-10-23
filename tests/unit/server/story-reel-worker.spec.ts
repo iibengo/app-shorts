@@ -597,8 +597,73 @@ describe('character sheet before keyframes', () => {
     expect(calls).toEqual(['sheet:submit'])
     expect(ctx.keyframes.submitted).toHaveLength(0)
 
+    // Second tick stores the sheet but must not generate frames with the stale
+    // record; the third tick reads it back and starts the keyframes.
     await reconciler.runOnce()
     expect((await ctx.repository.findById(ctx.story.id))?.characterSheet).not.toBeNull()
+    expect(ctx.keyframes.submitted).toHaveLength(0)
+
+    await reconciler.runOnce()
+    expect(ctx.keyframes.submitted.length).toBeGreaterThan(0)
+  })
+})
+
+describe('sheet must be read back before keyframes', () => {
+  it('does not queue keyframes in the same tick that stores the sheet', async () => {
+    const ctx = await setup({ withReference: true })
+    const { createReelStoryReconciler } = await import('../../../server/story/reel-reconciler')
+    const sheetQueue = {
+      async submit() {
+        return {
+          requestId: 'sheet-1',
+          statusUrl: 'https://queue.fal.run/test/sheet/status',
+          responseUrl: 'https://queue.fal.run/test/sheet',
+          cancelUrl: 'https://queue.fal.run/test/sheet/cancel',
+        }
+      },
+      async poll() {
+        return {
+          state: 'COMPLETED' as const,
+          sheet: {
+            front: 'https://v3.fal.media/files/x/sheet.jpeg',
+            'three-quarter': 'https://v3.fal.media/files/x/sheet.jpeg',
+            profile: 'https://v3.fal.media/files/x/sheet.jpeg',
+            smile: 'https://v3.fal.media/files/x/sheet.jpeg',
+          },
+        }
+      },
+    }
+    const reconciler = createReelStoryReconciler({
+      repository: ctx.repository,
+      keyframes: ctx.keyframes,
+      videos: ctx.videos,
+      assembler: ctx.assembler,
+      qcService: null,
+      costGuard: ctx.costGuard,
+      characterSheet: sheetQueue,
+      qcEnabled: false,
+      owner: 'sheet-readback',
+      now: () => NOW + 1_000,
+      config: {
+        leaseMs: 60_000,
+        assemblyLeaseMs: 480_000,
+        qcLeaseMs: 720_000,
+        tickBudgetMs: 45_000,
+        keyframeConcurrency: 50,
+        videoConcurrency: 50,
+        claimLimit: 5,
+      },
+    })
+
+    await reconciler.runOnce()
+    await reconciler.runOnce()
+
+    // The sheet exists now, and no keyframe was generated while the stale
+    // record still said `characterSheet: null`.
+    expect((await ctx.repository.findById(ctx.story.id))?.characterSheet).not.toBeNull()
+    expect(ctx.keyframes.submitted).toHaveLength(0)
+
+    await reconciler.runOnce()
     expect(ctx.keyframes.submitted.length).toBeGreaterThan(0)
   })
 })
