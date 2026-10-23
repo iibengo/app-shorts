@@ -106,7 +106,7 @@ specs/                    specs 001–008
   - El fallback de `qc-frames` con `filePath === null` debe reforzarse.
   - Los 007 migrados con shots reales no siempre muestran `Plano heredado`.
   - `legacy: true` debe retirarse o quedar con condición de retirada explícita.
-- **Siguiente:** Spec 009 — director eval (DeepSeek, opt-in); Spec 010 — estilo visual y personajes; Spec 011 — audio, voz, música y subtítulos; Spec 012 — gráficos y overlays.
+- **Siguiente:** Spec 009 — director eval (DeepSeek, opt-in); Spec 010 — estilo visual y personajes; Spec 011 — consistencia de personaje (hoja + verificación); Spec 012 — audio, voz, música y subtítulos; Spec 013 — gráficos y overlays.
 
 ## Patrones reutilizables de 004
 
