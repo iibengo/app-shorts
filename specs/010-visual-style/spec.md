@@ -202,6 +202,17 @@ La historia de presentación de Ionias generó 4 keyframes y **los planos 3 y 4 
 | **Ancla solo con cara** | El reconciliador MUST guardar un keyframe como ancla únicamente si su `framing` muestra la cara: `medium`, `close-up`, `extreme-close-up`, `reaction` o `two-shot`. `establishing`, `wide`, `detail`, `insert` y `over-the-shoulder` MUST NOT convertirse en ancla. |
 | **Motivo** | El modelo no puede mantener una identidad que no ve. Un ancla de espaldas degrada todos los planos posteriores y se paga entera. |
 
+## Bloque de identidad en el prompt (2026-10-23)
+
+Tercer hallazgo del end-to-end: con la referencia bien enviada, el plano 4 (`close-up` de perfil) devolvió **otra persona**. Al comparar el prompt real con el de las sondas manuales, la diferencia era que **la sonda pedía explícitamente mantener identidad y el plano no**. La referencia, sola, es una sugerencia.
+
+| Regla | Contrato |
+|---|---|
+| **Bloque de identidad** | Con referencia, el prompt MUST incluir un bloque explícito que ordene usar la imagen como el mismo personaje: cara, pelo, barba, cejas, ojos y tono de piel idénticos. |
+| **Orden** | Estilo → identidad → composición del plano → contexto → escenario. Debe seguir cabiendo en 900 caracteres. |
+| **Por encuadre** | El bloque MUST adaptarse: en `wide`/`establishing` añade "silhouette and outfit", en `over-the-shoulder` añade "from behind". |
+| **Sin referencia** | MUST NOT incluirse. |
+
 ## Out of Scope
 
 - Estilo `explainer` abstracto (figuras sin cara, símbolos, planos de 17 s): pertenece a la 012 junto con la capa gráfica.

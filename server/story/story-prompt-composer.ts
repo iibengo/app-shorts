@@ -24,6 +24,8 @@ export interface KeyframePromptInput {
   readonly hasReference: boolean
   /** 010: look of the channel, prepended to the prompt. */
   readonly visualStyle?: StoryVisualStyle
+  /** 010c: identity of the reference must be preserved, not suggested. */
+  readonly withIdentityLock?: boolean
   /** 008 passes 4.000 to bound the final keyframe prompt deterministically. */
   readonly maxLength?: number
 }
@@ -443,6 +445,32 @@ export function storyVideoLegacyPrompt(visualPrompt: string): string {
   return `${visualPrompt}. Vertical 9:16 short film scene, smooth natural motion, consistent subject, no text, no watermark, no logo.`
 }
 
+/**
+ * A reference image alone is only a suggestion: without an explicit
+ * instruction the model reinterprets the face for every shot. This block turns
+ * the reference into an order and names the same features the anchor shows.
+ */
+export const IDENTITY_LOCK_BLOCK =
+  'Use the reference image as the exact same character. Keep the identical face, hair, beard, eyebrows, blue eyes and skin tone. Do not change the person.'
+
+/** Per framing, so a three-quarter or profile shot does not invent a new face. */
+const IDENTITY_LOCK_BY_FRAMING: Readonly<Record<StoryShotFraming, string>> = {
+  establishing: `${IDENTITY_LOCK_BLOCK} Seen in the distance, keeping the same silhouette and outfit.`,
+  wide: `${IDENTITY_LOCK_BLOCK} Seen in a wide shot, keeping the same silhouette and outfit.`,
+  medium: IDENTITY_LOCK_BLOCK,
+  'close-up': IDENTITY_LOCK_BLOCK,
+  'extreme-close-up': IDENTITY_LOCK_BLOCK,
+  reaction: IDENTITY_LOCK_BLOCK,
+  'over-the-shoulder': `${IDENTITY_LOCK_BLOCK} Seen from behind, keeping hair and outfit identical.`,
+  'two-shot': IDENTITY_LOCK_BLOCK,
+  detail: IDENTITY_LOCK_BLOCK,
+  insert: IDENTITY_LOCK_BLOCK,
+}
+
+export function identityLockFor(framing: StoryShotFraming | undefined): string {
+  return IDENTITY_LOCK_BY_FRAMING[framing ?? 'medium']
+}
+
 export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePrompt {
   const budget = input.maxLength === undefined
     ? KEYFRAME_PROMPT_MAX_CHARS
@@ -450,13 +478,16 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
   const stylePrefix = input.visualStyle === undefined
     ? ''
     : `${styleBlockFor(input.visualStyle)}. `
-  const bodyBudget = Math.max(0, budget - stylePrefix.length)
+  const identityPrefix = input.withIdentityLock === true
+    ? `${identityLockFor(input.beat.framing)} `
+    : ''
+  const bodyBudget = Math.max(0, budget - stylePrefix.length - identityPrefix.length)
   const body = input.bible === null
     ? input.hasReference
       ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
       : storyKeyframeFluxPrompt(input.beat.visualPrompt)
     : composeCanonKeyframePrompt(input.bible, input.beat, bodyBudget)
-  const prompt = `${stylePrefix}${body}`
+  const prompt = `${stylePrefix}${identityPrefix}${body}`
 
   if (prompt.length > budget) {
     throw new StoryError('invalid-visual-prompt')

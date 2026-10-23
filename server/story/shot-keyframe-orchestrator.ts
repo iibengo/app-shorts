@@ -108,6 +108,7 @@ export class NativeShotKeyframeOrchestrator implements ShotKeyframeOrchestrator 
       beat,
       hasReference: provider.kind !== 'flux',
       visualStyle: story.visualStyle,
+      withIdentityLock: provider.kind !== 'flux',
       maxLength: STORY_PROMPT_MAX_LENGTH,
     })
 
