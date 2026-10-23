@@ -71,7 +71,7 @@ export class NativeReelShotDirector implements StoryShotDirector {
     const startedAt = Date.now()
     const preset = input.preset ?? 'fast'
     const messages: readonly DeepSeekMessage[] = [
-      { role: 'system', content: reelShotSystemPrompt(input.mode, input.durationPlan, preset) },
+      { role: 'system', content: reelShotSystemPrompt(input.mode, input.durationPlan, preset, input.narrative.scenes.length) },
       reelShotUserMessage(input.premise, input.narrative, input.durationPlan),
     ]
     const baseMaxTokens = reelShotMaxTokens(input.durationPlan)

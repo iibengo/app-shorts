@@ -27,8 +27,6 @@ import {
 import {
   composeGlobalBlock,
   STORY_GLOBAL_BLOCK_MAX_LENGTH,
-  storyTimeOfDayLabel,
-  storyWeatherLabel,
 } from './story-prompt-composer'
 
 export const CANON_KEYS = [
@@ -159,6 +157,62 @@ function validateId(value: unknown, field: string): string | null {
   }
 
   return null
+}
+
+/**
+ * Canon ids are internal. The model writes them freely ("Calabaza de
+ * Halloween"), so they are slugged before validation instead of being
+ * rejected: rejecting only burns a repair that repeats the same id.
+ */
+export function slugCanonId(value: string): string {
+  const slug = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/gu, '-')
+    .replace(/^-+|-+$/gu, '')
+    .slice(0, 24)
+
+  if (slug.length === 0) return ''
+  if (/^[a-z]/u.test(slug)) return slug
+
+  return `e-${slug}`.slice(0, 24)
+}
+
+function slugEntityList(value: unknown): unknown {
+  if (!Array.isArray(value)) return value
+
+  return value.map((entity) => {
+    if (!isRecord(entity) || typeof entity.id !== 'string') return entity
+
+    return { ...entity, id: slugCanonId(entity.id) }
+  })
+}
+
+/**
+ * Returns a copy of the bible with slugged ids and references. Unknown shapes
+ * are left untouched so the shape validation still reports them.
+ */
+function normalizeCanonIds(bible: Record<string, unknown>): Record<string, unknown> {
+  const characters = slugEntityList(bible.characters)
+  const locations = slugEntityList(bible.locations)
+  const props = slugEntityList(bible.props)
+  const lead = typeof bible.leadCharacterId === 'string'
+    ? slugCanonId(bible.leadCharacterId)
+    : bible.leadCharacterId
+  const signature = typeof bible.signaturePropId === 'string'
+    ? slugCanonId(bible.signaturePropId)
+    : bible.signaturePropId
+
+  return {
+    ...bible,
+    characters,
+    locations,
+    props,
+    leadCharacterId: lead,
+    signaturePropId: signature,
+  }
 }
 
 function isSource(value: unknown): value is StoryEntitySource {
@@ -491,7 +545,7 @@ export function validateCanon(
     return { ok: false, reason: 'storyBible: forma inválida' }
   }
 
-  const bible = value.storyBible
+  const bible = normalizeCanonIds(value.storyBible)
   const styleError = validateText(
     bible.style,
     CANON_MIN_STYLE_LENGTH,
@@ -617,12 +671,11 @@ export function validateCanon(
     if (invalidText(text)) {
       return { ok: false, reason: `storyBible.forbidden[${index}]: contiene marcas no permitidas` }
     }
-    if (seenForbidden.has(key)) {
-      return { ok: false, reason: 'storyBible.forbidden: duplicado' }
-    }
-    if (containsCanonTerm(text, canonEntityTerms)) {
-      return { ok: false, reason: 'storyBible.forbidden: contradice el canon' }
-    }
+    // `forbidden` is a guard for the negative prompt and is filtered against
+    // the canon when it is used. A duplicate or an entity that slipped into the
+    // list is dropped instead of burning a repair on the whole canon.
+    if (seenForbidden.has(key)) continue
+    if (containsCanonTerm(text, canonEntityTerms)) continue
 
     seenForbidden.add(key)
     forbidden.push(text)
@@ -717,20 +770,9 @@ export function validateBeats(
     }
   }
 
-  const usedTimes = new Set(beats.map((beat) => beat.timeOfDay))
-  const usedWeathers = new Set(beats.map((beat) => beat.weather))
-  const timeWeatherTerms = [
-    ...usedTimes,
-    ...usedWeathers,
-    ...[...usedTimes].map((value) => storyTimeOfDayLabel(value)),
-    ...[...usedWeathers].map((value) => storyWeatherLabel(value)),
-  ]
-
-  for (const item of options.canon.storyBible.forbidden) {
-    if (containsCanonTerm(item, timeWeatherTerms)) {
-      return { ok: false, reason: 'storyBible.forbidden: contradice el canon' }
-    }
-  }
+  // Forbidden entries that match the scene time or weather are neutralized by
+  // `composeNegative` when the negative prompt is built. Failing the canon here
+  // only produced repairs that repeated the same entry.
 
   const climaxCount = beats.filter((beat) => beat.sceneRole === 'climax').length
   if (climaxCount !== 1) return { ok: false, reason: 'beats: debe haber exactamente un climax' }

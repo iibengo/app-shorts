@@ -114,7 +114,7 @@ export function reelScenesSystemPrompt(
     + 'No cambies el canon, el tema, el tono, el protagonista, el conflicto, los personajes, las localizaciones ni los props. '
     + 'No añadas campos visuales: no incluyas visualPrompt, camera, framing, continuity de cámara ni transition. '
     + `${reelProfileBlock(plan)} `
-    + `Escribe entre ${plan.sceneCount.min} y ${plan.sceneCount.max} escenas; para cubrir el presupuesto de planos usa al menos ${minForShots}. `
+    + `Escribe exactamente ${plan.sceneCount.max} escenas: ni una más ni una menos. `
     + 'La primera escena es hook y establishing; la última payoff y resolution. '
     + 'Con N=3 el único giro ocupa la escena central (climax/twist), aunque i/N sea 0.333. '
     + 'Con N=2 no hay escena twist: el giro, si existe, va en el action del payoff. '

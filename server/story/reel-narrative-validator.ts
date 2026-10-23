@@ -384,6 +384,29 @@ function validateCanonUsage(
   return null
 }
 
+/**
+ * Scene roles are derivable from the story function and the position, so they
+ * are assigned in code instead of being validated as model output.
+ */
+function normalizeSceneRoles(
+  scenes: readonly StoryNarrativeScene[],
+): readonly StoryNarrativeScene[] {
+  const last = scenes.length - 1
+
+  return scenes.map((scene, index) => {
+    if (index === 0) return { ...scene, sceneRole: 'establishing' as const }
+    if (index === last) return { ...scene, sceneRole: 'resolution' as const }
+
+    const role = scene.storyFunction === 'twist'
+      ? 'climax'
+      : scene.storyFunction === 'escalation'
+        ? 'escalation'
+        : 'development'
+
+    return { ...scene, sceneRole: role as const }
+  })
+}
+
 export function validateReelScenes(
   value: unknown,
   options: {
@@ -412,13 +435,14 @@ export function validateReelScenes(
     scenes.push(result.scene!)
   }
 
-  const structureError = validateStructure(scenes, options.canon, options.durationPlan)
+  const normalized = normalizeSceneRoles(scenes)
+  const structureError = validateStructure(normalized, options.canon, options.durationPlan)
   if (structureError) return { ok: false, reason: structureError }
 
-  const usageError = validateCanonUsage(scenes, options.canon.storyBible)
+  const usageError = validateCanonUsage(normalized, options.canon.storyBible)
   if (usageError) return { ok: false, reason: usageError }
 
-  return { ok: true, scenes }
+  return { ok: true, scenes: normalized }
 }
 
 export function validateReelNarrativeDraft(

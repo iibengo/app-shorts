@@ -107,13 +107,14 @@ describe('canon beat structure', () => {
     'Obrador de Clara',
     'mañana',
     'despejado',
-  ])('rejects forbidden terms that collide with canon context: %s', (term) => {
+  ])('tolerates forbidden terms that collide with canon context: %s', (term) => {
     const value = clone()
     value.storyBible = {
       ...value.storyBible,
       forbidden: [...value.storyBible.forbidden.slice(0, 9), term],
     }
-    reject(value, 'storyBible.forbidden')
+
+    expect(validateNarrativeDraft(value, { sceneCount: 5, mode: 'creative' }).ok).toBe(true)
   })
 
   it('rejects a global block over 2600 characters', () => {

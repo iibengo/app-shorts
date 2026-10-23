@@ -36,10 +36,33 @@ export function reelShotRepairMaxTokens(base: number): number {
   return Math.min(REEL_SHOT_MAX_TOKENS_LIMIT, base + REEL_SHOT_REPAIR_INCREMENT)
 }
 
+/**
+ * The total shot budget is split in code before asking the model, so the count
+ * is a guarantee of the pipeline and not a request the model may ignore.
+ */
+export function allocateShotsPerScene(
+  plan: DurationPlan,
+  sceneCount: number,
+): readonly number[] {
+  if (sceneCount <= 0) return []
+
+  const max = plan.shotCount.max
+  const base = Math.floor(max / sceneCount)
+  let remainder = max - base * sceneCount
+
+  return Array.from({ length: sceneCount }, () => {
+    const extra = remainder > 0 ? 1 : 0
+    remainder -= extra
+
+    return Math.min(4, Math.max(1, base + extra))
+  })
+}
+
 export function reelShotSystemPrompt(
   mode: StoryMode,
   plan: DurationPlan,
   preset: StoryPreset = 'fast',
+  sceneCount?: number,
 ): string {
   const durationRule = preset === 'quality'
     ? 'Cada plano dura 2–5 s; 6 s NO está permitido en quality.'
@@ -51,7 +74,7 @@ export function reelShotSystemPrompt(
     + 'No cambies el canon, las escenas, la action, la narration, el gag, el tono, los personajes, las localizaciones ni los props. '
     + 'Tu única responsabilidad es convertir cada escena en 1–4 planos visuales coherentes. '
     + `${reelProfileBlock(plan)} `
-    + `El total de planos debe quedar entre ${plan.shotCount.min} y ${plan.shotCount.max}. `
+    + `Devuelve entre ${plan.shotCount.min} y ${plan.shotCount.max} planos en total, sumando los planos de todas las escenas; el máximo es ${plan.shotCount.max} y pasarse invalida el plan. `
     + `${durationRule} `
     + 'Cada plano declara indexInScene consecutivo desde 1, camera, framing, subject, action, visualPrompt, transition cut y locationId del canon. '
     + 'La suma de durationSeconds debe quedar entre objetivo−1 y máximo; si te pasas, recorta planos manteniendo todos ≥2 s. '
@@ -68,6 +91,12 @@ export function reelShotSystemPrompt(
     + 'No incluyas narration en visualPrompt ni texto que deba aparecer en pantalla. '
     + 'No prometas viralidad, retención garantizada ni gracia. '
     + 'Escribe en español, sin HTML, sin Markdown y sin URLs. '
+    + (sceneCount === undefined
+      ? ''
+      : `Reparto obligatorio: ${allocateShotsPerScene(plan, sceneCount)
+          .map((count, index) => `escena ${index + 1} → exactamente ${count} ${count === 1 ? 'plano' : 'planos'}`)
+          .join('; ')}. No añadas ni quites planos a ninguna escena. `)
+    + `Antes de responder, cuenta los planos: ${plan.shotCount.min}-${plan.shotCount.max} en total y ${plan.maxDurationSeconds}s como máximo. `
     + (mode === 'faithful'
       ? 'Modo fiel: respeta el canon premise y no inventes entidades.'
       : 'Modo creativo: puedes variar cámara y composición, pero no el canon ni la narrativa.')

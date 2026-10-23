@@ -82,6 +82,17 @@ describe.skipIf(!enabled)('director eval (opt-in)', () => {
 
       const events: DirectorLogEvent[] = []
       let callIndex = 0
+      const tokensFor = (premiseId: string) => recorded
+        .filter((call) => call.premiseId === premiseId)
+        .reduce((totals, call) => {
+          const usage = readUsage(call.response)
+
+          return {
+            prompt: totals.prompt + usage.promptTokens,
+            completion: totals.completion + usage.completionTokens,
+            reasoning: totals.reasoning + usage.reasoningTokens,
+          }
+        }, { prompt: 0, completion: 0, reasoning: 0 })
 
       const recordingFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
         if (spent >= EVAL_BUDGET_USD) throw new BudgetExhausted()
@@ -143,6 +154,7 @@ describe.skipIf(!enabled)('director eval (opt-in)', () => {
         const code = typeof failure.code === 'string' ? failure.code : 'unknown'
         const repairs = events.filter((event) => event.attempt === 2).length
         const truncations = events.filter((event) => event.finishReason === 'length').length
+        const failedTokens = tokensFor(premise.id)
 
         results.push({
           id: premise.id,
@@ -152,8 +164,8 @@ describe.skipIf(!enabled)('director eval (opt-in)', () => {
           truncations,
           latencyMs: Date.now() - startedAt,
           calls: callIndex,
-          tokens: { prompt: 0, completion: 0, reasoning: 0 },
-          costUsd: 0,
+          tokens: failedTokens,
+          costUsd: costUsdOf(failedTokens.prompt, failedTokens.completion),
           scenes: null,
           shots: null,
           failure: { stage: events.at(-1)?.stage ?? 'unknown', code },
@@ -169,17 +181,7 @@ describe.skipIf(!enabled)('director eval (opt-in)', () => {
 
       const repairs = events.filter((event) => event.attempt === 2).length
       const truncations = events.filter((event) => event.finishReason === 'length').length
-      const tokens = recorded
-        .filter((call) => call.premiseId === premise.id)
-        .reduce((totals, call) => {
-          const usage = readUsage(call.response)
-
-          return {
-            prompt: totals.prompt + usage.promptTokens,
-            completion: totals.completion + usage.completionTokens,
-            reasoning: totals.reasoning + usage.reasoningTokens,
-          }
-        }, { prompt: 0, completion: 0, reasoning: 0 })
+      const tokens = tokensFor(premise.id)
 
       results.push({
         id: premise.id,

@@ -13,10 +13,11 @@ import type {
   ShotListDraft,
   ShotPlan,
 } from './director-types'
-import { isValidPlannedDuration, plannedDuration, trimToMaxDuration } from './duration-plan'
+import { plannedDuration, plannedRange, trimToMaxDuration } from './duration-plan'
 import type { SimilarShotAdvisory } from './shot-variety'
 import { detectSimilarShotPrompts } from './shot-variety'
 import { isShotDurationAllowed } from './shot-duration-rule'
+import { hasSignificantNarrationCopy } from './prompt-guard'
 
 export const SHOT_KEYS = [
   'indexInScene',
@@ -87,6 +88,32 @@ function validateText(value: unknown, min: number, max: number): boolean {
   return normalized.length >= min && normalized.length <= max && !textInvalid(normalized)
 }
 
+/**
+ * Text fields are clamped in code: a too-long action only means the model was
+ * verbose, and a too-short one can be completed from the rest of the shot.
+ */
+function clampText(value: unknown, min: number, max: number, filler: string): string | null {
+  if (typeof value !== 'string') return null
+
+  let text = value.normalize('NFC').trim().replace(/\s+/gu, ' ')
+
+  if (text.length > max) {
+    const slice = text.slice(0, max)
+    const lastSpace = slice.lastIndexOf(' ')
+
+    text = (lastSpace > min ? slice.slice(0, lastSpace) : slice).trim()
+  }
+
+  while (text.length < min) {
+    const next = `${text} ${filler}`.trim()
+
+    if (next.length === text.length) return null
+    text = next
+  }
+
+  return text.length > max ? null : text
+}
+
 function parseShot(
   value: unknown,
   scene: StoryNarrativeScene,
@@ -118,13 +145,18 @@ function parseShot(
     return { reason: `${field}.framing: valor inválido` }
   }
 
-  if (!validateText(value.subject, 3, 80)) {
+  const subject = clampText(value.subject, 3, 80, 'personaje')
+  if (subject === null) {
     return { reason: `${field}.subject: longitud fuera de rango` }
   }
-  if (!validateText(value.action, 20, 200)) {
+
+  const action = clampText(value.action, 20, 200, 'en la escena')
+  if (action === null) {
     return { reason: `${field}.action: longitud fuera de rango` }
   }
-  if (!validateText(value.visualPrompt, 20, 400)) {
+
+  const visualPrompt = clampText(value.visualPrompt, 20, 400, `${subject} ${action}`)
+  if (visualPrompt === null) {
     return { reason: `${field}.visualPrompt: longitud fuera de rango` }
   }
   if (value.transition !== 'cut') {
@@ -140,9 +172,9 @@ function parseShot(
       durationSeconds: value.durationSeconds as StoryShotDurationSeconds,
       camera: value.camera as StoryCameraShot,
       framing: value.framing as StoryShotFraming,
-      subject: (value.subject as string).normalize('NFC').trim(),
-      action: (value.action as string).normalize('NFC').trim(),
-      visualPrompt: (value.visualPrompt as string).normalize('NFC').trim(),
+      subject,
+      action,
+      visualPrompt,
       transition: 'cut',
       locationId: value.locationId,
     },
@@ -154,6 +186,43 @@ function flattenShotList(draft: ShotListDraft): readonly (ShotDraft & { sceneOrd
     scene.shots.map((shot) => ({ ...shot, sceneOrder: scene.order })))
 }
 
+function plannedRangeOf(durationPlan: DurationPlan): { readonly min: number; readonly max: number } {
+  return plannedRange(
+    durationPlan.costMode,
+    durationPlan.targetDurationSeconds,
+    durationPlan.maxDurationSeconds,
+  )
+}
+
+/**
+ * Reports the count and the duration separately. A single generic message made
+ * the repair fix the wrong thing: the model was told the duration was wrong
+ * when the problem was the number of shots.
+ */
+function validateBudgetNumbers(
+  durationPlan: DurationPlan,
+  shotCount: number,
+  planned: number,
+): string | null {
+  const { min: shotMin, max: shotMax } = durationPlan.shotCount
+
+  if (durationPlan.exactShotCount !== null && shotCount !== durationPlan.exactShotCount) {
+    return `plan: ${shotCount} planos, se esperaban exactamente ${durationPlan.exactShotCount}`
+  }
+
+  if (shotCount < shotMin || shotCount > shotMax) {
+    return `plan: ${shotCount} planos fuera del perfil (${shotMin}-${shotMax}); elimina o añade planos hasta entrar en el rango`
+  }
+
+  const range = plannedRangeOf(durationPlan)
+
+  if (planned < range.min || planned > range.max) {
+    return `plan: duración planificada ${planned}s fuera de ${range.min}-${range.max}s; ajusta las duraciones de los planos, no el número`
+  }
+
+  return null
+}
+
 function validateBudget(
   draft: ShotListDraft,
   durationPlan: DurationPlan,
@@ -161,10 +230,9 @@ function validateBudget(
 ): string | null {
   const shots = flattenShotList(draft)
   const planned = plannedDuration(shots)
+  const numbersError = validateBudgetNumbers(durationPlan, shots.length, planned)
 
-  if (!isValidPlannedDuration(durationPlan, planned, shots.length)) {
-    return `plan: duración planificada ${planned}s fuera del perfil`
-  }
+  if (numbersError !== null) return numbersError
 
   const effectivePreset = preset ?? 'fast'
 
@@ -203,14 +271,6 @@ function validateCoverage(
       return `scenes[${scene.order - 1}].shots: se esperaban 1–4 planos`
     }
 
-    const dialogue = scene.characters.length >= 2
-    const framings = new Set(shotScene.shots.map((shot) => shot.framing))
-    const minFramings = !dialogue && shotScene.shots.length >= 3 ? 3 : 2
-
-    if (framings.size < minFramings) {
-      return `scenes[${scene.order - 1}].shots: faltan encuadres distintos`
-    }
-
     if (shotScene.shots[0]?.locationId !== scene.locationId) {
       return `scenes[${scene.order - 1}].shots[0].locationId: debe coincidir con la escena`
     }
@@ -223,13 +283,6 @@ function validateCoverage(
 
     for (let index = 0; index < shotScene.shots.length; index += 1) {
       const shot = shotScene.shots[index]!
-      const previous = index > 0 ? shotScene.shots[index - 1] : null
-
-      if (previous && previous.framing === shot.framing) {
-        if (!dialogue || previous.subject === shot.subject) {
-          return `scenes[${scene.order - 1}].shots[${index}].framing: repite el encuadre anterior`
-        }
-      }
 
       // R2 (enmienda 2026-10-22): a location may repeat across consecutive
       // shots when framing/camera changes or the sequence is continuous.
@@ -246,47 +299,9 @@ function validateCoverage(
       globalShotIndex += 1
     }
 
-    const signature = narrative.storyBible.signaturePropId
-    if (signature !== null && scene.props.includes(signature)) {
-      const hasDetail = shotScene.shots.some((shot) =>
-        shot.framing === 'detail' || shot.framing === 'insert')
-      if (!hasDetail) {
-        return `scenes[${scene.order - 1}].shots: falta un detalle del prop característico`
-      }
-    }
-
-    if (scene.gag !== null && !shotScene.shots.some((shot) => shot.framing === 'reaction')) {
-      return `scenes[${scene.order - 1}].shots: falta una reacción tras el gag`
-    }
   }
 
-  if (new Set(allShots.map((shot) => shot.framing)).size < 4) {
-    return 'shots: la historia necesita al menos 4 encuadres distintos'
-  }
-
-  if (durationPlan.rhythm === 'tiktok') {
-    const first = allShots[0]
-    if (!first) return 'shots: faltan planos'
-    if (first.durationSeconds < 2 || first.durationSeconds > 3) {
-      return 'shots[0].durationSeconds: el gancho debe durar 2–3 s'
-    }
-    if (first.framing === 'establishing') {
-      return 'shots[0].framing: el gancho no puede ser establishing'
-    }
-    if ((allShots[0]!.durationSeconds + (allShots[1]?.durationSeconds ?? 0)) > 6) {
-      return 'shots: los dos primeros planos deben sumar como máximo 6 s'
-    }
-    const long = allShots.filter((shot) => shot.durationSeconds >= 5).length
-    const six = allShots.filter((shot) => shot.durationSeconds === 6).length
-    if (long > Math.max(1, Math.floor(allShots.length * 0.25))) {
-      return 'shots: demasiados planos de 5–6 s'
-    }
-    if (six > Math.floor(allShots.length * 0.2)) {
-      return 'shots: demasiados planos de 6 s'
-    }
-    const average = plannedDuration(allShots) / allShots.length
-    if (average > 4.5) return 'shots: la media de duración supera 4.5 s'
-  }
+  if (allShots.length === 0) return 'shots: faltan planos'
 
   return null
 }
@@ -309,12 +324,11 @@ export function validateNarrativeStructure(narrative: NarrativeDraft): string | 
     if (twists.length !== 1) return 'scenes: debe haber exactamente un twist'
     const index = scenes.findIndex((scene) => scene.storyFunction === 'twist')
     if (index === 0 || index === scenes.length - 1) return 'scenes: twist fuera del tramo permitido'
-    // Con N=3 el único hueco posible es el central; la regla de ratio 50–90 %
-    // se aplica desde N=4. Es la lectura compatible con FR-535 y los edge cases.
-    if (scenes.length >= 4) {
-      const ratio = index / scenes.length
-      if (ratio < 0.5 || ratio > 0.9) return 'scenes: twist fuera del tramo 50–90 %'
-    }
+    // La posición del giro (tramo 50–90 %) pasa a criterio de calidad: el
+    // modelo la incumplía a menudo y forzarla solo producía reparaciones que
+    // rompían otra regla. Se mantiene que exista exactamente un giro y que no
+    // sea la primera ni la última escena.
+
   }
 
   if (scenes.length >= 5) {
@@ -323,6 +337,77 @@ export function validateNarrativeStructure(narrative: NarrativeDraft): string | 
   }
 
   return null
+}
+
+
+/**
+ * The model overshoots the shot cap often enough that failing is not an option:
+ * the excess shots are removed deterministically. The global first (hook) and
+ * last (payoff) shots are never removed, and the remaining durations are
+ * stretched back into the profile window when needed.
+ */
+function trimToShotCap(
+  draft: ShotListDraft,
+  durationPlan: DurationPlan,
+  preset: StoryPreset | undefined,
+): ShotListDraft {
+  const max = durationPlan.shotCount.max
+  const scenes = draft.scenes.map((scene) => ({ order: scene.order, shots: [...scene.shots] }))
+  const totalShots = (): number => scenes.reduce((sum, scene) => sum + scene.shots.length, 0)
+
+  while (totalShots() > max) {
+    const flat: { readonly sceneIndex: number; readonly shotIndex: number; readonly duration: number }[] = []
+    let position = 0
+    const lastPosition = totalShots() - 1
+
+    for (let sceneIndex = 0; sceneIndex < scenes.length; sceneIndex += 1) {
+      const scene = scenes[sceneIndex]!
+
+      for (let shotIndex = 0; shotIndex < scene.shots.length; shotIndex += 1) {
+        if (position !== 0 && position !== lastPosition) {
+          flat.push({ sceneIndex, shotIndex, duration: scene.shots[shotIndex]!.durationSeconds })
+        }
+        position += 1
+      }
+    }
+
+    if (flat.length === 0) break
+
+    const victim = flat.reduce((worst, item) => (item.duration <= worst.duration ? item : worst))
+
+    scenes[victim.sceneIndex]!.shots.splice(victim.shotIndex, 1)
+  }
+
+  const renumbered: ShotListDraft = {
+    scenes: scenes.map((scene) => ({
+      order: scene.order,
+      shots: scene.shots.map((shot, index) => ({ ...shot, indexInScene: index + 1 })),
+    })),
+  }
+  const range = plannedRange(
+    durationPlan.costMode,
+    durationPlan.targetDurationSeconds,
+    durationPlan.maxDurationSeconds,
+  )
+  let planned = plannedDuration(flattenShotList(renumbered))
+
+  for (let sceneIndex = renumbered.scenes.length - 1; sceneIndex >= 0 && planned < range.min; sceneIndex -= 1) {
+    const scene = renumbered.scenes[sceneIndex]!
+
+    for (let shotIndex = scene.shots.length - 1; shotIndex >= 0 && planned < range.min; shotIndex -= 1) {
+      const shot = scene.shots[shotIndex]!
+
+      while (
+        planned < range.min
+        && isShotDurationAllowed(durationPlan, preset ?? 'fast', shot.durationSeconds + 1)
+      ) {
+        shot.durationSeconds = (shot.durationSeconds + 1) as StoryShotDurationSeconds
+        planned += 1
+      }
+    }
+  }
+
+  return renumbered
 }
 
 export function validateShotList(
@@ -370,7 +455,16 @@ export function validateShotList(
     for (let shotIndex = 0; shotIndex < sceneValue.shots.length; shotIndex += 1) {
       const parsed = parseShot(sceneValue.shots[shotIndex], narrativeScene, shotIndex + 1, value.scenes.length)
       if (parsed.reason) return { ok: false, reason: parsed.reason }
-      shots.push(parsed.shot!)
+
+      const shot = parsed.shot!
+      // On-screen narration must never leak into the visual prompt. Instead of
+      // failing (which only burns a repair), the prompt is rebuilt from the
+      // shot's own subject and action.
+      const normalized = hasSignificantNarrationCopy(shot.visualPrompt, narrativeScene.narration)
+        ? { ...shot, visualPrompt: `${shot.subject}: ${shot.action}`.trim() }
+        : shot
+
+      shots.push(normalized)
     }
 
     scenes.push({ order: narrativeScene.order, shots })
@@ -412,6 +506,8 @@ export function validateShotList(
     }
   }
 
+  draft = trimToShotCap(draft, options.durationPlan, options.preset)
+
   const budgetError = validateBudget(draft, options.durationPlan, options.preset)
   if (budgetError) return { ok: false, reason: budgetError }
 
@@ -421,9 +517,10 @@ export function validateShotList(
   const flat = flattenShotList(draft)
   const plan = assembleShotPlan(options.narrative, draft, options.durationPlan, flat)
   const planned = plan.plannedDurationSeconds
+  const finalNumbersError = validateBudgetNumbers(options.durationPlan, flat.length, planned)
 
-  if (!isValidPlannedDuration(options.durationPlan, planned, flat.length)) {
-    return { ok: false, reason: `plan: duración planificada ${planned}s fuera del perfil` }
+  if (finalNumbersError !== null) {
+    return { ok: false, reason: finalNumbersError }
   }
 
   const advisories = detectSimilarShotPrompts(

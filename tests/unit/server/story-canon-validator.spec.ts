@@ -1,6 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { validateBeats, validateCanon, validateNarrativeDraft } from '../../../server/story/canon-validator'
+import {
+  slugCanonId,
+  validateBeats,
+  validateCanon,
+  validateNarrativeDraft,
+} from '../../../server/story/canon-validator'
 import narrativeCreative from '../../fixtures/deepseek/narrative-creative-3-locations.json'
 import narrative4 from '../../fixtures/deepseek/narrative-4-scenes.json'
 import narrativeInvented from '../../fixtures/deepseek/narrative-faithful-invented.json'
@@ -114,15 +119,16 @@ describe('canon-validator: mode rules', () => {
 })
 
 describe('canon-validator: canon invariants', () => {
-  it('rejects forbidden entries that contradict the canon', () => {
+  it('drops forbidden entries that contradict the canon instead of failing', () => {
     const value = clone(narrativeCreative)
     value.storyBible.forbidden.push('Clara')
 
     const result = validateNarrativeDraft(value, { sceneCount: 5, mode: 'creative' })
 
-    expect(result.ok).toBe(false)
-    if (result.ok) return
-    expect(result.reason).toBe('storyBible.forbidden: contradice el canon')
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+    if (!result.ok) return
+    expect(result.draft.storyBible.forbidden).not.toContain('Clara')
+    expect(result.draft.storyBible.forbidden.length).toBe(value.storyBible.forbidden.length - 1)
   })
 
   it('rejects an empty forbidden list', () => {
@@ -155,7 +161,7 @@ describe('canon-validator: canon invariants', () => {
     'mañana',
     'despejado',
     'Obrador de Clara ampliado',
-  ])('rejects forbidden context matches: %s', (term) => {
+  ])('tolerates forbidden context matches and lets composeNegative filter them: %s', (term) => {
     const value = clone(narrativeCreative)
     value.storyBible = {
       ...value.storyBible,
@@ -164,9 +170,7 @@ describe('canon-validator: canon invariants', () => {
 
     const result = validateNarrativeDraft(value, { sceneCount: 5, mode: 'creative' })
 
-    expect(result.ok).toBe(false)
-    if (result.ok) return
-    expect(result.reason).toBe('storyBible.forbidden: contradice el canon')
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
   })
 
   it('rejects canon entities that never appear in a beat', () => {
@@ -234,5 +238,67 @@ describe('canon-validator: narrative structure', () => {
     const result = validateNarrativeDraft(value, { sceneCount: 5, mode: 'creative' })
 
     expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+  })
+})
+
+describe('canon-validator: id normalization', () => {
+  function canonDraft() {
+    const source = clone(narrativeCreative) as unknown as Record<string, unknown>
+
+    return {
+      title: source.title,
+      logline: source.logline,
+      tone: source.tone,
+      storyBible: clone(source.storyBible),
+    } as {
+      title: unknown
+      logline: unknown
+      tone: unknown
+      storyBible: {
+        leadCharacterId: string
+        signaturePropId: string | null
+        characters: { id: string }[]
+        locations: { id: string }[]
+        props: { id: string }[]
+      }
+    }
+  }
+
+  it('slugs entity ids instead of rejecting them and keeps references valid', () => {
+    const draft = canonDraft()
+    draft.storyBible.characters[0]!.id = 'Clara la Repostera'
+    draft.storyBible.leadCharacterId = 'Clara la Repostera'
+    if (draft.storyBible.props[0]) {
+      draft.storyBible.props[0].id = 'Calabaza de Halloween'
+      draft.storyBible.signaturePropId = 'Calabaza de Halloween'
+    }
+
+    const result = validateCanon(draft, { mode: 'creative' })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+    if (!result.ok) return
+    expect(result.canon.storyBible.characters[0]?.id).toBe('clara-la-repostera')
+    expect(result.canon.storyBible.leadCharacterId).toBe('clara-la-repostera')
+    if (draft.storyBible.props[0]) {
+      expect(result.canon.storyBible.props[0]?.id).toBe('calabaza-de-halloween')
+    }
+  })
+
+  it('strips accents and leading digits', () => {
+    expect(slugCanonId('Calabaza de Halloween')).toBe('calabaza-de-halloween')
+    expect(slugCanonId('ñandú veloz')).toBe('nandu-veloz')
+    expect(slugCanonId('3 gatos')).toBe('e-3-gatos')
+  })
+
+  it('fails a canon whose entities collide after slugging', () => {
+    const draft = canonDraft()
+    if (draft.storyBible.props.length >= 2) {
+      draft.storyBible.props[0]!.id = 'Calabaza'
+      draft.storyBible.props[1]!.id = 'calabaza'
+    }
+
+    const result = validateCanon(draft, { mode: 'creative' })
+
+    expect(result.ok).toBe(false)
   })
 })

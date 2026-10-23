@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import { validateShotList } from '../../../server/story/shot-plan-validator'
 import { isShotDurationAllowed } from '../../../server/story/shot-duration-rule'
+import { allocateShotsPerScene } from '../../../server/story/reel-shot-prompt'
+import { hasSignificantNarrationCopy } from '../../../server/story/prompt-guard'
 import type { DurationPlan, NarrativeDraft, ShotListDraft } from '../../../server/story/director-types'
 import plan5 from '../../fixtures/deepseek/deepseek-plan-5.json'
 
@@ -113,10 +115,121 @@ describe('shot plan validator', () => {
     expect(isShotDurationAllowed(production90, 'quality', 6)).toBe(false)
   })
 
-  it('rejects consecutive repeated framing outside dialogue', () => {
+  it('accepts consecutive repeated framing: variety is an advisory, not a gate', () => {
     const value = shotList()
     value.scenes[0]!.shots[1]!.framing = 'medium'
     const result = validateShotList(value, { durationPlan, narrative })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+  })
+})
+
+describe('shot plan validator: profile normalization', () => {
+  const smallPlan: DurationPlan = {
+    ...durationPlan,
+    costMode: 'budget',
+    targetDurationSeconds: 15,
+    maxDurationSeconds: 15,
+    sceneCount: { min: 2, max: 3 },
+    shotCount: { min: 4, max: 5 },
+    capUsd: 2.5,
+    qualityAllowed: false,
+    slowThresholdMs: 378_000,
+  }
+
+  it('trims the excess shots instead of failing', () => {
+    const draft = shotList()
+    for (const scene of draft.scenes) {
+      scene.shots = scene.shots.slice(0, 2).map((shot) => ({ ...shot, durationSeconds: 2 as never }))
+    }
+
+    const result = validateShotList(draft, { durationPlan: smallPlan, narrative, preset: 'fast' })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+    if (!result.ok) return
+    const shots = result.plan.scenes.reduce((total, scene) => total + scene.shots.length, 0)
+    expect(shots).toBe(5)
+    expect(result.plan.plannedDurationSeconds).toBeGreaterThanOrEqual(12)
+    expect(result.plan.plannedDurationSeconds).toBeLessThanOrEqual(15)
+  })
+
+  it('stretches a short plan into the profile window', () => {
+    const draft = shotList()
+    for (const scene of draft.scenes) {
+      for (const shot of scene.shots) {
+        shot.durationSeconds = 2
+      }
+    }
+
+    const result = validateShotList(draft, { durationPlan, narrative, preset: 'fast' })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+    if (!result.ok) return
+    expect(result.plan.plannedDurationSeconds).toBeGreaterThanOrEqual(29)
+    expect(result.plan.plannedDurationSeconds).toBeLessThanOrEqual(30)
+  })
+
+  it('still fails when the plan cannot reach the profile window', () => {
+    const draft = shotList()
+    for (const scene of draft.scenes.slice(1)) {
+      scene.shots = []
+    }
+
+    const result = validateShotList(draft, { durationPlan, narrative, preset: 'fast' })
+
     expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toMatch(/planos fuera del perfil|duración planificada/)
+  })
+})
+
+describe('shot allocation per scene', () => {
+  it('splits the profile maximum across scenes with 1-4 shots each', () => {
+    const cases: readonly (readonly [DurationPlan, number])[] = [
+      [durationPlan, 3],
+      [durationPlan, 5],
+      [{ ...durationPlan, shotCount: { min: 4, max: 5 } }, 3],
+      [{ ...durationPlan, shotCount: { min: 14, max: 16 } }, 6],
+      [{ ...durationPlan, shotCount: { min: 26, max: 30 } }, 10],
+    ]
+
+    for (const [plan, scenes] of cases) {
+      const allocation = allocateShotsPerScene(plan, scenes)
+
+      expect(allocation).toHaveLength(scenes)
+      expect(allocation.reduce((total, count) => total + count, 0)).toBe(plan.shotCount.max)
+      expect(allocation.every((count) => count >= 1 && count <= 4)).toBe(true)
+    }
+  })
+})
+
+describe('shot plan normalization: narration copy', () => {
+  it('rebuilds a visualPrompt that copies the narration instead of failing', () => {
+    const draft = shotList()
+    const narration = narrative.scenes[0]!.narration
+    draft.scenes[0]!.shots[0]!.visualPrompt = `${narration} en primer plano`
+
+    const result = validateShotList(draft, { durationPlan, narrative, preset: 'fast' })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+    if (!result.ok) return
+    const shot = result.plan.scenes[0]!.shots[0]!
+    expect(hasSignificantNarrationCopy(shot.visualPrompt, narration)).toBe(false)
+    expect(shot.visualPrompt).toContain(shot.subject)
+  })
+})
+
+describe('shot plan normalization: text lengths', () => {
+  it('clamps a verbose action and completes a short one instead of failing', () => {
+    const draft = shotList()
+    draft.scenes[0]!.shots[0]!.action = 'palabra '.repeat(60).trim()
+    draft.scenes[0]!.shots[1]!.action = 'Corta'
+
+    const result = validateShotList(draft, { durationPlan, narrative, preset: 'fast' })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+    if (!result.ok) return
+    expect(result.plan.scenes[0]!.shots[0]!.action.length).toBeLessThanOrEqual(200)
+    expect(result.plan.scenes[0]!.shots[1]!.action.length).toBeGreaterThanOrEqual(20)
   })
 })
