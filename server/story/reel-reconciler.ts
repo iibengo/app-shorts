@@ -234,7 +234,7 @@ export class ReelStoryReconciler {
 
       if (!shot || !scene) continue
 
-      await this.processKeyframeShot(fresh, shot, scene)
+      await this.processKeyframeShot(fresh, shot, scene, fresh.characterSheet)
     }
 
     await this.finalizeKeyframes(story.id)
@@ -377,6 +377,7 @@ export class ReelStoryReconciler {
     story: ReelStoryRecord,
     shot: ReelShotRecord,
     scene: ReelSceneRecord,
+    characterSheet: Readonly<Record<string, string>> | null = story.characterSheet,
   ): Promise<void> {
     if (shot.keyframeRequestId && KEYFRAME_ACTIVE.includes(shot.status)) {
       await this.pollKeyframeShot(story, shot, scene)
@@ -413,7 +414,7 @@ export class ReelStoryReconciler {
     if (incremented === 0) return
 
     try {
-      const submission = await this.keyframes.submit(shot, scene, story)
+      const submission = await this.keyframes.submit(shot, scene, story, characterSheet)
 
       await this.repository.updateShot(
         story.id,

@@ -470,6 +470,13 @@ const IDENTITY_LOCK_BY_FRAMING: Readonly<Record<StoryShotFraming, string>> = {
   insert: IDENTITY_LOCK_BLOCK,
 }
 
+/**
+ * A 2x2 character sheet is a grid, and the model copies that structure: shots
+ * come back as stacked panels instead of one frame. This line forbids it.
+ */
+export const SINGLE_FRAME_BLOCK =
+  'Generate one single continuous frame: no grid, no collage, no panels, no split screen, no multiple scenes.'
+
 /** Short form, used when the full identity block does not fit the budget. */
 export const IDENTITY_LOCK_COMPACT =
   'Keep the exact same face, hair, beard and eyes as the reference character.'
@@ -488,6 +495,7 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
   const identity = input.withIdentityLock === true
     ? identityLockFor(input.beat.framing)
     : ''
+  const singleFrame = input.withIdentityLock === true ? SINGLE_FRAME_BLOCK : ''
   // The identity block is non-negotiable, but the style and the scene can
   // degrade: try the full version, then a compact identity line, then a
   // shorter style block. Never fail because the sum does not fit.
@@ -497,7 +505,9 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
   let prompt = ''
 
   for (const identityVariant of identityVariants) {
-    const identityPrefix = identityVariant.length === 0 ? '' : `${identityVariant} `
+    const identityPrefix = identityVariant.length === 0
+      ? ''
+      : `${identityVariant} ${singleFrame} `
     const styleVariants = input.visualStyle === undefined
       ? ['']
       : [`${styleBlockFor(input.visualStyle)}. `, `${styleBlockShort(input.visualStyle)}. `]

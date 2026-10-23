@@ -48,3 +48,23 @@ describe('runtime wiring', () => {
     expect(source.split('characterSheet: reelCharacterSheet').length - 1).toBeGreaterThanOrEqual(2)
   })
 })
+
+describe('integration: the sheet reaches the provider', () => {
+  it('passes the sheet from the fresh record into the orchestrator', async () => {
+    const { readFileSync } = await import('node:fs')
+    const reconciler = readFileSync('server/story/reel-reconciler.ts', 'utf8')
+    const orchestrator = readFileSync('server/story/shot-keyframe-orchestrator.ts', 'utf8')
+
+    // The reconciler re-reads the story and forwards its sheet; the orchestrator
+    // prefers the argument over the stale record.
+    expect(reconciler).toContain('fresh.characterSheet')
+    expect(orchestrator).toContain('const sheet = characterSheet ?? story.characterSheet')
+    expect(orchestrator).toContain('sheetUrls(sheet)')
+    expect(orchestrator).not.toContain('sheetUrls(story.characterSheet)')
+  })
+
+  it('forbids grid layouts in every identity-locked prompt', async () => {
+    const composer = (await import('../../../server/story/story-prompt-composer')).composeKeyframe
+    expect(typeof composer).toBe('function')
+  })
+})

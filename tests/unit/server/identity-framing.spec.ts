@@ -82,3 +82,19 @@ describe('identity block never hides the face', () => {
     expect(prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
   })
 })
+
+describe('single frame guard', () => {
+  it('forbids grids and panels when a sheet reference is used', () => {
+    const prompt = composeKeyframe({
+      bible: BIBLE,
+      beat: beat('medium'),
+      hasReference: true,
+      visualStyle: 'papercraft',
+      withIdentityLock: true,
+    }).prompt
+
+    expect(prompt).toContain('no grid')
+    expect(prompt).toContain('no collage')
+    expect(prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
+  })
+})

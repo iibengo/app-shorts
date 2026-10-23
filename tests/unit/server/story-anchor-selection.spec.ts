@@ -139,7 +139,8 @@ describe('sheet bypasses the FLUX seed', () => {
 
     // Seeding with FLUX would ignore the sheet on the first shot and lose the
     // identity for the whole story.
-    expect(source).toContain('story.characterSheet === null')
-    expect(source).toContain('&& (scene.scene?.characters')
+    expect(source).toContain('const sheet = characterSheet ?? story.characterSheet')
+    expect(source).toContain('const needsSeed = sheet === null')
+    expect(source).toContain('characterSheet: sheet === null ? null : sheetUrls(sheet)')
   })
 })
