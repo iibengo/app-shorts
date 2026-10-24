@@ -14,9 +14,14 @@ export type KeyframeProvider =
   | { readonly kind: 'nano-banana'; readonly referenceUrls: readonly string[] }
 
 export interface KeyframeProviderInput {
-  /** Sheet views first: they give the model every angle of the character. */
+  /** Sheet views. Only used when there is no user reference at all. */
   readonly characterSheet?: readonly string[] | null
   readonly userReferenceUrl: string | null
+  /**
+   * Stored sheet front view. It is a last resort before the anchors: a photo
+   * that still needs style conversion. A 4-view grid is never sent.
+   */
+  readonly sheetFallback?: readonly string[] | null
   readonly presentCharacterIds: readonly string[]
   readonly anchors: Readonly<Record<string, string>>
   /** `nano-banana` keeps identity and style better and costs less per image. */
@@ -24,18 +29,19 @@ export interface KeyframeProviderInput {
 }
 
 export function selectKeyframeProvider(input: KeyframeProviderInput): KeyframeProvider {
-  // The sheet is the richest identity available, but a multi-paragraph prompt
-  // plus four references is more than Nano Banana handles for a two-character
-  // shot: those fall back to the single front view.
-  if (input.characterSheet !== undefined && input.characterSheet !== null && input.characterSheet.length > 0) {
-    const multi = new Set(input.presentCharacterIds).size > 1
-    const urls = multi ? input.characterSheet.slice(0, 1) : input.characterSheet.slice(0, 4)
-
-    return { kind: 'nano-banana', referenceUrls: urls }
+  // Exactly one reference image per shot. Several views, and above all a 2x2
+  // sheet, make the model copy the grid into the frame, which is unusable as a
+  // keyframe because the video would animate every panel.
+  if (input.userReferenceUrl !== null && input.userReferenceUrl.length > 0) {
+    return { kind: 'nano-banana', referenceUrls: [input.userReferenceUrl] }
   }
 
-  if (input.userReferenceUrl !== null) {
-    return { kind: 'kontext', referenceUrl: input.userReferenceUrl }
+  if (input.characterSheet !== undefined && input.characterSheet !== null && input.characterSheet.length > 0) {
+    return { kind: 'nano-banana', referenceUrls: input.characterSheet.slice(0, 1) }
+  }
+
+  if (input.sheetFallback !== undefined && input.sheetFallback !== null && input.sheetFallback.length > 0) {
+    return { kind: 'nano-banana', referenceUrls: input.sheetFallback.slice(0, 1) }
   }
 
   const urls: string[] = []

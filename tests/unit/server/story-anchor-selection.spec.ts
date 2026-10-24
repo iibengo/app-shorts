@@ -47,11 +47,13 @@ describe('keyframe provider selection', () => {
   it('lets the user reference win and dedupes character ids', () => {
     const reference = 'https://v3.fal.media/files/user.jpg'
 
+    // The uploaded image already carries face and style, so it is the only
+    // reference and Nano Banana keeps both better than Kontext.
     expect(selectKeyframeProvider({
       userReferenceUrl: reference,
       presentCharacterIds: ['clara', 'clara'],
       anchors: { clara: ANCHOR_A },
-    })).toEqual({ kind: 'kontext', referenceUrl: reference })
+    })).toEqual({ kind: 'nano-banana', referenceUrls: [reference] })
 
     expect(selectKeyframeProvider({
       userReferenceUrl: null,
@@ -90,29 +92,31 @@ describe('first keyframe must seed the anchor with FLUX', () => {
 })
 
 describe('character sheet priority', () => {
-  it('sends every sheet view and wins over the single reference', () => {
+  it('sends the user image instead of the sheet when both exist', () => {
+    const reference = 'https://v3.fal.media/files/user.jpg'
     const provider = selectKeyframeProvider({
-      characterSheet: [ANCHOR_A, ANCHOR_B, ANCHOR_A, ANCHOR_B],
-      userReferenceUrl: 'https://v3.fal.media/files/user.jpg',
+      characterSheet: [ANCHOR_A],
+      sheetFallback: [ANCHOR_A],
+      userReferenceUrl: reference,
       presentCharacterIds: ['clara'],
       anchors: { clara: ANCHOR_A },
       preferred: 'nano-banana',
     })
 
-    expect(provider.kind).toBe('nano-banana')
-    if (provider.kind !== 'nano-banana') return
-    expect(provider.referenceUrls).toHaveLength(4)
+    expect(provider).toEqual({ kind: 'nano-banana', referenceUrls: [reference] })
   })
 
-  it('falls back to the single reference when there is no sheet', () => {
+  it('uses the stored sheet as a fallback when there is no uploaded image', () => {
     const provider = selectKeyframeProvider({
-      characterSheet: null,
-      userReferenceUrl: 'https://v3.fal.media/files/user.jpg',
+      userReferenceUrl: null,
+      sheetFallback: [ANCHOR_A, ANCHOR_B, ANCHOR_A, ANCHOR_B],
       presentCharacterIds: ['clara'],
-      anchors: {},
+      anchors: { clara: ANCHOR_A },
+      preferred: 'nano-banana',
     })
 
-    expect(provider.kind).toBe('kontext')
+    // A grid reference makes the model return grid frames, so only one view.
+    expect(provider).toEqual({ kind: 'nano-banana', referenceUrls: [ANCHOR_A] })
   })
 })
 
@@ -137,10 +141,11 @@ describe('sheet bypasses the FLUX seed', () => {
     const { readFileSync } = await import('node:fs')
     const source = readFileSync('server/story/shot-keyframe-orchestrator.ts', 'utf8')
 
-    // Seeding with FLUX would ignore the sheet on the first shot and lose the
-    // identity for the whole story.
+    // The uploaded image is the reference; the sheet front view is only a stored
+    // fallback. It is never sent as a grid and FLUX never seeds past a reference.
     expect(source).toContain('const sheet = characterSheet ?? story.characterSheet')
-    expect(source).toContain('const needsSeed = sheet === null')
-    expect(source).toContain('characterSheet: sheet === null ? null : sheetUrls(sheet)')
+    expect(source).toContain('sheetFallback: sheet === null ? null : [sheet.front]')
+    expect(source).not.toContain('needsSeed')
+    expect(source).not.toContain('sheetUrls(sheet)')
   })
 })

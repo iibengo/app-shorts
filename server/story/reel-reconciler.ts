@@ -16,6 +16,7 @@ import type {
   CharacterSheetSubmission,
 } from './character-sheet-orchestrator'
 import type { ConsistencyChecker } from './consistency-check'
+import type { KeyframeLayoutInspector } from './keyframe-layout-inspector'
 import type { ShotQCService } from './shot-qc-service'
 import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
 
@@ -48,6 +49,13 @@ export interface ReelReconcilerConfig {
 }
 
 /** A provider job that shows no state change for this long is considered dead. */
+/**
+ * Character sheet generation is switched off: the uploaded image is the
+ * reference for every shot and no grid is ever sent. Kept as a named flag so
+ * the dormant pipeline stays readable and is easy to re-enable.
+ */
+const DORMANT_SHEET = true
+
 export const DEFAULT_KEYFRAME_MAX_IDLE_MS = 600_000
 export const DEFAULT_VIDEO_MAX_IDLE_MS = 1_200_000
 
@@ -67,6 +75,8 @@ export interface ReelReconcilerOptions {
   readonly repository: ReelStoryRepository
   readonly keyframes: ShotKeyframeOrchestrator
   readonly characterSheet?: CharacterSheetOrchestrator | null
+  /** Rejects stacked-panel keyframes before the video stage pays for them. */
+  readonly layoutInspector?: KeyframeLayoutInspector | null
   readonly consistency?: ConsistencyChecker | null
   readonly videos: ShotVideoOrchestrator
   readonly assembler: ShotAssembler
@@ -89,6 +99,7 @@ export class ReelStoryReconciler {
   private readonly repository: ReelStoryRepository
   private readonly keyframes: ShotKeyframeOrchestrator
   private readonly characterSheet: CharacterSheetOrchestrator | null
+  private readonly layoutInspector: KeyframeLayoutInspector | null
   private readonly consistency: ConsistencyChecker | null
   private readonly videos: ShotVideoOrchestrator
   private readonly assembler: ShotAssembler
@@ -109,6 +120,7 @@ export class ReelStoryReconciler {
     this.repository = options.repository
     this.keyframes = options.keyframes
     this.characterSheet = options.characterSheet ?? null
+    this.layoutInspector = options.layoutInspector ?? null
     this.consistency = options.consistency ?? null
     this.videos = options.videos
     this.assembler = options.assembler
@@ -250,6 +262,11 @@ export class ReelStoryReconciler {
    * false while it is not ready, so no keyframe is generated without identity.
    */
   private async ensureCharacterSheet(story: ReelStoryRecord): Promise<boolean> {
+    // Dormant on purpose. The uploaded image is the reference for every shot,
+    // and a generated 2x2 sheet is not sent because the model copies the grid.
+    // The sheet pipeline stays wired for a future flow where a real photo still
+    // needs its style converted; until then it must not spend a provider call.
+    if (this.characterSheet === null || DORMANT_SHEET) return true
     if (story.characterSheet !== null) return true
     if (this.characterSheet === null || story.referenceUrl === null) return true
 
@@ -600,6 +617,44 @@ export class ReelStoryReconciler {
 
     if (shot.status !== 'KEYFRAME_READY' && shot.status !== 'VIDEO_QUEUED') return
     if (shot.videoAttempts >= 2 || !shot.keyframeUrl) return
+
+    // A keyframe with several stacked panels would be animated as a split
+    // screen. Regenerating the image is cheaper than delivering a broken video.
+    if (
+      shot.status === 'KEYFRAME_READY'
+      && this.layoutInspector !== null
+      && await this.layoutInspector.isSplitFrame(shot.keyframeUrl)
+    ) {
+      await this.repository.updateShot(
+        story.id,
+        shot.id,
+        { statuses: ['KEYFRAME_READY'], version: shot.version },
+        {
+          status: 'KEYFRAME_QUEUED',
+          keyframeUrl: null,
+          keyframeRequestId: null,
+          keyframeStatusUrl: null,
+          keyframeResponseUrl: null,
+          keyframeCancelUrl: null,
+          keyframeError: null,
+          videoUrl: null,
+          videoRequestId: null,
+          videoStatusUrl: null,
+          videoResponseUrl: null,
+          videoCancelUrl: null,
+          videoError: null,
+        },
+      )
+
+      this.onEvent?.({
+        event: 'reel.keyframe.split-frame',
+        storyId: story.id,
+        shotId: shot.id,
+        order: shot.order,
+      })
+
+      return
+    }
 
     const active = await this.repository.countActiveProviderJobs('video')
     if (active >= this.config.videoConcurrency) return

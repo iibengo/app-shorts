@@ -106,3 +106,34 @@ Total esperado: **+0,20 USD** por historia, dentro del cap de 2,50.
 4. Integración en el reconciliador y estados de revisión.
 5. UI: ver la hoja en la revisión de keyframes.
 6. Gate, una historia real y cierre.
+
+## Enmienda 2026-10-24 — una sola imagen por plano; hoja en reposo
+
+La hoja en cuadrícula 2×2 resolvía coste y coherencia, pero el modelo **copia la
+estructura de la referencia**: al recibir una rejilla devolvía dípticos (dos
+viñetas apiladas) y a veces texto inventado en la pantalla. Un díptico no sirve
+como keyframe porque el vídeo animaría las dos viñetas. Añadir "no grid, no
+collage" al prompt no bastó: la referencia visual pesa más que la instrucción.
+
+Decisión de producto del 2026-10-24: **el usuario sube su imagen ya en el
+estilo final** (avatar low-poly). Esa imagen es la referencia y no hace falta
+ninguna hoja.
+
+| Regla | Contrato |
+|---|---|
+| **Una sola imagen por plano** | El orquestador MUST enviar exactamente una URL de referencia. Nunca se envía la rejilla 2×2. |
+| **La imagen del usuario gana** | Con `referenceUrl`, el proveedor MUST ser `nano-banana` con `[referenceUrl]`, incluso si existe hoja. Precedencia: usuario → hoja → anclas → FLUX. |
+| **Prompt sin medio impuesto** | Con referencia, el cuerpo MUST pedir "preserve the visual style of the reference" y MUST NOT pedir "photorealistic": invertiría un avatar low-poly. |
+| **Hoja en reposo** | `ensureCharacterSheet` MUST NOT llamar al proveedor mientras `DORMANT_SHEET` esté activo. La tubería queda cableada para fotos reales que necesiten conversión de estilo. |
+| **Hoja fresca en el orquestador** | El reconciliador MUST pasar la hoja releída en el tick; el orquestador MUST ignorar la copia del registro. |
+| **Red de seguridad del díptico** | Antes de enviar el vídeo, un keyframe con varias viñetas MUST rechazarse y volver a `KEYFRAME_QUEUED`, gastando una imagen en vez de un vídeo. El detector falla abierto: si no puede decodificar, acepta la imagen. |
+
+Evidencia: la historia `8c4eb396` generó la hoja, 4 s después los keyframes y el
+check de consistencia dio `match`; el problema real era el díptico del plano 1,
+no la identidad.
+
+Implementación: `server/story/anchor-selection.ts` (precedencia y UNA vista),
+`server/story/shot-keyframe-orchestrator.ts` (`sheetFallback`, sin `needsSeed`),
+`server/story/reel-reconciler.ts` (`DORMANT_SHEET`, `layoutInspector`),
+`server/story/frame-layout.ts` (detector puro),
+`server/story/keyframe-layout-inspector.ts` (muestreo con FFmpeg).

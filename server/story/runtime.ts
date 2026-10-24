@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os'
 import { randomBytes } from 'node:crypto'
 import type { H3Event } from 'h3'
 import type { StoryUploadTicket } from '~/models/story'
@@ -15,6 +16,7 @@ import { createStoryAssembler, hasFfmpegBinary } from './assembly-service'
 import type { StoryAssembler } from './assembly-service'
 import { createMediaDownloader } from './media-downloader'
 import { createFfmpegRunner } from './ffmpeg-runner'
+import { FfmpegKeyframeLayoutInspector } from './keyframe-layout-inspector'
 import type { StoryCostConfig, StoryCostGuard } from './cost'
 import { createStoryCostGuard } from './cost'
 import { createBriefingNarrativeDirector } from './briefing-director'
@@ -566,11 +568,15 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         },
       })
     : null
+  const reelLayoutInspector = hasFfmpeg
+    ? new FfmpegKeyframeLayoutInspector(createFfmpegRunner(), ffmpegPath, tmpdir())
+    : null
   const reelReconciler = reelRepository && reelKeyframes && reelVideos && reelAssembler
     ? createReelStoryReconciler({
         repository: reelRepository,
         keyframes: reelKeyframes,
         characterSheet: reelCharacterSheet,
+        layoutInspector: reelLayoutInspector,
         consistency: deepseekClient === null ? null : createConsistencyChecker({ client: deepseekClient }),
         videos: reelVideos,
         assembler: reelAssembler,

@@ -56,10 +56,10 @@ describe('integration: the sheet reaches the provider', () => {
     const orchestrator = readFileSync('server/story/shot-keyframe-orchestrator.ts', 'utf8')
 
     // The reconciler re-reads the story and forwards its sheet; the orchestrator
-    // prefers the argument over the stale record.
+    // prefers the argument over the stale record and sends only the front view.
     expect(reconciler).toContain('fresh.characterSheet')
     expect(orchestrator).toContain('const sheet = characterSheet ?? story.characterSheet')
-    expect(orchestrator).toContain('sheetUrls(sheet)')
+    expect(orchestrator).toContain('[sheet.front]')
     expect(orchestrator).not.toContain('sheetUrls(story.characterSheet)')
   })
 

@@ -543,8 +543,8 @@ describe('shot reconciler', () => {
   })
 })
 
-describe('character sheet before keyframes', () => {
-  it('builds the sheet first and only then queues keyframes', async () => {
+describe('dormant character sheet', () => {
+  it('never spends a sheet call and uses the uploaded image directly', async () => {
     const ctx = await setup({ withReference: true })
     const calls: string[] = []
     const sheetQueue = {
@@ -570,7 +570,6 @@ describe('character sheet before keyframes', () => {
         }
       },
     }
-    const { createReelStoryReconciler } = await import('../../../server/story/reel-reconciler')
     const reconciler = createReelStoryReconciler({
       repository: ctx.repository,
       keyframes: ctx.keyframes,
@@ -594,24 +593,18 @@ describe('character sheet before keyframes', () => {
     })
 
     await reconciler.runOnce()
-    expect(calls).toEqual(['sheet:submit'])
-    expect(ctx.keyframes.submitted).toHaveLength(0)
 
-    // Second tick stores the sheet but must not generate frames with the stale
-    // record; the third tick reads it back and starts the keyframes.
-    await reconciler.runOnce()
-    expect((await ctx.repository.findById(ctx.story.id))?.characterSheet).not.toBeNull()
-    expect(ctx.keyframes.submitted).toHaveLength(0)
-
-    await reconciler.runOnce()
+    // No sheet job: the uploaded image is the reference, and a generated grid
+    // would be copied by the model.
+    expect(calls).toEqual([])
+    expect((await ctx.repository.findById(ctx.story.id))?.characterSheet).toBeNull()
     expect(ctx.keyframes.submitted.length).toBeGreaterThan(0)
   })
 })
 
-describe('sheet must be read back before keyframes', () => {
-  it('does not queue keyframes in the same tick that stores the sheet', async () => {
+describe('sheet is never generated while dormant', () => {
+  it('queues keyframes on the first tick and leaves the sheet empty', async () => {
     const ctx = await setup({ withReference: true })
-    const { createReelStoryReconciler } = await import('../../../server/story/reel-reconciler')
     const sheetQueue = {
       async submit() {
         return {
@@ -658,12 +651,61 @@ describe('sheet must be read back before keyframes', () => {
     await reconciler.runOnce()
     await reconciler.runOnce()
 
-    // The sheet exists now, and no keyframe was generated while the stale
-    // record still said `characterSheet: null`.
-    expect((await ctx.repository.findById(ctx.story.id))?.characterSheet).not.toBeNull()
-    expect(ctx.keyframes.submitted).toHaveLength(0)
+    // The sheet queue is wired but dormant: it must not be called and the
+    // story must not wait for it.
+    expect((await ctx.repository.findById(ctx.story.id))?.characterSheet).toBeNull()
+    expect(ctx.keyframes.submitted.length).toBeGreaterThan(0)
+  })
+})
+
+describe('split-frame safety net', () => {
+  it('rebuilds a stacked-panel keyframe instead of paying for its video', async () => {
+    const ctx = await setup()
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+
+    const story = await ctx.repository.findById(ctx.story.id)
+    expect(story?.status).toBe('WAITING_APPROVAL')
+
+    const split = story?.shots[0]?.id
+    expect(split).toBeDefined()
+
+    await ctx.service.approve(ctx.story.id, 'reel-worker-session')
+
+    const reconciler = createReelStoryReconciler({
+      repository: ctx.repository,
+      keyframes: ctx.keyframes,
+      videos: ctx.videos,
+      assembler: ctx.assembler,
+      qcService: null,
+      costGuard: ctx.costGuard,
+      layoutInspector: {
+        async isSplitFrame(url: string) {
+          return url.endsWith('kf-1.jpg')
+        },
+      },
+      qcEnabled: false,
+      owner: 'split-test',
+      now: () => NOW + 1_000,
+      config: {
+        leaseMs: 60_000,
+        assemblyLeaseMs: 480_000,
+        qcLeaseMs: 720_000,
+        tickBudgetMs: 45_000,
+        keyframeConcurrency: 50,
+        videoConcurrency: 50,
+        claimLimit: 5,
+      },
+    })
 
     await reconciler.runOnce()
-    expect(ctx.keyframes.submitted.length).toBeGreaterThan(0)
+
+    // The split shot went back to the keyframe stage; the others went to video.
+    expect(ctx.videos.submitted).not.toContain(split)
+    const after = await ctx.repository.findById(ctx.story.id)
+    const rebuilt = after?.shots.find((shot) => shot.id === split)
+    expect(rebuilt?.status).toBe('KEYFRAME_QUEUED')
+    expect(rebuilt?.keyframeUrl).toBeNull()
+    expect(rebuilt?.videoAttempts).toBe(0)
   })
 })

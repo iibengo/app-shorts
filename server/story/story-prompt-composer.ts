@@ -441,6 +441,16 @@ export function storyKeyframeKontextPrompt(visualPrompt: string): string {
   return `Using the reference image as the visual anchor, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Preserve subject identity, clothing and color palette. No text, no watermark, no logo.`
 }
 
+/**
+ * Prompt for one or more reference images (Kontext, Kontext multi, Nano Banana).
+ * The reference already carries the look, so the text must not ask for a
+ * different medium: a "photorealistic" line next to a low-poly avatar makes the
+ * model render a real person instead of preserving the uploaded style.
+ */
+export function storyKeyframeReferencePrompt(visualPrompt: string): string {
+  return `Using the reference image as the visual anchor, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Preserve subject identity, the visual style of the reference, clothing and color palette. No text, no watermark, no logo.`
+}
+
 export function storyVideoLegacyPrompt(visualPrompt: string): string {
   return `${visualPrompt}. Vertical 9:16 short film scene, smooth natural motion, consistent subject, no text, no watermark, no logo.`
 }
@@ -516,7 +526,7 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
       const bodyBudget = Math.max(0, budget - styleVariant.length - identityPrefix.length)
       const body = input.bible === null
         ? input.hasReference
-          ? storyKeyframeKontextPrompt(input.beat.visualPrompt)
+          ? storyKeyframeReferencePrompt(input.beat.visualPrompt)
           : storyKeyframeFluxPrompt(input.beat.visualPrompt)
         : composeCanonKeyframePrompt(input.bible, input.beat, bodyBudget)
       const candidate = `${styleVariant}${identityPrefix}${body}`
