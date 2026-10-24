@@ -12,12 +12,22 @@
 
 El pipeline pide **duraciones que el motor no acepta** y depende de números escritos a mano que nadie contrastó.
 
-| Motor | Duraciones que acepta | Precio por segundo |
-|---|---|---|
-| A | `6` o `10` | una unidad por clip |
-| B | **`5` o `10`** | una unidad por clip |
+### Fichas verificadas contra el esquema oficial (2026-10-24)
 
-Lo que hace hoy el código: `preset === 'quality' ? 5 : 6`, un ternario. Acierta con los dos motores actuales **por casualidad**. Con el tercero, rompe.
+| Campo | Motor rápido | Motor de calidad |
+|---|---|---|
+| Duraciones | `6` o `10` (por defecto `6`) | **`5` o `10`** (por defecto `5`) |
+| Resoluciones | `512P`, `768P` (por defecto `768P`) | no expone; la salida sigue a la entrada |
+| Proporción de salida | hereda de la imagen de entrada | hereda de la imagen de entrada |
+| Prompt negativo | **no existe el campo** | **sí**, por defecto `"blur, distort, and low quality"` |
+| Primera imagen | `image_url` | `image_url` |
+| Última imagen | `end_image_url` | `tail_image_url` |
+| Optimizador de prompt | `prompt_optimizer` (por defecto `true`) | no |
+| Fuerza de guiado | no | `cfg_scale` (por defecto `0.5`) |
+
+**Hallazgo:** el nombre del campo de última imagen **cambia entre los dos motores**. Un pipeline que lo dé por hecho rompe al cambiar de motor.
+
+Lo que hace hoy el código: `preset === 'quality' ? 5 : 6`, un ternario, y el campo negativo se envía solo a calidad. Acierta con los dos motores actuales **por casualidad**. Con el tercero, rompe.
 
 **Consecuencia ya sufrida:** una historia con planos de 2 y 3 segundos recibió clips de **6 segundos** que el montaje recortaba. Funcionaba con pocos planos y fallaba la verificación final con doce.
 
@@ -34,6 +44,7 @@ Lo que hace hoy el código: `preset === 'quality' ? 5 : 6`, un ternario. Acierta
 2. **Selección determinista**: del tiempo deseado a la duración válida más cercana.
 3. **Verificación del montaje** que comprueba **cada clip** contra lo que el motor prometió, no el total.
 4. **Coste derivado de la ficha**, no de constantes.
+5. **Adaptación del director**: recibe los límites del motor y planifica dentro de ellos. El montaje deja de recortar.
 
 **Fuera de alcance:** añadir motores nuevos; cambiar de motor; los campos de entrada que todavía no usamos (vídeo de referencia, primera y última imagen).
 
@@ -81,21 +92,28 @@ export interface EngineCapacity {
 | Fuente | Los valores vienen de la documentación oficial del proveedor, citada en un comentario con fecha |
 | Sin rangos inventados | `durationsSeconds` es una lista cerrada; `[2,3,4,5]` MUST NOT escribirse si el proveedor no los acepta |
 | Proporción | Un motor que hereda la proporción de la imagen de entrada MUST declararlo explícitamente |
+| Nombres de campo | El registro MUST declarar cómo se llama cada entrada **en ese motor**. Hoy el campo de última imagen se llama distinto en cada uno |
+| Optimizador | Si el motor corre un optimizador de prompt por defecto, la ficha MUST declararlo: reescribe lo que enviamos |
 
 ## Duración: qué hace el pipeline
 
+**Decisión del humano (2026-10-24):** *"Si MiniMax solo acepta 6 segundos como mínimo, tenemos que adaptarnos a eso, más bien el director o el motor."*
+
+**El que se adapta es el director.** No se fabrican planos de 2 s para recortarlos de un clip de 6.
+
 | Caso | Comportamiento |
 |---|---|
-| El plano pide una duración admitida | Se pide tal cual |
-| El plano pide una no admitida | Se pide la admitida **más cercana**; en empate, la menor |
-| El clip resultante es más largo que el plano | Se recorta en el montaje a la duración del plano |
-| El clip es más corto | El plano MUST fallar con `provider-short-clip`, nunca estirarse con repetición de fotogramas |
+| El motor declara sus duraciones | El director MUST recibirlas **antes** de repartir los planos |
+| Reparto de duraciones | Cada plano MUST durar un valor de la lista del motor. Nunca un valor intermedio |
+| Número de planos | Se deriva de la duración objetivo y del mínimo del motor: 15 s con mínimo 6 = **2 planos**, no 4 |
+| Recorte | El montaje MUST NOT recortar. Une clips que ya duran lo que el motor entrega |
+| Incompatibilidad | Si la duración objetivo no se puede componer con las duraciones del motor, la creación MUST rechazarse antes de gastar con `engine-unsupported-plan` |
 
 | Regla | Contrato |
 |---|---|
-| Recorte | Recortar es normal y esperado: es la única forma de tener planos de 2-3 s con un motor de mínimo 5-6 s |
-| Coste honesto | Se paga lo que el motor entrega, no lo que el plano usa. El coste estimado MUST reflejarlo |
-| Aviso | Si el recorte deja el clip por debajo de la mitad de lo entregado, se registra `reel.shot.heavy-trim` |
+| Coste honesto | Se paga exactamente lo que se usa: no hay segundos comprados y tirados |
+| Sin recortes | Un recorte en el montaje MUST considerarse un error de planificación, no un caso normal |
+| Honestidad de producto | Con un motor de mínimo 6 s, una historia de 15 s tiene dos planos. MUST NOT prometerse más variedad de la que el motor permite |
 
 ## Verificación del montaje
 
@@ -129,7 +147,7 @@ export interface EngineCapacity {
 | Riesgo | Mitigación |
 |---|---|
 | Un proveedor cambia sus duraciones | La ficha se actualiza con la fecha de la documentación; un test fija la lista |
-| Recortar mucho pierde calidad de movimiento | Aviso `heavy-trim` para medirlo antes de que sea un problema |
+| Menos planos por historia con motores de mínimo alto | Es una consecuencia del motor, no un fallo. Se declara en el producto y se elige motor sabiendo esto |
 | El coste por segundo real difiere | El guardián es la autoridad; el valor se declara como estimado |
 | Motores con entradas que aún no usamos | `inputs` ya las contempla; añadirlas no cambia la ficha |
 
