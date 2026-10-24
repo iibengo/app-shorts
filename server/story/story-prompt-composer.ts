@@ -97,7 +97,7 @@ export const KEYFRAME_STAGE_BLOCK_EN =
 export const VIDEO_STAGE_BLOCK =
   'The first frame already shows the subject, the place and the look: animate only what happens next. '
   + 'One clear action, one camera move, smooth natural motion, the same person and the same palette throughout. '
-  // 013: the video model invents headlines on any screen it animates. The
+  // 013: the video model invents headlines on every screen it animates. The
   // sentence is positive because neither MiniMax nor Kling takes a negative
   // channel that survives contact with the prompt.
   + 'Every screen and surface keeps exactly the image it has in the first frame, unchanged, static and blank where it was blank. '
