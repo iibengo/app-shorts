@@ -82,6 +82,7 @@ specs/                    specs 001–008
 - **Spec 006 — Continuidad:** `Implemented`.
 - **Spec 007 — Modos/canon:** `Implemented`.
 - **Spec 008 — TikTok Reel Engine:** `Implemented` (commit `dff2764` + enmiendas 2026-10-23). No `Validated`: smoke real y QA manual pendientes.
+- **Spec 013 — Prompts oficiales:** `Implemented` (2026-10-24). Prompts en positivo (Nano Banana no tiene canal negativo y Google pide describir lo que se quiere), prompt de vídeo solo de movimiento, y guardia de texto en el keyframe. Tres bugs de estado encontrados en la prueba real y cerrados con test verificado en ambos sentidos.
 - **Spec 012 — Referencias por personaje:** `Implemented` (2026-10-24). Kling v3 con `elements` se probó y se **descartó por coste** (0,56 vs 0,35 por plano, ~7 min por plano); queda como evidencia en `BACKLOG.md`. Audio pasa a 013 y gráficos a 014.
 - **Ninguna spec está `Validated`:** no se ha ejecutado ningún smoke real hasta la fecha.
   - Escenas narrativas + `Shot` como unidad de generación.
@@ -111,7 +112,7 @@ specs/                    specs 001–008
   - El fallback de `qc-frames` con `filePath === null` debe reforzarse.
   - Los 007 migrados con shots reales no siempre muestran `Plano heredado`.
   - `legacy: true` debe retirarse o quedar con condición de retirada explícita.
-- **Siguiente:** Spec 009 — director eval (DeepSeek, opt-in); Spec 010 — estilo visual y personajes; Spec 011 — consistencia de personaje (hoja + verificación); Spec 012 — audio, voz, música y subtítulos; Spec 013 — gráficos y overlays.
+- **Siguiente:** Spec 014 — audio, voz, música y subtítulos; Spec 015 — gráficos y overlays. En backlog: series con personajes reutilizables, versiones de assets y Kling v3 con `elements` (probado y descartado por coste).
 
 ## Patrones reutilizables de 004
 
