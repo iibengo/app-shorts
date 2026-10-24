@@ -340,3 +340,19 @@ Tiene razón y cambia el diseño: una pantalla en blanco parece un error de rend
 | La calidad visual es la del modelo | Alto: no es un bug | Fuera de esta spec: depende del motor y de la capa de gráficos |
 
 **013 queda `Implemented`, no `Validated`.** La validación real cubre claveframes, vídeo y montaje; la calidad visual y el control fino de cámara siguen abiertos.
+
+## Enmienda de 008 — el tope de intentos de keyframe pasa de 2 a 3 (2026-10-24)
+
+Esta spec sube `KEYFRAME_MAX_ATTEMPTS` de 2 a 3. **Supersede el FR-561/604 de 008**, que fijaba el tope en 2 para todos los perfiles.
+
+| # | Contrato anterior | Origen | Contrato nuevo |
+|---|---|---|---|
+| 1 | `keyframeAttempts` va de 0 a 2; **no puede existir un tercer intento en ningún perfil** | 008 FR-561/604 | **Tres intentos** en todos los perfiles, contando fallos del proveedor **y** rechazos de los guardias automáticos |
+| 2 | Un plano con 2 intentos es terminal | 008 | Un plano con 3 intentos es terminal |
+
+| Regla | Contrato |
+|---|---|
+| Motivo | El guardia de dípticos consume un intento cada vez que rechaza una imagen. Con dos, un plano cuyo primer envío falló por el proveedor moría al primer rechazo del guardia |
+| Coste | Peor caso por plano: 3 × 0,08 = **0,24 USD**, no 0,12. El guardián lo impide antes de enviar |
+| Error honesto | Al agotar, el plano queda `KEYFRAME_FAILED` con `provider-invalid-output`. `POST …/keyframe` devuelve 409 `keyframe-limit-reached` |
+| Deuda | El servicio y la UI siguen mostrando el tope de 2 en su copy. Se corrige en el cierre, no cambia el comportamiento del motor |

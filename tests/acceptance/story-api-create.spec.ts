@@ -188,26 +188,14 @@ describe('POST /api/story success', () => {
     expect(director.calls).toHaveLength(1)
   })
 
-  it.each([
-    ['video', longVideoPlan(), 502],
-  ])('rejects a director plan with an oversized %s prompt without persisting', async (_label, plan, status) => {
+  it('accepts a plan whose long action still fits the motion-only video prompt', async () => {
+    // 013: the video prompt no longer repeats location, time, weather, wardrobe
+    // or props, so a long action no longer overflows it. The keyframe keeps its
+    // own budget. This used to be rejected with 502 and must not be any more.
+    const plan = longVideoPlan()
     const validation = validateStoryPlan(plan, { sceneCount: 5, mode: 'faithful' })
 
-    expect(validation.ok).toBe(false)
-    if (!validation.ok) {
-      expect(validation.reason).toContain('prompt de vídeo demasiado largo')
-    }
-
-    const director = new FakeStoryDirector(plan)
-    const { post, runtime } = setup({ director })
-    const repository = runtime.repository as FakeStoryRepository
-
-    const response = await post(body())
-
-    expect(response.status).toBe(status)
-    expect(errorCode(response)).toBe('director-invalid-output')
-    expect(director.calls).toHaveLength(1)
-    expect(repository.records).toHaveLength(0)
+    expect(validation.ok, validation.ok ? '' : validation.reason).toBe(true)
   })
 
   it('rejects the same idempotency key with another body', async () => {

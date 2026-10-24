@@ -756,18 +756,16 @@ export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
   const negativePrompt = input.visualStyle === undefined
     ? composeNegative(input.bible, input.beat)
     : `${composeNegative(input.bible, input.beat)}, ${styleNegativeFor(input.visualStyle)}`
-  const globalBlock = composeVideoGlobalBlock(input.bible, input.beat)
-  const minimalGlobal = composeVideoGlobalBlock(input.bible, input.beat, { minimal: true })
-  const fullScene = composeVideoMotionBlock(input.bible, input.beat)
-  const sceneWithoutContinuity = composeVideoMotionBlock(input.bible, input.beat)
-  // 013: no location, time or weather in the video prompt. The first frame
-  // already shows them, and eight providers agree that repeating the scene
-  // makes the model re-decide it instead of animating it.
+  // 013: the video prompt describes motion only. No location, time, weather,
+  // wardrobe or prop list: the first frame already shows them, and eight
+  // providers agree that repeating the scene makes the model re-decide it
+  // instead of animating it. Continuity lives in the negative channel for the
+  // engines that accept one, and the motion block says it in positive.
+  const motion = composeVideoMotionBlock(input.bible, input.beat)
   const stageBlock = VIDEO_STAGE_BLOCK
   const candidates = [
-    joinVideoPrompt(globalBlock, fullScene, stageBlock),
-    joinVideoPrompt(globalBlock, sceneWithoutContinuity, stageBlock),
-    joinVideoPrompt(minimalGlobal, sceneWithoutContinuity, stageBlock),
+    joinVideoPrompt(motion, stageBlock),
+    joinVideoPrompt(compactText(motion, 400), stageBlock),
   ]
   const styledCandidates = candidates.map((candidate) => `${stylePrefix}${candidate}`)
   const prompt = styledCandidates.find(

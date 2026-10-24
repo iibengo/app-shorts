@@ -1105,9 +1105,10 @@ export class ReelStoryReconciler {
     if (shot.videoAttempts >= 2 || !shot.keyframeUrl) return
 
     // A keyframe with several stacked panels would be animated as a split
-    // screen, and one with a caption would deliver invented on-screen text.
-    // Regenerating the image is cheaper than delivering a broken video.
-    const unusable = shot.status === 'KEYFRAME_READY'
+    // screen. It is inspected on arrival, so a frame already marked unusable
+    // must not be inspected again: doing so flipped it back to the queue and
+    // the two guards cancelled each other out.
+    const unusable = shot.status === 'KEYFRAME_READY' && shot.keyframeError === null
       ? await this.keyframeUnusableReason(shot.keyframeUrl)
       : null
 
@@ -1301,8 +1302,13 @@ export class ReelStoryReconciler {
     }
 
     const hasFailed = story.shots.some((shot) => shot.status === 'VIDEO_FAILED')
+    // 013: a shot sent back to the keyframe phase is still work in flight. Not
+    // counting it failed the story while a paid keyframe job was running.
     const hasActive = story.shots.some((shot) =>
       shot.status === 'KEYFRAME_READY'
+      || shot.status === 'PENDING'
+      || shot.status === 'KEYFRAME_QUEUED'
+      || shot.status === 'KEYFRAME_RUNNING'
       || shot.status === 'VIDEO_QUEUED'
       || shot.status === 'VIDEO_RUNNING')
 

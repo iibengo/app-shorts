@@ -29,14 +29,19 @@ function beats(plan: StoryPlan) {
 }
 
 describe('story-prompt-composer: global canon', () => {
-  it('starts the keyframe with the shot and keeps the video global block first', () => {
+  it('keeps the shot first in the keyframe and the scene out of the video prompt', () => {
     for (const beat of beats(PLAN)) {
       const keyframe = composeKeyframe({ bible: BIBLE, beat, hasReference: false })
       const video = composeVideo({ bible: BIBLE, beat, preset: 'quality' })
 
       expect(keyframe.prompt).not.toContain(composeGlobalBlock(BIBLE))
       expect(keyframe.prompt).not.toContain('CONTINUIDAD GLOBAL')
-      expect(video.prompt.startsWith(composeVideoGlobalBlock(BIBLE, beat))).toBe(true)
+      // 013: the video prompt describes motion only. The first frame already
+      // carries location, time, weather and wardrobe, so repeating them makes
+      // the model re-decide the scene instead of animating it.
+      expect(video.prompt).not.toContain(composeVideoGlobalBlock(BIBLE, beat))
+      expect(video.prompt).not.toContain('vestuario')
+      expect(video.prompt).toContain(beat.action)
     }
   })
 
