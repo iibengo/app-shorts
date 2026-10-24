@@ -13,6 +13,8 @@ const props = defineProps<{
   shot: StoryShot
   total: number
   scene?: StoryScene | null
+  /** Canon names keyed by id: the scene stores ids, the screen shows names. */
+  characterNames?: Readonly<Record<string, string>>
   legacy?: boolean
 }>()
 const emit = defineEmits<{
@@ -35,12 +37,17 @@ const continuity = computed(() => '—')
 // argues with the picture it is looking at.
 const focusName = computed<string | null>(() => {
   const subject = (props.shot.subject ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  const names = props.scene?.characters ?? []
-  const match = names.find((name) => subject.includes(
-    name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(),
-  ))
+  // Scene characters are ids; the label must show the canon name, so "pixel"
+  // becomes "Pixel" instead of leaking the internal id to the reviewer.
+  const present = props.scene?.characters ?? []
+  const match = present.find((id) => {
+    const name = props.characterNames?.[id] ?? id
 
-  return match ?? null
+    return subject.includes(name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
+      || subject.includes(id.toLowerCase())
+  })
+
+  return match === undefined ? null : props.characterNames?.[match] ?? match
 })
 </script>
 

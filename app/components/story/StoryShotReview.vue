@@ -6,6 +6,17 @@ import { STORY_COST_MODE_COPY, STORY_COPY } from '~/data/story'
 import type { Story, StoryShotUpdateRequest } from '~/models/story'
 
 const props = defineProps<{ story: Story }>()
+
+/** The shot card shows names, so it needs the canon keyed by id. */
+const characterNames = computed<Readonly<Record<string, string>>>(() => {
+  const names: Record<string, string> = {}
+
+  for (const character of props.story.plan?.storyBible?.characters ?? []) {
+    names[character.id] = character.name
+  }
+
+  return names
+})
 const emit = defineEmits<{
   regenerateShot: [shotId: string, input: StoryShotUpdateRequest]
   approve: []
@@ -70,6 +81,7 @@ function regenerate(shotId: string, visualPrompt: string, durationSeconds: numbe
           :shot="shot"
           :total="shots.length"
           :scene="scene"
+          :character-names="characterNames"
           :legacy="shot.id.startsWith('legacy-')"
           @regenerate="(prompt, duration) => regenerate(shot.id, prompt, duration)"
         />

@@ -268,3 +268,12 @@ tiene doce líneas más abajo. Ahora usa `plan?.beats?.find(...)` y el tipo decl
 ejecución esperando a que llegara un plan sin `beats`.
 **Efecto:** 306 → 300 errores de typecheck. Tests en verde.
 **Coste:** 0.
+
+### 23. La línea de foco mostraba el identificador interno
+
+**Qué:** la tarjeta de un plano enseñaba «En foco: pixel», con el id del
+personaje en minúsculas, en vez de su nombre. Ahora resuelve el nombre desde el
+canon.
+**Por qué:** el detalle es visible en la pantalla de revisión. Los tests nuevos
+lo ocultaban porque usaban ids ya capitalizados.
+**Coste:** 0.
