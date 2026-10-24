@@ -83,3 +83,11 @@ contradicen.
 **Deuda anotada, no tocada:** `storyBeatForScene` lee `plan.beats`, que no existe
 en el tipo actual. Es deuda anterior, no de esta sesión; arreglarla requiere
 decidir si el plan lleva `beats` o se derivan de las escenas.
+
+### 7. Test del mensaje de saldo agotado
+
+**Qué:** un test que fija que el código nuevo dice «saldo» y no «servicio», que
+no es reintentable y que devuelve 503.
+**Por qué:** el arreglo de ayer no tenía test; sin él, cualquiera podría volver a
+mapear el saldo agotado a un error genérico y nadie lo notaría.
+**Coste:** 0.
