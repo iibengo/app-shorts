@@ -1,0 +1,38 @@
+name: gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# The gate is the same one the project runs locally: the full suite and a real
+# build. It runs without provider keys, so every test uses stubs and no real
+# provider is ever called from CI.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Full suite
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build must not need a real key: the app reads it at runtime.
+          NUXT_FAL_KEY: ci-placeholder

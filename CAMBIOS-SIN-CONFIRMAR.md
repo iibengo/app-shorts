@@ -102,3 +102,18 @@ negativo: es una afirmación falsa sobre el material.
 **Comprobación:** el test falla sin el arreglo y pasa con él.
 **Coste:** 0.
 **Tests:** 1911 passed / 12 skipped, build correcto.
+
+### 9. Integración continua
+
+**Qué:** `.github/workflows/gate.yml` ejecuta la suite completa y el build en cada
+push y en cada pull request a `main`.
+**Por qué:** el backlog lo tenía pendiente (punto 13) y es lo que habría avisado
+de los fallos de esta sesión sin depender de que alguien lanzara el gate a mano.
+**Comprobación:** se ha ejecutado la suite completa **sin base de datos y sin
+claves** (`env -u DATABASE_URL -u NUXT_FAL_KEY`): 1911 en verde. Es decir, no hay
+ningún test que dependa de infraestructura real, y el CI no necesitará secretos.
+**Sin proveedor real:** ningún test sale a la red; los opt-in siguen saltados.
+**Coste:** 0.
+
+**Pendiente de comprobar:** el primer push a GitHub. No se puede validar el
+workflow sin ejecutarlo allí.
