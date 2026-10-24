@@ -60,12 +60,28 @@ function parseRetryAfter(headers: Headers): number | undefined {
   return undefined
 }
 
+/** The provider says the account is locked for balance, whatever the status. */
+function mentionsBalance(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null) return false
+
+  const text = JSON.stringify(body).toLowerCase()
+
+  return text.includes('balance') || text.includes('exhausted') || text.includes('locked')
+}
+
 function mapHttpError(
   status: number,
   body: unknown,
   headers: Headers,
 ): ComposerError {
   const retryAfterSeconds = parseRetryAfter(headers)
+
+  // Fal answers 403 with a balance message when the account is locked, not a
+  // permission problem. Treating it as "unavailable" hid an exhausted balance
+  // behind "the service is down" for an entire session.
+  if (status === 403 && mentionsBalance(body)) {
+    return new ComposerError('ai-credits-exhausted', { providerStatus: status })
+  }
 
   if (status === 401 || status === 403) {
     return new ComposerError('ai-unavailable', { providerStatus: status })

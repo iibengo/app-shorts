@@ -152,6 +152,8 @@ export class NativeShotAssembler implements ShotAssembler {
   private readonly graphics: GraphicsPainter | null
   /** Which step is running, so a failure can name it. */
   private stage: string = 'start'
+  /** Why the overlay pass gave up, kept so the fallback names it. */
+  private paintFailure: string | null = null
 
   constructor(options: ShotAssemblerOptions, config: ShotAssemblerConfig = {}) {
     this.downloader = options.downloader
@@ -312,8 +314,13 @@ export class NativeShotAssembler implements ShotAssembler {
             paintedGraphics = painted.graphics
           }
         } catch (error) {
-          // Declared degradation: the video ships without overlays.
-          this.stage = `paint-failed:${error instanceof Error ? error.message.slice(0, 60) : 'unknown'}`
+          // Declared degradation: the video ships without overlays. The reason
+          // is kept and rethrown only if the un-painted file is also bad, so a
+          // silent swallow never hides the real cause again.
+          this.paintFailure = error instanceof StoryError
+            ? `${error.code}${error.detail === undefined ? '' : `:${error.detail}`}`
+            : (error instanceof Error ? error.message.slice(0, 120) : 'unknown')
+          this.stage = 'paint-degraded'
         }
       }
 
@@ -347,8 +354,9 @@ export class NativeShotAssembler implements ShotAssembler {
         throw new StoryError('assembly-timeout')
       }
 
+      const paintNote = this.paintFailure === null ? '' : ` paint=${this.paintFailure}`
       throw new StoryError('assembly-failed', {
-        detail: `stage=${this.stage} ${error instanceof Error ? error.message.slice(0, 100) : 'unknown'}`.replace(/\s+/g, ' '),
+        detail: `stage=${this.stage}${paintNote} ${error instanceof Error ? error.message.slice(0, 100) : 'unknown'}`.replace(/\s+/g, ' '),
       })
     } finally {
       clearTimeout(timer)

@@ -308,3 +308,40 @@ describe('NativeFalHttpClient timeouts and aborts', () => {
     expect(JSON.stringify(calls)).not.toContain('https://fal.run')
   })
 })
+
+describe('balance reported as a lock', () => {
+  it('treats a 403 that mentions the balance as exhausted credits', async () => {
+    // Fal locks the account with 403 and a balance message when it runs dry.
+    // Mapping it to ai-unavailable made an empty wallet look like an outage,
+    // and sent a whole session hunting a bug that did not exist.
+    const client = createFalHttpClient({
+      apiKey: 'test-key',
+      allowedOrigins: ALLOWED,
+      fetchImpl: (async () => new Response(
+        JSON.stringify({ detail: 'User is locked. Reason: Exhausted balance.' }),
+        { status: 403, headers: { 'content-type': 'application/json' } },
+      )) as unknown as typeof fetch,
+    })
+
+    const error = await client.request({ url: 'https://rest.fal.ai/storage/upload/initiate', method: 'POST', headers: {}, body: {} })
+      .catch((caught: unknown) => caught)
+
+    expect((error as { code?: string }).code).toBe('ai-credits-exhausted')
+  })
+
+  it('still treats a plain 403 as unavailable', async () => {
+    const client = createFalHttpClient({
+      apiKey: 'test-key',
+      allowedOrigins: ALLOWED,
+      fetchImpl: (async () => new Response(
+        JSON.stringify({ detail: 'Forbidden' }),
+        { status: 403, headers: { 'content-type': 'application/json' } },
+      )) as unknown as typeof fetch,
+    })
+
+    const error = await client.request({ url: 'https://rest.fal.ai/x', method: 'POST', headers: {}, body: {} })
+      .catch((caught: unknown) => caught)
+
+    expect((error as { code?: string }).code).toBe('ai-unavailable')
+  })
+})

@@ -225,7 +225,9 @@ describe('ComposerError translation', () => {
     ['provider-invalid-output', 'provider-invalid-output'],
     ['provider-timeout', 'provider-timeout'],
     ['ai-unavailable', 'provider-error'],
-    ['ai-credits-exhausted', 'provider-error'],
+    // 016: an exhausted balance is not a generic provider failure. Saying
+    // "provider-error" sent a whole session looking for a bug that did not exist.
+    ['ai-credits-exhausted', 'provider-balance-exhausted'],
     ['ai-not-configured', 'story-not-configured'],
     ['job-not-cancellable', 'scene-not-ready'],
     ['cancel-failed', 'cancel-failed'],

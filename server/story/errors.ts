@@ -195,6 +195,14 @@ const DEFINITIONS: Readonly<Record<StoryErrorCode, StoryErrorDefinition>> = {
     message: 'Esta historia ha alcanzado su límite de 8 dólares. Empieza una nueva.',
     retryable: false,
   },
+  // 016: the provider locks the account when its balance runs out. Saying
+  // "service unavailable" for that describes nothing and sends the user to
+  // retry something that cannot work until they top up.
+  'provider-balance-exhausted': {
+    status: 503,
+    message: 'No queda saldo en el proveedor. Recarga la cuenta para seguir generando.',
+    retryable: false,
+  },
   'daily-budget-exhausted': {
     status: 429,
     message: 'El estudio ha alcanzado su límite diario. Inténtalo mañana.',
@@ -437,7 +445,7 @@ const COMPOSER_CODE_MAP: Readonly<Record<string, StoryErrorCode>> = {
   'provider-invalid-output': 'provider-invalid-output',
   'provider-timeout': 'provider-timeout',
   'ai-unavailable': 'provider-error',
-  'ai-credits-exhausted': 'provider-error',
+  'ai-credits-exhausted': 'provider-balance-exhausted',
   'ai-not-configured': 'story-not-configured',
   'job-not-cancellable': 'scene-not-ready',
   'cancel-failed': 'cancel-failed',
