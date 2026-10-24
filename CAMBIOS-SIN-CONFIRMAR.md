@@ -69,3 +69,17 @@ proteger un valor que podía ser `undefined` en el ensamblador.
 se decidiera arreglarlo entero.
 **Efecto:** el total baja de 326 a 312 errores; ese archivo queda limpio.
 **Coste:** 0.
+
+### 6. Tipos en el compositor de prompts
+
+**Qué:** una función de unión quedó con tres parámetros cuando ya solo usa dos,
+y el tamaño del foco recibía un encuadre que podía ser indefinido.
+**Por qué:** ambos venían de los cambios de hoy. El fallback `medium` coincide
+con el que ya usa el bloque de identidad, así que foco y encuadre no se
+contradicen.
+**Efecto:** 312 → 306 errores. Tests del compositor en verde.
+**Coste:** 0.
+
+**Deuda anotada, no tocada:** `storyBeatForScene` lee `plan.beats`, que no existe
+en el tipo actual. Es deuda anterior, no de esta sesión; arreglarla requiere
+decidir si el plan lleva `beats` o se derivan de las escenas.

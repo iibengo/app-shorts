@@ -694,7 +694,9 @@ function composeCanonKeyframePrompt(
   const head = keyframeShotLine(beat)
   // The focus block is short and it is what stops a secondary character from
   // dissolving into the background, so it rides with the head, never degraded.
-  const focus = focusSizeBlock(beat.framing, focusCharacterName ?? null)
+  // A beat without an explicit framing falls back to the same default the
+  // identity block uses, so the focus line and the framing never disagree.
+  const focus = focusSizeBlock(beat.framing ?? 'medium', focusCharacterName ?? null)
   const composition = keyframeComposition(beat)
   const context = keyframeContext(bible, beat)
   const style = keyframeStyle(bible, true)
@@ -725,12 +727,8 @@ function composeCanonKeyframePrompt(
     ?? candidates[candidates.length - 1]!
 }
 
-function joinVideoPrompt(
-  globalBlock: string,
-  sceneBlock: string,
-  stageBlock: string,
-): string {
-  return [globalBlock, sceneBlock, stageBlock].join(' ')
+function joinVideoPrompt(sceneBlock: string, stageBlock: string): string {
+  return [sceneBlock, stageBlock].join(' ')
 }
 
 export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
