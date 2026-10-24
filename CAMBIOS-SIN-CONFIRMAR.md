@@ -91,3 +91,14 @@ no es reintentable y que devuelve 503.
 **Por qué:** el arreglo de ayer no tenía test; sin él, cualquiera podría volver a
 mapear el saldo agotado a un error genérico y nadie lo notaría.
 **Coste:** 0.
+
+### 8. Un clip sin archivo pasaba el control de calidad
+
+**Qué:** cuando la descarga de un clip no devolvía ruta, el control de calidad
+registraba **cero problemas técnicos**. Ahora registra un problema de flujo.
+**Por qué:** era deuda anotada en el backlog (punto 16). Un clip que no existe
+se presentaba al revisor como "sin problemas técnicos", que es peor que un falso
+negativo: es una afirmación falsa sobre el material.
+**Comprobación:** el test falla sin el arreglo y pasa con él.
+**Coste:** 0.
+**Tests:** 1911 passed / 12 skipped, build correcto.

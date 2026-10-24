@@ -265,12 +265,14 @@ export class NativeStoryFrameExtractor implements StoryFrameExtractor {
           }
 
           if (filePath === null) {
+            // A clip with no file cannot be verified. Reporting no technical
+            // issues would make the QC pass a strip that does not exist.
             strips.push({
               sceneId: clip.sceneId,
               order: clip.order,
               filePath: '',
               durationSeconds: 0,
-              technical: [],
+              technical: ['technical-streams'],
               framesUrl: null,
             })
             continue

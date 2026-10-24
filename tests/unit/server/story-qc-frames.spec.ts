@@ -282,3 +282,28 @@ describe('qc-frames: extraction', () => {
     expect(uploads).toHaveLength(0)
   })
 })
+
+describe('a clip with no file', () => {
+  it('reports a technical issue instead of a clean strip', async () => {
+    // Reporting no issues made the QC pass a clip that was never downloaded:
+    // the reviewer read "no technical problems" for a strip that did not exist.
+    const extractor = new NativeStoryFrameExtractor({
+      downloader: {
+        async download() {
+          return []
+        },
+      } as never,
+      runner: { async run() { return { code: 0, stdout: '{}', stderr: '' } } } as never,
+      mediaStorage: null,
+      ffmpegPath: 'ffmpeg',
+      ffprobePath: 'ffprobe',
+    })
+
+    const strips = await extractor.extract({
+      storyId: 'story-1',
+      clips: [{ sceneId: 'scene-1', order: 1, url: 'https://v3.fal.media/files/a.mp4' }],
+    } as never)
+
+    expect(strips[0]?.technical.length).toBeGreaterThan(0)
+  })
+})
