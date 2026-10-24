@@ -117,3 +117,15 @@ ningún test que dependa de infraestructura real, y el CI no necesitará secreto
 
 **Pendiente de comprobar:** el primer push a GitHub. No se puede validar el
 workflow sin ejecutarlo allí.
+
+### 10. Auditoría del `typecheck` (sin arreglar la deuda antigua)
+
+**Qué:** no se ha arreglado la deuda anterior, solo la de esta sesión (326 → 306).
+Se clasificó lo que queda.
+**Por qué:** cada error antiguo exige decidir qué contrato manda (por ejemplo,
+si el plan lleva `beats` o se derivan de las escenas, o si el resultado de QC es
+por escena o por plano). Son decisiones de diseño, no correcciones mecánicas, y
+no se toman sin el humano.
+**Lo que sí se arregló hoy:** importaciones que faltaban, una variable
+inexistente, un valor que podía ser `undefined` y una función con parámetros de
+más. Todos introducidos en esta sesión.
