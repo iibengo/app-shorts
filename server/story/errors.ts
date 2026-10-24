@@ -192,7 +192,10 @@ const DEFINITIONS: Readonly<Record<StoryErrorCode, StoryErrorDefinition>> = {
   },
   'story-budget-exhausted': {
     status: 429,
-    message: 'Esta historia ha alcanzado su límite de 8 dólares. Empieza una nueva.',
+    // No fixed amount: the cap depends on the profile (2,50 for a 15 s budget
+    // story, 15 for a 90 s production one). storyErrorMessage adds the real one
+    // when the caller knows it; this is only the last resort.
+    message: 'Esta historia ha alcanzado su límite de coste. Empieza una nueva o elige una duración menor.',
     retryable: false,
   },
   // 016: the provider locks the account when its balance runs out. Saying

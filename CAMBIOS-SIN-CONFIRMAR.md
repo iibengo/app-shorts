@@ -164,3 +164,15 @@ trabajo del montaje.
 **Por qué:** la añadí para inspeccionar el fallo. En producción nadie debe poder
 desactivar la limpieza de temporales: se acumularían archivos.
 **Coste:** 0.
+
+### 15. El mensaje de presupuesto ya no inventa una cifra
+
+**Qué:** el mensaje por defecto de «presupuesto agotado» decía «límite de 8
+dólares». Ahora no nombra cantidad, porque el cap depende del perfil: 2,50 para
+una historia de 15 s con el perfil barato, 15 para una de 90 s en producción.
+Cuando quien lanza el error conoce el cap real, lo añade.
+**Por qué:** una cifra fija es falsa para casi todos los casos, y el usuario no
+puede saber cuánto le queda de verdad.
+**Comprobación:** suite completa en verde tras actualizar el test que fijaba el
+texto antiguo.
+**Coste:** 0.

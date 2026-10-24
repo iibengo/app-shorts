@@ -116,7 +116,9 @@ describe('StoryError definitions', () => {
     })
     expect(getStoryErrorDefinition('story-budget-exhausted')).toEqual({
       status: 429,
-      message: 'Esta historia ha alcanzado su límite de 8 dólares. Empieza una nueva.',
+      // The fallback no longer names an amount: the cap depends on the profile,
+      // and the real one is added by storyErrorMessage when known.
+      message: 'Esta historia ha alcanzado su límite de coste. Empieza una nueva o elige una duración menor.',
       retryable: false,
     })
     expect(getStoryErrorDefinition('director-timeout').status).toBe(504)
