@@ -81,6 +81,10 @@ export function reelShotSystemPrompt(
     + 'El primer plano de la historia dura 2–3 s, salvo rhythm slow, y no es establishing; los dos primeros suman ≤6 s. '
     + 'Los planos de 5–6 s son la excepción: ≤25 % de 5–6 s y ≤20 % de 6 s; media ≤4.5 s. '
     + 'No repitas framing consecutivo salvo contraplano de diálogo con subject distinto. '
+    // 013: the advisory detector exists, so the prompt names the case it catches:
+    // three shots of the same person in the same place read as one long take.
+    + 'Tampoco repitas el mismo framing en la misma localización dos veces seguidas: cambia el encuadre aunque el lugar se mantenga. '
+    + 'Si un secundario ejecuta la acción, su subject MUST nombrarlo a él solo y el framing debe ser close-up, extreme-close-up, insert, detail o reaction. '
     + 'La misma localización puede repetirse si cambia el encuadre o la cámara; no cambies de lugar solo por variedad. '
     + 'La primera vez que se entra en una localización después del primer plano, abre con establishing o wide. '
     + 'Cada escena usa ≥2 framings; si no es diálogo y tiene ≥3 planos, usa ≥3 framings. La historia usa ≥4 framings. '

@@ -33,11 +33,15 @@ function body(
     ? 'Use the reference image only for its visual style and palette. '
     : ''
 
-  return `${styleReference}One single character, front view, facing the camera. `
+  // 013: describe the absence instead of forbidding it. Nano Banana has no
+  // negative channel, and "no text" names the thing it should avoid.
+  // A clean studio background is what keeps the face readable when this image
+  // is later used as a reference for a busy scene.
+  return `${styleReference}One single character, front view, facing the camera, full body visible. `
     + `${character.name}: ${compact(character.description, descriptionBudget)}. `
     + `Wardrobe: ${compact(character.wardrobe, wardrobeBudget)}. `
     + `${SINGLE_FRAME_BLOCK} `
-    + 'Plain background, no text, no logo. Vertical 9:16.'
+    + 'A plain neutral studio backdrop, evenly lit, with clean unmarked surfaces. Vertical 9:16.'
 }
 
 export interface CharacterReferencePromptOptions {

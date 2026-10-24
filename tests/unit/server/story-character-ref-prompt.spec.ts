@@ -38,14 +38,14 @@ describe('character reference prompt', () => {
     expect(prompt).toContain('no collage')
   })
 
-  it('asks for one character and forbids text and logos', () => {
+  it('asks for one character on a clean neutral backdrop', () => {
     const prompt = characterReferencePrompt(CHARACTER, 'clay', {
       hasStyleReference: false,
     })
 
     expect(prompt).toContain('One single character')
-    expect(prompt).toContain('no text')
-    expect(prompt).toContain('no logo')
+    expect(prompt).toContain('plain neutral studio backdrop')
+    expect(prompt).toContain('clean unmarked surfaces')
   })
 
   it('does not impose a photorealistic medium over a stylised reference', () => {
