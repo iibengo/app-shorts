@@ -42,7 +42,7 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 |---|---|---|
 | 10 | `typecheck`: 306 errores | 8-15 h |
 | 11 | QA de navegador y accesibilidad | 3-5 h |
-| 12 | Retirar el motor `legacy` 005-007 | 4-6 h |
+| 12 | Retirar el motor `legacy` 005-007 | 4-6 h | **Dato (2026-10-24):** de 20 historias en la base, **0 usan el formato legacy**; todas están en `contract: '008'`. La rama es código muerto en la práctica. Retirarla toca persistencia y validación, así que sigue siendo una sesión aparte, pero ya no hay riesgo de romper historias reales. |
 | 13 | CI (no existe) | 3-5 h |
 | 14 | ~~Trocear la suite~~ **NO HACE FALTA** | 0 | Medido el 2026-10-24: la suite completa tarda **27 s** con 4 workers. Trocearla añadiría complejidad sin ganar tiempo. |
 | 15 | Transaccionalidad de escrituras batch historia→shots | 2-3 h |
