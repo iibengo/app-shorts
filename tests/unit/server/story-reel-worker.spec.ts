@@ -735,7 +735,7 @@ describe('keyframe inspected on arrival', () => {
       },
     })
 
-    // Reproduce the production state: two attempts spent, queued, no job in
+    // Reproduce the production state: every attempt spent, queued, no job in
     // flight. Before the fix this returned silently and the shot never moved,
     // so the story sat in GENERATING_VIDEOS forever.
     const story = (await ctx.repository.findById(ctx.story.id))!
@@ -745,7 +745,7 @@ describe('keyframe inspected on arrival', () => {
       story.id,
       story.shots.find((shot) => shot.order === order)!.id,
       {},
-      { status: 'KEYFRAME_QUEUED', keyframeAttempts: 2, keyframeRequestId: null },
+      { status: 'KEYFRAME_QUEUED', keyframeAttempts: 3, keyframeRequestId: null },
     )
 
     await reconciler.runOnce()

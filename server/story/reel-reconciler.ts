@@ -31,6 +31,15 @@ import type { StoredCharacterRef, StoredCharacterRefs } from './character-refs'
 import type { ConsistencyChecker } from './consistency-check'
 import type { KeyframeLayoutInspector } from './keyframe-layout-inspector'
 import type { KeyframeTextInspector } from './keyframe-text-inspector'
+
+/**
+ * 013: the automatic guards consume an attempt each time they reject an image,
+ * on top of the provider failures that already used the budget. Two attempts
+ * meant a single captured frame could exhaust a shot whose first try had merely
+ * failed. Three keeps the cost bounded (0,12 USD worst case) and gives the
+ * guards room to work.
+ */
+const KEYFRAME_MAX_ATTEMPTS = 3
 import type { ShotQCService } from './shot-qc-service'
 import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
 
@@ -721,7 +730,7 @@ export class ReelStoryReconciler {
 
     if (shot.status !== 'PENDING' && shot.status !== 'KEYFRAME_QUEUED') return
 
-    if (shot.keyframeAttempts >= 2) {
+    if (shot.keyframeAttempts >= KEYFRAME_MAX_ATTEMPTS) {
       // Out of retries with no job in flight. Returning here parks the shot in
       // KEYFRAME_QUEUED forever and the story never finishes; seen in
       // production on 2026-10-24.
@@ -867,7 +876,7 @@ export class ReelStoryReconciler {
       {
         const unusable = await this.keyframeUnusableReason(result.keyframeUrl)
 
-        if (unusable !== null && shot.keyframeAttempts >= 2) {
+        if (unusable !== null && shot.keyframeAttempts >= KEYFRAME_MAX_ATTEMPTS) {
           // Out of retries: keep the last image and say so. Leaving the shot
           // queued would park the story forever, which is worse than a frame
           // the reviewer can see and reject.
@@ -1054,7 +1063,7 @@ export class ReelStoryReconciler {
 
       if (!shot || !scene) continue
 
-      if (shot.keyframeAttempts >= 2 && shot.keyframeRequestId === null) {
+      if (shot.keyframeAttempts >= KEYFRAME_MAX_ATTEMPTS && shot.keyframeRequestId === null) {
         await this.repository.updateShot(
           fresh.id,
           shot.id,
