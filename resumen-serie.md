@@ -1,5 +1,7 @@
 # AI Shorts: resumen para la serie del blog
 
+> **Qué es este documento y qué no.** Es material para escribir los artículos, no documentación del proyecto. El estado técnico real vive en `AGENTS.md`, en `BACKLOG.md` y en `CAMBIOS-SIN-CONFIRMAR.md`. Lo que aquí aparece puede quedarse viejo: sirve para contar la historia, no para saber cómo está el código.
+
 Este resumen sale **solo** de lo que hay escrito en el repositorio: `specs/`, `.specify/memory/constitution.md`, `AGENTS.md`, `BACKLOG.md`, `README.md`, `.opencode/` y el historial de git (110 commits, de 2026-09-11 a 2026-10-24). Cuando algo no está documentado, lo digo. No incluye claves, variables de entorno, URLs de proveedor ni identificadores internos de historias.
 
 ---
@@ -293,3 +295,66 @@ Cuatro datos de las secciones anteriores conviene ajustarlos antes de publicar:
 | Sección 6, commits | «110 commits» | El número crece cada día. Mejor **"más de cien commits"** o citar la fecha exacta del recuento. |
 | Sección 4, texto del vídeo | Dice que se resolvió con una frase sobre el primer fotograma | Precisar el orden: **primero** se probó esa frase, y **después** se refinó a "pantallas ilegibles" porque la pantalla en blanco parecía rota. |
 | Sección 4, historias largas | Describe el fallo | Añadir que **los 12 clips se montaron a mano y salieron perfectos**, que es lo que demuestra dónde estaba el fallo. |
+
+---
+
+## 10. Lo que pasó después (2026-10-24, noche)
+
+Esta sección se añade al final del día. Cuenta lo que no estaba en el resumen original porque ocurrió mientras se trabajaba en él.
+
+### El bug que encontraron los tests no, y un script sí
+
+Después de escribir este resumen, una sesión larga de trabajo dejó **1922 tests en verde**. Y aun así, uno de los componentes principales del sistema —el que pinta los textos encima del vídeo— **nunca se había ejecutado**.
+
+La causa era pequeña y humillante: la pieza se declaraba al construir el montador y **nunca se asignaba**. Todo el código que la usaba existía, todas las pruebas de sus piezas pasaban, y el resultado era que esa función no se llamaba jamás.
+
+Ningún test lo detectó porque las pruebas del flujo completo usaban una versión falsa del montador que tampoco la ejecutaba. El hueco estaba justo donde nadie miraba.
+
+Lo encontró un **script suelto que ejecutaba el sistema real** con clips reales. Tardó veinte minutos.
+
+**La lección:** probar cada pieza por separado no demuestra que el conjunto funcione. Hace falta al menos una prueba que ejecute el sistema entero, aunque sea lento y aparatoso.
+
+### El error que mentía
+
+Durante esa misma sesión, ninguna historia terminaba. El mensaje que devolvía el sistema era:
+
+> «El servicio de generación no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.»
+
+Ese mensaje era **falso**. El proveedor estaba funcionando perfectamente; lo que ocurría es que la cuenta **no tenía saldo**.
+
+Se dedicaron horas a buscar el fallo en el montaje del vídeo. El montaje estaba bien. El problema estaba en una única palabra: el sistema traducía «cuenta bloqueada por falta de saldo» como «servicio caído». Un mensaje que no dice la verdad no solo no ayuda: **manda a buscar el problema donde no está**.
+
+Ahora ese caso tiene su propio mensaje, que dice qué hacer: recargar la cuenta.
+
+### La revisión que destapó cuatro fallos
+
+Al terminar, una revisión independiente —sin acceso a esta conversación, leyendo solo el código— encontró cuatro fallos graves en el trabajo recién hecho:
+
+1. **Un dato se guardaba y se descartaba al leerlo.** La funcionalidad parecía completa si mirabas cada archivo por separado; no funcionaba de punta a punta.
+2. **Una acción devolvía éxito sin hacer nada** en dos de los tres estados en que se ofrecía.
+3. **Un botón de reintentar reiniciaba el contador de intentos**, que era el único freno al gasto. Se podía pulsar en bucle.
+4. **Faltaban dos protecciones** que todas las acciones hermanas sí tenían.
+
+Los cuatro eran del trabajo de esa misma noche. **Los cuatro estaban en verde en los tests.**
+
+**La moraleja para la serie:** el momento en que más hace falta una revisión independiente es justo cuando crees que has terminado. Esa es la razón de fondo del paso de revisión del método, y aquí se ve funcionando.
+
+### Las especificaciones que afirmaban de más
+
+Dos de las especificaciones decían estar implementadas y no lo estaban del todo: les faltaba la mitad de lo que prometían (una detección concreta, un aviso en pantalla, ciertos códigos de error, y la adaptación del reparto de planos que era el corazón de una de ellas).
+
+Se corrigieron para que dijeran exactamente qué funciona y qué no. **Es incómodo escribir «implementado con reservas» cuando ya lo habías marcado como terminado**, pero un documento que miente es peor que uno incompleto.
+
+### Y el paso que sí funciona solo
+
+Se añadió integración continua: la suite completa y el build se ejecutan en cada envío de código a la nube. La primera ejecución pasó, en una máquina limpia, sin base de datos y sin claves de proveedor.
+
+Eso confirma algo importante: **las pruebas no dependen de infraestructura real**. Cualquiera puede descargar el proyecto y comprobarlo.
+
+### Lo que sigue sin poderse demostrar
+
+**Ninguna historia completa se ha entregado de principio a fin.** No por un fallo del código, sino porque no hay saldo en el proveedor y la subida del vídeo final pasa por ahí.
+
+Es el hueco honesto de toda la serie: hay piezas montadas a mano que demuestran que el sistema sabría hacerlo, pero nadie ha visto al sistema hacerlo solo, de principio a fin, con una cuenta con fondos.
+
+Contarlo así —lo que funciona, lo que está probado y lo que todavía no— es más útil que contar un éxito que no ha ocurrido.
