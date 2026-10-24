@@ -677,6 +677,11 @@ function composeCanonKeyframePrompt(
     [shot, composition, entitiesShort, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
     [shot, composition, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
     [shot, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    // Last resort: the style and the composition are what make the frame look
+    // like the channel, so the least destructive cut is the stage note. A shot
+    // that would not fit must still produce a keyframe, never a failed one.
+    [shot, context, styleShort],
+    [head, context, styleShort],
   ].map((parts) => parts.filter((part) => part.length > 0).join(' '))
 
   return candidates.find((candidate) => candidate.length <= maxChars)

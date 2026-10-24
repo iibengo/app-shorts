@@ -141,3 +141,28 @@ describe('focus size reaches the keyframe prompt', () => {
     expect(prompt).toContain('Do not add the person from the reference')
   })
 })
+
+describe('prompt budget never fails a shot', () => {
+  it('degrades instead of throwing when the shot body is long', () => {
+    const longBeat: Parameters<typeof composeKeyframe>[0]['beat'] = {
+      ...beat('reaction'),
+      subject: 'Ionias clutching the neon mug while Nina shows a cracked tablet in the server corner',
+      action: 'He sips, frowns at the screen, types a correction, and glances sideways at the blinking rack behind him',
+      visualPrompt: 'Ionias clutching the neon mug while Nina shows a cracked tablet in the server corner, he sips and frowns, dim green rack lights behind them, tangled cables on the floor',
+    }
+
+    // A 338-character scene used to exceed the budget and fail the shot with
+    // invalid-visual-prompt. Real stories must always produce a frame.
+    const composed = composeKeyframe({
+      bible: BIBLE,
+      beat: longBeat,
+      hasReference: true,
+      visualStyle: 'papercraft',
+      withIdentityLock: true,
+      focusCharacterName: 'Ionias',
+    })
+
+    expect(composed.prompt.length).toBeGreaterThan(50)
+    expect(composed.prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
+  })
+})
