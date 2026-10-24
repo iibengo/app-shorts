@@ -84,6 +84,11 @@ export const STORY_VISUAL_STYLE_OPTIONS: readonly StoryVisualStyleOption[] = [
     description: 'Low-poly de papel, fondo oscuro con neón.',
   },
   {
+    visualStyle: 'voxel',
+    label: 'Voxel',
+    description: 'Bloques cúbicos, tipo Minecraft. El más fácil de mantener consistente.',
+  },
+  {
     visualStyle: 'clay',
     label: 'Clay',
     description: 'Plastilina y stop-motion, luz cálida de maqueta.',
@@ -478,4 +483,18 @@ export const STORY_COST_MODE_COPY = {
   legacyShot: 'Plano heredado',
   similar: 'similar-shots',
   budgetExhausted: 'Esta historia ha alcanzado su límite de coste. Empieza una nueva o elige una duración menor.',
+} as const
+
+/**
+ * 012: a secondary character with no image of its own is invented again in
+ * every shot, so the progress screen names each one while it is generated.
+ */
+export const STORY_CHARACTER_REF_COPY = {
+  title: 'Personajes',
+  pending: 'Preparando a {name}…',
+  ready: 'Imagen lista',
+  failed: 'Referencia no disponible',
+  failedNote: 'La historia continúa, pero {name} puede cambiar entre planos.',
+  count: '{n} personajes con imagen propia',
+  focus: 'En foco: {name}',
 } as const

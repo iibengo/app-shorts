@@ -106,6 +106,7 @@ export function makeStoryRuntime(options: StoryRuntimeOptions = {}): StoryRuntim
     reelService,
     reelCostGuard: createReelCostGuard({ costs: DEFAULT_STORY_COST_CONFIG }),
     reelKeyframes: null,
+    reelCharacterRefs: null,
     reelVideos: null,
     reelAssembler: null,
     reelQcService: null,

@@ -14,6 +14,8 @@ export interface StoryCostConfig {
   /** 008: Kling quality clip is 5 s, not the legacy 10 s unit. */
   readonly videoQualityShortCostUsd: number
   readonly qcUnitCostUsd: number
+  /** 012: one Nano Banana image per character. */
+  readonly characterRefCostUsd: number
   readonly dailyBudgetUsd: number
 }
 
@@ -45,6 +47,7 @@ export interface StoryCostConfigOptions {
   readonly videoQualityCostUsd?: number
   readonly videoQualityShortCostUsd?: number
   readonly qcUnitCostUsd?: number
+  readonly characterRefCostUsd?: number
   readonly dailyBudgetUsd?: number
 }
 
@@ -60,6 +63,7 @@ export const DEFAULT_STORY_COST_CONFIG: StoryCostConfig = {
   videoQualityCostUsd: 0.7,
   videoQualityShortCostUsd: 0.35,
   qcUnitCostUsd: 0.02,
+  characterRefCostUsd: 0.04,
   dailyBudgetUsd: 50,
 }
 
@@ -209,6 +213,8 @@ export function createStoryCostGuard(
       ?? DEFAULT_STORY_COST_CONFIG.videoQualityShortCostUsd,
     qcUnitCostUsd:
       options.qcUnitCostUsd ?? DEFAULT_STORY_COST_CONFIG.qcUnitCostUsd,
+    characterRefCostUsd:
+      options.characterRefCostUsd ?? DEFAULT_STORY_COST_CONFIG.characterRefCostUsd,
     dailyBudgetUsd:
       options.dailyBudgetUsd ?? DEFAULT_STORY_COST_CONFIG.dailyBudgetUsd,
   })

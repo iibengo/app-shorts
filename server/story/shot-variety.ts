@@ -68,3 +68,45 @@ export function detectSimilarShotPrompts(
 
   return advisories
 }
+
+export interface RepeatedFramingAdvisory {
+  readonly previousShotOrder: number
+  readonly shotOrder: number
+  /** Same location and same framing twice in a row. */
+  readonly framing: string
+  readonly locationId: string
+}
+
+/**
+ * Three shots in a row of the same person in the same place is not a bug in the
+ * image model: the plan asked for the same picture three times. This is
+ * advisory only, because a deliberate repeated framing is legitimate; it exists
+ * so the repeated look has a name in the logs instead of being a surprise at
+ * review time.
+ */
+export function detectRepeatedFraming(
+  shots: readonly {
+    readonly order: number
+    readonly framing: string
+    readonly locationId: string
+  }[],
+): readonly RepeatedFramingAdvisory[] {
+  const advisories: RepeatedFramingAdvisory[] = []
+
+  for (let index = 1; index < shots.length; index += 1) {
+    const previous = shots[index - 1]!
+    const current = shots[index]!
+
+    if (previous.framing !== current.framing) continue
+    if (previous.locationId !== current.locationId) continue
+
+    advisories.push({
+      previousShotOrder: previous.order,
+      shotOrder: current.order,
+      framing: current.framing,
+      locationId: current.locationId,
+    })
+  }
+
+  return advisories
+}

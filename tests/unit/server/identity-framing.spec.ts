@@ -98,3 +98,46 @@ describe('single frame guard', () => {
     expect(prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
   })
 })
+
+describe('focus size reaches the keyframe prompt', () => {
+  it('states how much of the frame the focus occupies', () => {
+    const prompt = composeKeyframe({
+      bible: BIBLE,
+      beat: beat('close-up'),
+      hasReference: true,
+      visualStyle: 'papercraft',
+      withIdentityLock: true,
+      focusCharacterName: 'Pixel',
+    }).prompt
+
+    expect(prompt).toContain('two thirds of the frame width')
+    expect(prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
+  })
+
+  it('adds no focus block when there is no resolved character', () => {
+    const prompt = composeKeyframe({
+      bible: BIBLE,
+      beat: beat('close-up'),
+      hasReference: true,
+      visualStyle: 'papercraft',
+      withIdentityLock: true,
+      focusCharacterName: null,
+    }).prompt
+
+    expect(prompt).not.toContain('frame width')
+  })
+
+  it('uses the style-only body when the reference is not a character', () => {
+    const prompt = composeKeyframe({
+      bible: null,
+      beat: beat('wide'),
+      hasReference: true,
+      visualStyle: 'papercraft',
+      withIdentityLock: true,
+      styleOnlyReference: true,
+    }).prompt
+
+    expect(prompt).toContain('only for its visual style and palette')
+    expect(prompt).toContain('Do not add the person from the reference')
+  })
+})

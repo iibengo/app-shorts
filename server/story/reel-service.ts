@@ -1,6 +1,7 @@
 import type {
   SceneStatus,
   Story,
+  StoryCharacterReference,
   StoryCreateRequest,
   StoryErrorCode,
   StoryJobError,
@@ -29,6 +30,12 @@ import type {
   ReelStoryRepository,
 } from './reel-repository'
 import { hashStoryBody } from './story-service'
+import {
+  generatedCharacterRefTargets,
+  initialCharacterRefs,
+  canonCharacters,
+  MAX_CHARACTER_REFS,
+} from './character-refs'
 
 export interface ReelStoryServiceConfig {
   readonly storyTtlMs: number
@@ -191,10 +198,11 @@ function isUniqueConstraintError(error: unknown): boolean {
   )
 }
 
-function estimateCreationCost(
+export function estimateCreationCost(
   request: StoryCreateRequest,
   estimateShots: number,
   qcEnabled: boolean,
+  characterRefCount = 0,
 ): number {
   const keyframe = request.referenceUrl === null ? 0.05 : 0.08
   // FR-586: both presets use a 5–6 s unit; the 10 s quality unit is out of scope.
@@ -204,8 +212,19 @@ function estimateCreationCost(
     : 0
   const directorReserve = 0.032
   const qcReserve = qcEnabled ? estimateShots * 0.02 : 0
+  // 012: the pre-plan reserves zero references on purpose; the post-plan
+  // check passes the real number of characters from the canon.
+  const referenceReserve = characterRefCount * 0.04
 
-  return estimateShots * (keyframe + video) + retryReserve + directorReserve + qcReserve
+  // Cents are the unit the product reasons about: the worst budget case is
+  // exactly the cap (2.50), without inventing a margin that does not exist.
+  return Math.round(
+    (estimateShots * (keyframe + video)
+      + retryReserve
+      + directorReserve
+      + qcReserve
+      + referenceReserve) * 100,
+  ) / 100
 }
 
 function pollAfterFor(status: StoryStatus, pollAfterMs: number): number {
@@ -232,7 +251,7 @@ function shotError(shot: ReelShotRecord): StoryJobError | null {
 
   return {
     code,
-    message: storyErrorMessage(code),
+    message: storyErrorMessage(code, capUsdFor(record)),
     retryable: getStoryErrorDefinition(code).retryable,
   }
 }
@@ -300,13 +319,41 @@ function storyError(record: ReelStoryRecord): StoryJobError | null {
 
   return {
     code: record.errorCode,
-    message: record.errorMessage ?? storyErrorMessage(record.errorCode),
+    message: record.errorMessage ?? storyErrorMessage(record.errorCode, capUsdFor(record)),
     retryable: getStoryErrorDefinition(record.errorCode).retryable,
   }
 }
 
 function planOrNull(plan: StoryPlan): StoryPlan | null {
   return plan.scenes.length > 0 ? plan : null
+}
+
+/**
+ * Public projection of the stored references: canon order, at most three, and
+ * only the image URL. A failed reference keeps its entry with `imageUrl: null`
+ * so the UI can explain it without treating it as a blocking error.
+ */
+function toCharacterReferenceDtos(
+  record: ReelStoryRecord,
+): readonly StoryCharacterReference[] {
+  const canonOrder = canonCharacters(record.plan).map((character) => character.id)
+  const order = canonOrder.length > 0 ? canonOrder : Object.keys(record.characterRefs)
+  const refs: StoryCharacterReference[] = []
+
+  for (const id of order.slice(0, MAX_CHARACTER_REFS)) {
+    const ref = record.characterRefs[id]
+
+    if (ref === undefined) continue
+
+    refs.push({
+      characterId: id,
+      source: ref.source,
+      status: ref.status,
+      imageUrl: ref.status === 'ready' ? ref.frontalUrl : null,
+    })
+  }
+
+  return refs
 }
 
 export function toReelStoryJob(
@@ -370,6 +417,7 @@ export function toReelStoryDto(
       .slice()
       .sort((a, b) => a.order - b.order)
       .map(toSceneDto),
+    characterRefs: toCharacterReferenceDtos(record),
     finalVideoUrl: record.finalVideoUrl,
     finalVideoExpiresAt: record.finalVideoExpiresAt?.toISOString() ?? null,
     approvedAt: record.approvedAt?.toISOString() ?? null,
@@ -463,6 +511,25 @@ export class ReelStoryServiceImpl implements ReelStoryService {
         : { [reel.plan.storyBible?.leadCharacterId ?? 'lead']: input.request.referenceUrl }
       const now = new Date(this.now())
       const expiresAt = new Date(now.getTime() + this.config.storyTtlMs)
+      const actualShots = reel.shotPlan.scenes.flatMap((scene) => scene.shots).length
+      // 012: exact post-plan check with the real characters of the canon. The
+      // user reference costs nothing to generate; every other character costs
+      // one image. Reject before spending on media or persisting a story.
+      const generatedRefs = generatedCharacterRefTargets(
+        reel.plan,
+        input.request.referenceUrl,
+      ).length
+      const postPlanEstimate = estimateCreationCost(
+        input.request,
+        actualShots,
+        this.qcEnabled,
+        generatedRefs,
+      )
+
+      if (postPlanEstimate > profileCapUsd(profile)) {
+        throw new StoryError('story-budget-exhausted')
+      }
+
       const record = await this.repository.createStory({
         sessionId: input.sessionId,
         status: 'GENERATING_KEYFRAMES',
@@ -476,6 +543,11 @@ export class ReelStoryServiceImpl implements ReelStoryService {
         preset: input.request.preset,
         visualStyle: input.request.visualStyle ?? 'cartoon3d',
         anchors: seedAnchors,
+        characterRefs: initialCharacterRefs(
+          reel.plan,
+          input.request.referenceUrl,
+          now.toISOString(),
+        ),
         mode: input.request.mode,
         platform: input.request.platform,
         costMode: input.request.costMode,
@@ -1265,3 +1337,8 @@ export function createReelStoryService(
 
 export { hashStoryBody }
 export type { StoryMode, StoryShotDurationSeconds }
+
+/** The cap the story actually ran against, so the error names the real number. */
+function capUsdFor(record: ReelStoryRecord): number | undefined {
+  return costProfile(record.costMode, record.targetDurationSeconds)?.capUsd
+}

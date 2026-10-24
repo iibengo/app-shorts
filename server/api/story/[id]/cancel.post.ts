@@ -33,6 +33,7 @@ export default defineEventHandler(async (event): Promise<Story | void> => {
           runtime.rateLimiter.consumeCommand(context.sessionId)
           runtime.rateLimiter.consumeCancel(id)
           const story = await runtime.reelService.cancel(id, context.sessionId)
+          await runtime.reelReconciler?.cancelCharacterReferences(id)
 
           return toReelStoryDto(story, runtime.pollAfterMs, Date.now())
         }

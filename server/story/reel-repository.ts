@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { isStoryVisualStyle } from './visual-style'
 import { parseCharacterSheet } from './character-sheet'
+import { canonCharacters, parseCharacterRefs } from './character-refs'
+import type { StoredCharacterRefs } from './character-refs'
 import type { StoryCharacterSheet } from '~/models/story'
 import type {
   SceneStatus,
@@ -81,6 +83,8 @@ export interface ReelStoryRecord {
   /** Keyframe URL used as identity anchor per character id. */
   readonly anchors: Readonly<Record<string, string>>
   readonly characterSheet: StoryCharacterSheet | null
+  /** One identity image per character, canon order. */
+  readonly characterRefs: StoredCharacterRefs
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode
@@ -127,6 +131,7 @@ export interface CreateReelStoryInput {
   readonly targetDurationSeconds: number
   readonly maxDurationSeconds: number
   readonly anchors?: Readonly<Record<string, string>>
+  readonly characterRefs?: StoredCharacterRefs
   readonly plan: StoryPlan
   readonly shotPlan: ShotPlan
   readonly idempotencyKey: string | null
@@ -243,6 +248,11 @@ export interface ReelStoryRepository {
   updateCharacterSheet(
     storyId: string,
     sheet: StoryCharacterSheet | null,
+  ): Promise<boolean>
+  updateCharacterRefs(
+    storyId: string,
+    refs: StoredCharacterRefs,
+    guard?: ReelStoryGuard & { readonly leaseOwner?: string },
   ): Promise<boolean>
   cancel(id: string, sessionId: string, now: Date): Promise<boolean>
 }
@@ -405,6 +415,10 @@ function mapStory(row: NonNullable<StoryRow>): ReelStoryRecord {
     visualStyle: isStoryVisualStyle(row.visualStyle) ? row.visualStyle : 'cartoon3d',
     anchors: parseAnchors(row.anchorsJson),
     characterSheet: parseCharacterSheet(row.characterSheetJson),
+    characterRefs: parseCharacterRefs(
+      row.characterRefsJson,
+      canonCharacters(plan).map((character) => character.id),
+    ),
     mode: row.mode,
     platform: row.platform as StoryPlatform,
     costMode: row.costMode as StoryCostMode,
@@ -544,6 +558,7 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
           preset: input.preset,
           visualStyle: input.visualStyle,
           anchorsJson: input.anchors ?? {},
+          characterRefsJson: (input.characterRefs ?? {}) as unknown as never,
           mode: input.mode,
           platform: input.platform,
           costMode: input.costMode,
@@ -897,6 +912,29 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
     const updated = await this.client.story.updateMany({
       where: { id: storyId },
       data: { anchorsJson: anchors as unknown as never },
+    })
+
+    return updated.count > 0
+  }
+
+  async updateCharacterRefs(
+    storyId: string,
+    refs: StoredCharacterRefs,
+    guard: ReelStoryGuard & { readonly leaseOwner?: string } = {},
+  ): Promise<boolean> {
+    // Without the guard a stale worker can write `ready` back to `pending` and
+    // trigger a second paid generation for the same character.
+    const updated = await this.client.story.updateMany({
+      where: {
+        id: storyId,
+        ...(guard.statuses === undefined ? {} : { status: { in: [...guard.statuses] } }),
+        ...(guard.version === undefined ? {} : { version: guard.version }),
+        ...(guard.leaseOwner === undefined ? {} : { leaseOwner: guard.leaseOwner }),
+      },
+      data: {
+        characterRefsJson: refs as unknown as never,
+        version: { increment: 1 },
+      },
     })
 
     return updated.count > 0

@@ -49,18 +49,18 @@ describe('runtime wiring', () => {
   })
 })
 
-describe('integration: the sheet reaches the provider', () => {
-  it('passes the sheet from the fresh record into the orchestrator', async () => {
+describe('the sheet never reaches the provider', () => {
+  it('keeps the sheet pipeline inert and out of the keyframe path', async () => {
     const { readFileSync } = await import('node:fs')
     const reconciler = readFileSync('server/story/reel-reconciler.ts', 'utf8')
     const orchestrator = readFileSync('server/story/shot-keyframe-orchestrator.ts', 'utf8')
 
-    // The reconciler re-reads the story and forwards its sheet; the orchestrator
-    // prefers the argument over the stale record and sends only the front view.
-    expect(reconciler).toContain('fresh.characterSheet')
-    expect(orchestrator).toContain('const sheet = characterSheet ?? story.characterSheet')
-    expect(orchestrator).toContain('[sheet.front]')
-    expect(orchestrator).not.toContain('sheetUrls(story.characterSheet)')
+    // 012 removed the sheet from the pipeline: no sheet gate before keyframes,
+    // no sheet argument to the orchestrator, no sheet URL in a reference list.
+    expect(reconciler).toContain('DORMANT_SHEET')
+    expect(reconciler).not.toContain('ensureCharacterSheet(story)')
+    expect(orchestrator).not.toContain('characterSheet')
+    expect(orchestrator).not.toContain('sheetUrls')
   })
 
   it('forbids grid layouts in every identity-locked prompt', async () => {

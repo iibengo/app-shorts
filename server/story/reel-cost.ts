@@ -7,6 +7,8 @@ export interface ReelCostGuard {
   estimate(story: ReelStoryRecord): number
   estimateKeyframeAttempt(story: ReelStoryRecord): number
   estimateVideoAttempt(story: ReelStoryRecord): number
+  estimateCharacterRefs(story: ReelStoryRecord): number
+  estimateCharacterRefAttempt(story: ReelStoryRecord, characterId: string): number
   estimateQc(story: ReelStoryRecord): number
   estimateVideosApproval(story: ReelStoryRecord): number
   capFor(story: ReelStoryRecord): number
@@ -33,6 +35,23 @@ function videoUnit(story: ReelStoryRecord, costs: StoryCostConfig): number {
   return story.preset === 'quality'
     ? costs.videoQualityShortCostUsd
     : costs.videoFastCostUsd
+}
+
+/**
+ * A reference is paid when its image was produced or when an attempt was
+ * charged. A `pending` entry with zero attempts has not reached the provider.
+ */
+function characterRefUnits(story: ReelStoryRecord): number {
+  // A retried reference was billed once per attempt, so it is counted per
+  // attempt. Counting one unit per character would let a story overrun its cap
+  // by one image for every retry, silently.
+  return Object.values(story.characterRefs ?? {}).reduce((total, ref) => {
+    if (ref.source !== 'generated') return total
+
+    // `attempts` is incremented before the provider call, so a `ready` entry
+    // always has at least one; a never-sent `pending` has zero and is free.
+    return total + ref.attempts
+  }, 0)
 }
 
 export class NativeReelCostGuard implements ReelCostGuard {
@@ -68,7 +87,8 @@ export class NativeReelCostGuard implements ReelCostGuard {
       + this.costs.directorRepairCostUsd
       + keyframeUnits * keyframeUnit(story, this.costs)
       + videoUnits * videoUnit(story, this.costs)
-      + qcUnits * this.costs.qcUnitCostUsd,
+      + qcUnits * this.costs.qcUnitCostUsd
+      + this.estimateCharacterRefs(story),
     )
   }
 
@@ -78,6 +98,19 @@ export class NativeReelCostGuard implements ReelCostGuard {
 
   estimateVideoAttempt(story: ReelStoryRecord): number {
     return roundUsd(this.estimate(story) + videoUnit(story, this.costs))
+  }
+
+  estimateCharacterRefs(story: ReelStoryRecord): number {
+    return roundUsd(characterRefUnits(story) * this.costs.characterRefCostUsd)
+  }
+
+  estimateCharacterRefAttempt(story: ReelStoryRecord, characterId: string): number {
+    const current = story.characterRefs?.[characterId]
+
+    // A ready reference is never submitted again; the estimate does not grow.
+    if (current !== undefined && current.status === 'ready') return this.estimate(story)
+
+    return roundUsd(this.estimate(story) + this.costs.characterRefCostUsd)
   }
 
   estimateQc(story: ReelStoryRecord): number {

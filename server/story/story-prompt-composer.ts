@@ -15,6 +15,7 @@ import type {
   StoryTone,
   StoryWeather,
 } from '~/models/story'
+import { focusSizeBlock } from './focus-framing'
 import { StoryError } from './errors'
 import { styleBlockFor, styleBlockShort, styleNegativeFor } from './visual-style'
 
@@ -28,6 +29,16 @@ export interface KeyframePromptInput {
   readonly withIdentityLock?: boolean
   /** 008 passes 4.000 to bound the final keyframe prompt deterministically. */
   readonly maxLength?: number
+  /**
+   * 012: name of the character the shot is about, when the subject resolves to
+   * one. Fixes how much of the frame that character occupies.
+   */
+  readonly focusCharacterName?: string | null
+  /**
+   * 012: the reference is only a look reference (no character in the frame), so
+   * the body must forbid adding the person instead of locking an identity.
+   */
+  readonly styleOnlyReference?: boolean
 }
 
 export interface VideoPromptInput {
@@ -451,6 +462,15 @@ export function storyKeyframeReferencePrompt(visualPrompt: string): string {
   return `Using the reference image as the visual anchor, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Preserve subject identity, the visual style of the reference, clothing and color palette. No text, no watermark, no logo.`
 }
 
+/**
+ * A shot with no character in it still wants the channel's look. The reference
+ * is then a palette sample, and asking for its identity would insert a person
+ * into an empty frame.
+ */
+export function storyKeyframeStyleReferencePrompt(visualPrompt: string): string {
+  return `Using the reference image only for its visual style and palette, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Do not add the person from the reference to this frame. No text, no watermark, no logo.`
+}
+
 export function storyVideoLegacyPrompt(visualPrompt: string): string {
   return `${visualPrompt}. Vertical 9:16 short film scene, smooth natural motion, consistent subject, no text, no watermark, no logo.`
 }
@@ -502,10 +522,13 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
   const stylePrefix = input.visualStyle === undefined
     ? ''
     : `${styleBlockFor(input.visualStyle)}. `
-  const identity = input.withIdentityLock === true
-    ? identityLockFor(input.beat.framing)
-    : ''
-  const singleFrame = input.withIdentityLock === true ? SINGLE_FRAME_BLOCK : ''
+  // 012: a style-only reference carries no person, so locking an identity onto
+  // it would paste the lead into a frame where the script put nobody.
+  const lockIdentity = input.withIdentityLock === true && input.styleOnlyReference !== true
+  const identity = lockIdentity ? identityLockFor(input.beat.framing) : ''
+  // The grid guard follows the reference, not the identity lock: a reference
+  // without it is exactly how a diptych gets generated.
+  const singleFrame = input.hasReference === true ? SINGLE_FRAME_BLOCK : ''
   // The identity block is non-negotiable, but the style and the scene can
   // degrade: try the full version, then a compact identity line, then a
   // shorter style block. Never fail because the sum does not fit.
@@ -526,9 +549,17 @@ export function composeKeyframe(input: KeyframePromptInput): ComposedKeyframePro
       const bodyBudget = Math.max(0, budget - styleVariant.length - identityPrefix.length)
       const body = input.bible === null
         ? input.hasReference
-          ? storyKeyframeReferencePrompt(input.beat.visualPrompt)
+          ? input.styleOnlyReference === true
+            ? storyKeyframeStyleReferencePrompt(input.beat.visualPrompt)
+            : storyKeyframeReferencePrompt(input.beat.visualPrompt)
           : storyKeyframeFluxPrompt(input.beat.visualPrompt)
-        : composeCanonKeyframePrompt(input.bible, input.beat, bodyBudget)
+        : composeCanonKeyframePrompt(
+            input.bible,
+            input.beat,
+            bodyBudget,
+            input.focusCharacterName ?? null,
+            input.styleOnlyReference === true,
+          )
       const candidate = `${styleVariant}${identityPrefix}${body}`
 
       if (candidate.length <= budget) {
@@ -620,20 +651,32 @@ function composeCanonKeyframePrompt(
   bible: StoryBible,
   beat: StoryBeat,
   maxChars: number = KEYFRAME_PROMPT_MAX_CHARS,
+  focusCharacterName?: string | null,
+  styleOnlyReference?: boolean,
 ): string {
   const head = keyframeShotLine(beat)
+  // The focus block is short and it is what stops a secondary character from
+  // dissolving into the background, so it rides with the head, never degraded.
+  const focus = focusSizeBlock(beat.framing, focusCharacterName ?? null)
   const composition = keyframeComposition(beat)
   const context = keyframeContext(bible, beat)
   const style = keyframeStyle(bible, true)
   const styleShort = keyframeStyle(bible, false)
   const entities = keyframeEntities(bible, beat, true)
   const entitiesShort = keyframeEntities(bible, beat, false)
+  // A canon frame with nobody in it still uses the channel look; the reference
+  // is a palette sample, so the frame must not inherit its subject.
+  const noPerson = styleOnlyReference === true
+    ? 'Use the reference image only for its visual style and palette. Do not add the person from the reference to this frame.'
+    : ''
+  const base = focus.length === 0 ? head : `${head} ${focus}`
+  const shot = noPerson.length === 0 ? base : `${base} ${noPerson}`
   const candidates = [
-    [head, composition, entities, context, style, KEYFRAME_STAGE_BLOCK_EN],
-    [head, composition, entities, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
-    [head, composition, entitiesShort, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
-    [head, composition, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
-    [head, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    [shot, composition, entities, context, style, KEYFRAME_STAGE_BLOCK_EN],
+    [shot, composition, entities, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    [shot, composition, entitiesShort, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    [shot, composition, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
+    [shot, context, styleShort, KEYFRAME_STAGE_BLOCK_EN],
   ].map((parts) => parts.filter((part) => part.length > 0).join(' '))
 
   return candidates.find((candidate) => candidate.length <= maxChars)

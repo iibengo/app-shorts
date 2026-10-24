@@ -11,10 +11,23 @@ import type {
 } from './reel-repository'
 import type { ShotAssembler } from './shot-assembly-service'
 import type { ShotKeyframeOrchestrator } from './shot-keyframe-orchestrator'
+import { storyBeatForShot } from './shot-keyframe-orchestrator'
+import { normalizeFocusFraming, resolveFocus } from './focus-framing'
 import type {
   CharacterSheetOrchestrator,
   CharacterSheetSubmission,
 } from './character-sheet-orchestrator'
+import type {
+  CharacterReferenceOrchestrator,
+  CharacterReferenceSubmission,
+} from './character-ref-orchestrator'
+import {
+  MAX_CHARACTER_REFS,
+  characterRefCharacters,
+  initialCharacterRefs,
+  usableUserReferenceUrl,
+} from './character-refs'
+import type { StoredCharacterRef, StoredCharacterRefs } from './character-refs'
 import type { ConsistencyChecker } from './consistency-check'
 import type { KeyframeLayoutInspector } from './keyframe-layout-inspector'
 import type { ShotQCService } from './shot-qc-service'
@@ -50,14 +63,22 @@ export interface ReelReconcilerConfig {
 
 /** A provider job that shows no state change for this long is considered dead. */
 /**
- * Character sheet generation is switched off: the uploaded image is the
- * reference for every shot and no grid is ever sent. Kept as a named flag so
- * the dormant pipeline stays readable and is easy to re-enable.
+ * Character sheet generation is switched off for good (012): the model copies
+ * the grid of a 2x2 sheet and returns stacked panels, so a sheet is never sent
+ * as a reference. Identity comes from one image per character instead.
+ *
+ * The orchestrator stays wired only so the retired pipeline keeps its test that
+ * proves it never reaches the provider. Do not turn this back on without a new
+ * spec: 011 and 012 both failed with grids.
  */
 const DORMANT_SHEET = true
 
 export const DEFAULT_KEYFRAME_MAX_IDLE_MS = 600_000
 export const DEFAULT_VIDEO_MAX_IDLE_MS = 1_200_000
+/** Two provider attempts per character, then the story continues without it. */
+export const CHARACTER_REF_MAX_ATTEMPTS = 2
+/** A reference job that shows no state change for this long is considered dead. */
+export const DEFAULT_CHARACTER_REF_MAX_IDLE_MS = 180_000
 
 export const DEFAULT_REEL_RECONCILER_CONFIG: ReelReconcilerConfig = {
   leaseMs: 60_000,
@@ -75,6 +96,8 @@ export interface ReelReconcilerOptions {
   readonly repository: ReelStoryRepository
   readonly keyframes: ShotKeyframeOrchestrator
   readonly characterSheet?: CharacterSheetOrchestrator | null
+  /** 012: one identity image per character, before the first keyframe. */
+  readonly characterReferences?: CharacterReferenceOrchestrator | null
   /** Rejects stacked-panel keyframes before the video stage pays for them. */
   readonly layoutInspector?: KeyframeLayoutInspector | null
   readonly consistency?: ConsistencyChecker | null
@@ -91,7 +114,12 @@ export interface ReelReconcilerOptions {
     readonly storyId?: string
     readonly shotId?: string
     readonly order?: number
+    readonly characterId?: string
     readonly errorCode?: string
+    /** 012: framing the plan asked for, before the focus rule rewrote it. */
+    readonly from?: string
+    /** 012: framing actually sent to the provider. */
+    readonly to?: string
   }) => void
 }
 
@@ -99,6 +127,7 @@ export class ReelStoryReconciler {
   private readonly repository: ReelStoryRepository
   private readonly keyframes: ShotKeyframeOrchestrator
   private readonly characterSheet: CharacterSheetOrchestrator | null
+  private readonly characterReferences: CharacterReferenceOrchestrator | null
   private readonly layoutInspector: KeyframeLayoutInspector | null
   private readonly consistency: ConsistencyChecker | null
   private readonly videos: ShotVideoOrchestrator
@@ -113,6 +142,10 @@ export class ReelStoryReconciler {
   private readonly keyframeMaxIdleMs: number
   private readonly videoMaxIdleMs: number
   private readonly sheetSubmissions = new Map<string, CharacterSheetSubmission>()
+  private readonly characterRefSubmissions = new Map<
+    string,
+    Map<string, CharacterReferenceSubmission>
+  >()
   private assemblyInFlight = false
   private qcInFlight = false
 
@@ -120,6 +153,7 @@ export class ReelStoryReconciler {
     this.repository = options.repository
     this.keyframes = options.keyframes
     this.characterSheet = options.characterSheet ?? null
+    this.characterReferences = options.characterReferences ?? null
     this.layoutInspector = options.layoutInspector ?? null
     this.consistency = options.consistency ?? null
     this.videos = options.videos
@@ -174,7 +208,10 @@ export class ReelStoryReconciler {
   private async process(storyId: string): Promise<void> {
     const story = await this.repository.findById(storyId)
 
-    if (!story || story.leaseOwner !== this.owner) return
+    if (!story || story.leaseOwner !== this.owner) {
+      this.clearCharacterRefSubmissions(storyId)
+      return
+    }
 
     if (story.status === 'GENERATING_KEYFRAMES') {
       await this.processKeyframes(story)
@@ -223,14 +260,15 @@ export class ReelStoryReconciler {
       return
     }
 
-    // The sheet is the identity source for every keyframe, so it is built
-    // before the first shot. Without a reference there is nothing to derive it
-    // from, and the pipeline falls back to the old anchor logic.
-    if (!(await this.ensureCharacterSheet(story))) return
+    // 012: identity images come first. While a reference is pending no
+    // keyframe is generated, so every shot can use the same face.
+    const ready = await this.ensureCharacterRefs(story)
+
+    if (ready === null) return
 
     const deadline = this.now() + this.config.tickBudgetMs
 
-    for (const initial of story.shots) {
+    for (const initial of ready.shots) {
       if (this.now() > deadline) break
 
       const fresh = await this.repository.findById(story.id)
@@ -246,10 +284,335 @@ export class ReelStoryReconciler {
 
       if (!shot || !scene) continue
 
-      await this.processKeyframeShot(fresh, shot, scene, fresh.characterSheet)
+      await this.processKeyframeShot(fresh, shot, scene)
     }
 
     await this.finalizeKeyframes(story.id)
+  }
+
+  /**
+   * Generates one image per character once per story, before the first
+   * keyframe. A ready reference is never submitted again; two attempts and a
+   * 180 s idle window bound the cost. A failed reference never blocks the
+   * story, because identity is a quality improvement, not a requirement.
+   *
+   * Returns the freshest record when the phase is complete, or `null` while a
+   * provider job is still pending.
+   */
+  private async ensureCharacterRefs(
+    initial: ReelStoryRecord,
+  ): Promise<ReelStoryRecord | null> {
+    const orchestrator = this.characterReferences
+
+    // Without a provider the legacy anchor path still works; references are an
+    // additive layer, never a reason to stop generating.
+    if (orchestrator === null) return initial
+    if (initial.plan.storyBible === null) return initial
+
+    const characters = characterRefCharacters(initial.plan)
+
+    if (characters.length === 0) return initial
+
+    const nowIso = new Date(this.now()).toISOString()
+    const targetIds = characters.map((character) => character.id)
+    let story = initial
+    let refs = this.pruneCharacterRefs(story.characterRefs, targetIds)
+    let changed = false
+
+    const seeded = initialCharacterRefs(story.plan, story.referenceUrl, nowIso)
+
+    for (const character of characters) {
+      if (refs[character.id] !== undefined) continue
+
+      const entry = seeded[character.id]
+
+      if (entry !== undefined) {
+        refs = { ...refs, [character.id]: entry }
+        changed = true
+      }
+    }
+
+    if (changed) {
+      const stored = await this.repository.updateCharacterRefs(
+        story.id,
+        refs,
+        { statuses: ['GENERATING_KEYFRAMES'], version: story.version, leaseOwner: this.owner },
+      )
+
+      // A losing worker must stop: another tick already advanced this story.
+      if (!stored) return null
+
+      const fresh = await this.repository.findById(story.id)
+
+      if (!fresh || fresh.status !== 'GENERATING_KEYFRAMES' || fresh.leaseOwner !== this.owner) {
+        return null
+      }
+
+      story = fresh
+      refs = this.pruneCharacterRefs(story.characterRefs, targetIds)
+    }
+
+    if (!characters.some((character) => refs[character.id]?.status === 'pending')) {
+      this.clearCharacterRefSubmissions(story.id)
+
+      return story
+    }
+
+    const submissions = this.characterRefSubmissions.get(story.id)
+      ?? new Map<string, CharacterReferenceSubmission>()
+    this.characterRefSubmissions.set(story.id, submissions)
+
+    let waiting = false
+
+    for (const character of characters) {
+      const ref = refs[character.id]
+
+      if (ref === undefined || ref.status !== 'pending') continue
+
+      const submission = submissions.get(character.id)
+
+      if (submission === undefined) {
+        if (ref.attempts >= CHARACTER_REF_MAX_ATTEMPTS) {
+          refs = await this.markCharacterRefFailed(
+            story,
+            refs,
+            character.id,
+            'provider-error',
+            nowIso,
+          )
+          continue
+        }
+
+        try {
+          const currentStory: ReelStoryRecord = { ...story, characterRefs: refs }
+          this.costGuard.assertWithinCap(
+            currentStory,
+            this.costGuard.estimateCharacterRefAttempt(currentStory, character.id),
+          )
+        } catch (error) {
+          if (toStoryError(error).code !== 'story-budget-exhausted') throw error
+
+          refs = await this.markCharacterRefFailed(
+            story,
+            refs,
+            character.id,
+            'story-budget-exhausted',
+            nowIso,
+            'reel.character-ref.budget-skipped',
+          )
+          continue
+        }
+
+        const attempt: StoredCharacterRef = {
+          ...ref,
+          attempts: ref.attempts + 1,
+          updatedAt: nowIso,
+        }
+        refs = { ...refs, [character.id]: attempt }
+        const stored = await this.repository.updateCharacterRefs(
+          story.id,
+          refs,
+          { statuses: ['GENERATING_KEYFRAMES'], version: story.version, leaseOwner: this.owner },
+        )
+
+        // A losing worker must stop: another tick already advanced this story.
+        if (!stored) return null
+
+        // The write bumped the version, so the next character in this loop must
+        // guard against the new one or its write would be refused as stale.
+        story = await this.repository.findById(story.id) ?? story
+        refs = this.pruneCharacterRefs(story.characterRefs, targetIds)
+
+        try {
+          const created = await orchestrator.submit(
+            character,
+            story.visualStyle,
+            usableUserReferenceUrl(story.referenceUrl),
+          )
+          submissions.set(character.id, created)
+          this.onEvent?.({
+            event: 'reel.character-ref.submitted',
+            storyId: story.id,
+            characterId: character.id,
+          })
+          waiting = true
+        } catch (error) {
+          const code = toStoryError(error).code
+
+          if (attempt.attempts >= CHARACTER_REF_MAX_ATTEMPTS) {
+            refs = await this.markCharacterRefFailed(
+              story,
+              refs,
+              character.id,
+              code,
+              nowIso,
+            )
+          } else {
+            // One automatic retry on a later tick; the story still waits.
+            waiting = true
+          }
+        }
+
+        continue
+      }
+
+      if (this.characterRefIdleExceeded(ref)) {
+        try {
+          await orchestrator.cancel(submission)
+        } catch {
+          // Best effort: the provider may have already dropped the job.
+        }
+
+        submissions.delete(character.id)
+        refs = await this.markCharacterRefFailed(
+          story,
+          refs,
+          character.id,
+          'provider-timeout',
+          nowIso,
+        )
+        continue
+      }
+
+      try {
+        const result = await orchestrator.poll(
+          submission,
+          usableUserReferenceUrl(story.referenceUrl),
+        )
+
+        if (result.state !== 'COMPLETED') {
+          waiting = true
+          continue
+        }
+
+        const ready: StoredCharacterRef = {
+          status: 'ready',
+          source: 'generated',
+          frontalUrl: result.ref.frontalUrl,
+          referenceUrls: result.ref.referenceUrls,
+          attempts: ref.attempts,
+          updatedAt: nowIso,
+        }
+        refs = { ...refs, [character.id]: ready }
+        const stored = await this.repository.updateCharacterRefs(
+          story.id,
+          refs,
+          { statuses: ['GENERATING_KEYFRAMES'], version: story.version, leaseOwner: this.owner },
+        )
+
+        // A losing worker must stop: another tick already advanced this story.
+        if (!stored) return null
+
+        story = await this.repository.findById(story.id) ?? story
+        refs = this.pruneCharacterRefs(story.characterRefs, targetIds)
+        submissions.delete(character.id)
+        this.onEvent?.({
+          event: 'reel.character-ref.ready',
+          storyId: story.id,
+          characterId: character.id,
+        })
+      } catch (error) {
+        const storyError = toStoryError(error)
+
+        if (storyError.retryable) {
+          waiting = true
+          continue
+        }
+
+        submissions.delete(character.id)
+
+        if (ref.attempts >= CHARACTER_REF_MAX_ATTEMPTS) {
+          refs = await this.markCharacterRefFailed(
+            story,
+            refs,
+            character.id,
+            storyError.code,
+            nowIso,
+          )
+        } else {
+          // A terminal provider answer still gets the single retry.
+          waiting = true
+        }
+      }
+    }
+
+    if (submissions.size === 0) this.characterRefSubmissions.delete(story.id)
+
+    if (waiting || Object.values(refs).some((ref) => ref.status === 'pending')) {
+      return null
+    }
+
+    return this.repository.findById(story.id)
+  }
+
+  private pruneCharacterRefs(
+    refs: StoredCharacterRefs,
+    targetIds: readonly string[],
+  ): StoredCharacterRefs {
+    const pruned: Record<string, StoredCharacterRef> = {}
+
+    for (const id of targetIds.slice(0, MAX_CHARACTER_REFS)) {
+      const ref = refs[id]
+
+      if (ref !== undefined) pruned[id] = ref
+    }
+
+    return pruned
+  }
+
+  private characterRefIdleExceeded(ref: StoredCharacterRef): boolean {
+    const updatedAt = Date.parse(ref.updatedAt)
+
+    if (!Number.isFinite(updatedAt)) return false
+
+    return this.now() - updatedAt > DEFAULT_CHARACTER_REF_MAX_IDLE_MS
+  }
+
+  private async markCharacterRefFailed(
+    story: ReelStoryRecord,
+    refs: StoredCharacterRefs,
+    characterId: string,
+    errorCode: string,
+    updatedAt: string,
+    event = 'reel.character-ref.failed',
+  ): Promise<StoredCharacterRefs> {
+    const ref = refs[characterId]
+
+    if (ref === undefined) return refs
+
+    const next: StoredCharacterRefs = {
+      ...refs,
+      [characterId]: { ...ref, status: 'failed', updatedAt },
+    }
+    await this.repository.updateCharacterRefs(story.id, next)
+    this.onEvent?.({ event, storyId: story.id, characterId, errorCode })
+
+    return next
+  }
+
+  private clearCharacterRefSubmissions(storyId: string): void {
+    this.characterRefSubmissions.delete(storyId)
+  }
+
+  /**
+   * Best-effort cancellation of reference jobs when the story is cancelled.
+   * Called from the thin cancel route; the provider may have already fired.
+   */
+  async cancelCharacterReferences(storyId: string): Promise<void> {
+    const submissions = this.characterRefSubmissions.get(storyId)
+    const orchestrator = this.characterReferences
+
+    this.characterRefSubmissions.delete(storyId)
+
+    if (submissions === undefined || orchestrator === null) return
+
+    for (const submission of submissions.values()) {
+      try {
+        await orchestrator.cancel(submission)
+      } catch {
+        // Best effort: cancellation must never fail the request.
+      }
+    }
   }
 
   /**
@@ -257,59 +620,6 @@ export class ReelStoryReconciler {
    * No extra provider call: the same image is reused by Kontext for the rest
    * of the story, which is what keeps the character consistent.
    */
-  /**
-   * Builds the character sheet once per story from the user reference. Returns
-   * false while it is not ready, so no keyframe is generated without identity.
-   */
-  private async ensureCharacterSheet(story: ReelStoryRecord): Promise<boolean> {
-    // Dormant on purpose. The uploaded image is the reference for every shot,
-    // and a generated 2x2 sheet is not sent because the model copies the grid.
-    // The sheet pipeline stays wired for a future flow where a real photo still
-    // needs its style converted; until then it must not spend a provider call.
-    if (this.characterSheet === null || DORMANT_SHEET) return true
-    if (story.characterSheet !== null) return true
-    if (this.characterSheet === null || story.referenceUrl === null) return true
-
-    const pending = this.sheetSubmissions.get(story.id)
-
-    if (pending === undefined) {
-      try {
-        const submission = await this.characterSheet.submit(story.referenceUrl, story.visualStyle)
-        this.sheetSubmissions.set(story.id, submission)
-      } catch {
-        return true
-      }
-
-      return false
-    }
-
-    try {
-      const result = await this.characterSheet.poll(
-        pending,
-        story.referenceUrl,
-        story.visualStyle,
-      )
-
-      if (result.state !== 'COMPLETED') return false
-
-      await this.repository.updateCharacterSheet(story.id, result.sheet)
-      this.sheetSubmissions.delete(story.id)
-      this.onEvent?.({ event: 'story.sheet.ready', storyId: story.id })
-
-      // The caller still holds the record it read at the start of the tick,
-      // where `characterSheet` is null. Continuing with it would make the
-      // orchestrator fall back to the first keyframe as the identity anchor and
-      // copy a face-less frame into every later shot.
-      return false
-    } catch {
-      // A failed sheet must not block the story: the reference still works.
-      this.sheetSubmissions.delete(story.id)
-      this.onEvent?.({ event: 'story.sheet.failed', storyId: story.id })
-
-      return true
-    }
-  }
-
   private async rememberAnchors(
     story: ReelStoryRecord,
     scene: ReelSceneRecord,
@@ -342,9 +652,13 @@ export class ReelStoryReconciler {
     shot: ReelShotRecord,
     keyframeUrl: string,
   ): Promise<void> {
-    if (this.consistency === null || story.characterSheet === null) return
+    // 012: the reference is the lead character's own image. The sheet is gone
+    // from the pipeline, so there is nothing else to compare against.
+    const lead = leadCharacterReference(story)
 
-    const reference = story.characterSheet.front
+    if (this.consistency === null || lead === null) return
+
+    const reference = lead
 
     try {
       const result = await this.consistency.check(reference, keyframeUrl, 'front')
@@ -394,7 +708,6 @@ export class ReelStoryReconciler {
     story: ReelStoryRecord,
     shot: ReelShotRecord,
     scene: ReelSceneRecord,
-    characterSheet: Readonly<Record<string, string>> | null = story.characterSheet,
   ): Promise<void> {
     if (shot.keyframeRequestId && KEYFRAME_ACTIVE.includes(shot.status)) {
       await this.pollKeyframeShot(story, shot, scene)
@@ -403,6 +716,22 @@ export class ReelStoryReconciler {
 
     if (shot.status !== 'PENDING' && shot.status !== 'KEYFRAME_QUEUED') return
     if (shot.keyframeAttempts >= 2) return
+
+    // 012: a shot whose action belongs to a secondary character cannot be
+    // framed wide, or that character comes out tiny. The rewrite is logged so a
+    // surprising frame is explainable instead of mysterious.
+    const normalizedFocus = reportFocus(story, shot, scene)
+
+    if (normalizedFocus !== null) {
+      this.onEvent?.({
+        event: 'reel.shot.focus-normalized',
+        storyId: story.id,
+        shotId: shot.id,
+        order: shot.order,
+        from: normalizedFocus.from,
+        to: normalizedFocus.to,
+      })
+    }
 
     const active = await this.repository.countActiveProviderJobs('keyframe')
     if (active >= this.config.keyframeConcurrency) return
@@ -431,7 +760,7 @@ export class ReelStoryReconciler {
     if (incremented === 0) return
 
     try {
-      const submission = await this.keyframes.submit(shot, scene, story, characterSheet)
+      const submission = await this.keyframes.submit(shot, scene, story)
 
       await this.repository.updateShot(
         story.id,
@@ -1074,6 +1403,7 @@ export class ReelStoryReconciler {
     code: StoryErrorCode,
     stage: 'keyframe' | 'video',
   ): Promise<void> {
+    this.clearCharacterRefSubmissions(story.id)
     await this.repository.updateShot(
       story.id,
       shot.id,
@@ -1094,6 +1424,7 @@ export class ReelStoryReconciler {
     code: StoryErrorCode,
     statuses: readonly ReelStoryRecord['status'][],
   ): Promise<void> {
+    this.clearCharacterRefSubmissions(story.id)
     await this.repository.updateStory(
       story.id,
       { statuses, version: story.version },
@@ -1106,4 +1437,39 @@ export function createReelStoryReconciler(
   options: ReelReconcilerOptions,
 ): ReelStoryReconciler {
   return new ReelStoryReconciler(options)
+}
+
+/**
+ * 012: the identity reference of the lead character. Used by the consistency
+ * check, which compares keyframes against the picture we actually sent.
+ */
+function leadCharacterReference(story: ReelStoryRecord): string | null {
+  const leadId = story.plan.storyBible?.leadCharacterId ?? null
+  const refs = story.characterRefs
+
+  if (leadId === null || refs === null || refs === undefined) return null
+
+  const lead = refs[leadId]
+
+  return lead !== undefined && lead.status === 'ready' ? lead.frontalUrl : null
+}
+
+/**
+ * 012 observability: the framing actually used is decided by the focus rule, so
+ * the plan's framing and the sent framing are both logged when they differ.
+ */
+function reportFocus(
+  story: ReelStoryRecord,
+  shot: ReelShotRecord,
+  scene: ReelSceneRecord,
+): { readonly from: string; readonly to: string } | null {
+  const beat = storyBeatForShot(shot, scene)
+  const focus = resolveFocus(beat.subject, story.plan.storyBible)
+  const normalized = normalizeFocusFraming(
+    beat.framing,
+    focus,
+    story.plan.storyBible?.leadCharacterId ?? null,
+  )
+
+  return normalized.normalized ? { from: shot.framing, to: normalized.framing } : null
 }

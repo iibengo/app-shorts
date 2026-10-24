@@ -23,6 +23,7 @@ import type {
   ReelStoryRepository,
 } from '../../server/story/reel-repository'
 import { deriveSceneStatus } from '../../server/story/scene-status'
+import type { StoredCharacterRefs } from '../../server/story/character-refs'
 import { DEFAULT_PLAN } from './story'
 
 const ACTIVE: readonly StoryStatus[] = [
@@ -294,6 +295,7 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
       visualStyle: input.visualStyle ?? 'cartoon3d',
       anchors: input.anchors ?? {},
       characterSheet: null,
+      characterRefs: input.characterRefs ?? {},
       mode: input.mode,
       platform: input.platform,
       costMode: input.costMode,
@@ -588,6 +590,32 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
     if (!story) return false
 
     story.anchors = anchors
+
+    return true
+  }
+
+  async updateCharacterRefs(
+    storyId: string,
+    refs: StoredCharacterRefs,
+    guard: ReelStoryGuard & { readonly leaseOwner?: string } = {},
+  ): Promise<boolean> {
+    const index = this.records.findIndex((record) => record.id === storyId)
+
+    if (index < 0) return false
+
+    const current = this.records[index]!
+
+    // Mirrors the Prisma where-clause: a stale version or a lost lease must not
+    // write, because that write is what re-triggers a paid generation.
+    if (guard.version !== undefined && current.version !== guard.version) return false
+    if (guard.statuses !== undefined && !guard.statuses.includes(current.status)) return false
+    if (guard.leaseOwner !== undefined && current.leaseOwner !== guard.leaseOwner) return false
+
+    this.records[index] = {
+      ...current,
+      characterRefs: refs,
+      version: current.version + 1,
+    }
 
     return true
   }

@@ -37,6 +37,9 @@ export default defineNuxtConfig({
       costDirectorRepairUsd: 0.01,
       costKeyframeUsd: 0.05,
       costKeyframeReferenceUsd: 0.08,
+      costCharacterRefUsd: 0.04,
+      // Kept off by default: a vision call per keyframe is paid and not budgeted.
+      consistencyEnabled: false,
       costVideoFastUsd: 0.35,
       costVideoQualityUsd: 0.7,
       dailyBudgetUsd: 50,

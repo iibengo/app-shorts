@@ -128,6 +128,7 @@ function legacyRecord(withShots: boolean): ReelStoryRecord {
     plan,
     scenes,
     shots,
+    characterRefs: {},
     finalVideoUrl: null,
     finalVideoExpiresAt: null,
     qc: null,

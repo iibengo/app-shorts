@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Approved (Checkpoint 1 superado el 2026-10-24).
+**Status**: Implemented (2026-10-24). Pendiente: smoke real y QA manual, que solo el humano puede aprobar para `Validated`.
 
 **Input**: User description: "Los personajes secundarios inventados salen distintos en cada plano y a veces diminutos. Quiero que cada personaje tenga su propia imagen desde el principio y que los planos se encuadren en quien hace la acción. El motor de vídeo se queda como está."
 
@@ -388,18 +388,6 @@ Reutiliza `server/fal/` (queue, storage, allowlist), `server/shared/` (errores, 
 | Inglés | El cuerpo va en inglés; `narration` nunca entra en el prompt. |
 | Prohibido | `Avoid:` en el prompt positivo (FLUX/Kontext no tienen canal negativo). |
 
-### Vídeo con elementos
-
-| Regla | Contrato |
-|---|---|
-| Etiquetas | `@Element1` es el protagonista si está presente; después los secundarios en orden de canon. |
-| Correspondencia | `elements[i].frontal_image_url` ↔ `@Element{i+1}`. MUST ser biyectiva. |
-| Elemento no mencionado | MUST NOT enviarse: se filtra antes de construir la entrada. |
-| Texto de identidad | Con ≥1 elemento, el prompt MUST incluir `Keep the identity of @Element1, @Element2 exactly as in their reference images.` |
-| Elementos vacíos | Sin elementos se conserva el prompt de 008 al completo. |
-| Rejilla | Igual que en el keyframe: `SINGLE_FRAME_BLOCK` sigue presente y el keyframe ya validado es la única imagen de arranque. |
-| Actuación | El prompt MUST NOT pedir interpretación al elemento: la sonda B demostró que los elementos no dirigen actores. El movimiento se describe en el cuerpo del prompt como en 008. |
-
 ### Resolución
 
 `resolveFocus(shot, scene, bible)` es puro y determinista:
@@ -551,7 +539,6 @@ GENERATING_KEYFRAMES
 | Área | Contrato |
 |---|---|
 | Secretos | `NUXT_FAL_KEY` sigue solo en `runtimeConfig.falKey`. La generación de referencias es server-side; el cliente nunca ve la key. |
-| Endpoint | `fal-ai/kling-video/v3/pro/image-to-video` MUST estar en la allowlist del servidor. El cliente no elige endpoint ni modelo. |
 | URLs | `frontalUrl` y `referenceUrls` MUST pasar `assertFalMediaUrl` (`FAL_CDN_HOSTS`, https, sin credenciales ni fragmento, ≤2 048 caracteres). |
 | Lifecycle | Las referencias generadas usan la misma política que los keyframes (URLs de Fal CDN). No se re-suben a Storage; no hay binario en Nitro. |
 | Logs | Se registra `characterId`, `attempt`, `stage`, `latencyMs`, `errorCode` y coste. **Nunca** la key, el prompt completo, la URL firmada ni la IP en claro. |
@@ -636,7 +623,7 @@ NUXT_STORY_CONSISTENCY_ENABLED=false
 | `tests/unit/server/story-character-ref-orchestrator.spec.ts` | `submit` con y sin referencia del usuario; parseo vertical; salida no vertical → `provider-invalid-output`; fallo mapeado; idempotencia por `characterId`; 2 intentos. |
 | `tests/unit/server/story-anchor-selection.spec.ts` | N referencias ordenadas; máximo 3; sin hoja; sin `sheetFallback`; sin personajes → referencia del protagonista con instrucción de estilo; sin nada → FLUX. |
 | `tests/unit/server/story-focus-framing.spec.ts` | 0/1/≥2 coincidencias; secundario + `wide` → `close-up`; secundario + `insert` intacto; protagonista intacto; acentos y mayúsculas; sujeto desconocido. |
-| `tests/unit/server/story-prompt-composer.spec.ts` | Bloque de foco por encuadre; orden estilo→identidad→single-frame→plano→foco→composición; ≤900 con 3 referencias; `@ElementN` en el prompt de vídeo; elemento no mencionado no se envía. |
+| `tests/unit/server/story-prompt-composer.spec.ts` | Bloque de foco por encuadre; orden estilo→identidad→single-frame→plano→foco→composición; ≤900 con 3 referencias;  |
 | `tests/unit/server/story-reel-cost.spec.ts` | Unidad por personaje; rechazo antes de enviar; referencia que no cabe se salta; mensaje con el cap real; aritmética exacta de `budget` 15 s (2,14 / 2,18 / 2,50) y pre-plan sin unidades de referencia. |
 | `tests/unit/server/story-qc-frames.spec.ts` | Clip de 2 s y de 6 s; `expectedDurationSeconds` por clip; timestamps dentro del clip. |
 | `tests/unit/server/story-reconciler.spec.ts` | Referencias antes del primer keyframe; fallo parcial no bloquea; timeout 180 s; reinicio con `pending`; díptico re-encolado sin tocar referencias; idempotencia entre ticks. |
@@ -677,7 +664,6 @@ NUXT_STORY_CONSISTENCY_ENABLED=false
 1. Crea una historia 15 s `standard`, `preset: 'quality'`, `visualStyle: 'papercraft'`, con un secundario inventado en la premisa.
 2. Espera las referencias: **≥2** `ready`; apunta coste y latencia.
 3. Espera `WAITING_APPROVAL`; verifica que ningún keyframe es díptico.
-4. Aprueba; verifica que al menos un envío usa `fal-ai/kling-video/v3/pro/image-to-video` con `elements` y `duration` exacta.
 5. Espera el MP4 final; imprime `{ storyId, refs, engine, plannedSeconds, finalSeconds, spentUsd }`.
 6. **Sonda dedicada del caso no probado** (presupuesto aparte, ~0,60 USD): toma un keyframe real de la misma historia que **no** contenga al secundario; envía Kling v3 con `start_image_url` = ese keyframe y **solo** el elemento del secundario, con un prompt que pida su aparición en la acción. Revisa a mano si el personaje aparece con la identidad de su referencia. Este resultado es **QA manual** y es el que decide si 012 puede llegar a `Validated`.
 7. Mide la facturación real de un plano de 2 s y de uno de 6 s para confirmar el modelo por segundo.

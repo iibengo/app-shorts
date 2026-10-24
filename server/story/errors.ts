@@ -317,7 +317,18 @@ export function isStoryErrorCode(value: string): value is StoryErrorCode {
   return STORY_ERROR_CODES.has(value)
 }
 
-export function storyErrorMessage(code: StoryErrorCode): string {
+/**
+ * The cap depends on the cost profile (2.50 for a 15 s budget story, 15 for a
+ * 90 s production one), so a fixed "8 dollars" message lies for almost every
+ * story. Callers that know the cap pass it in.
+ */
+export function storyErrorMessage(code: StoryErrorCode, capUsd?: number): string {
+  if (code === 'story-budget-exhausted' && capUsd !== undefined && Number.isFinite(capUsd)) {
+    const amount = (Math.round(capUsd * 100) / 100).toFixed(2).replace('.', ',')
+
+    return `Esta historia ha alcanzado su límite de ${amount} dólares. Empieza una nueva.`
+  }
+
   return DEFINITIONS[code].message
 }
 

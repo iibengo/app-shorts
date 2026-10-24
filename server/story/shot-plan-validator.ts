@@ -15,7 +15,8 @@ import type {
 } from './director-types'
 import { plannedDuration, plannedRange, trimToMaxDuration } from './duration-plan'
 import type { SimilarShotAdvisory } from './shot-variety'
-import { detectSimilarShotPrompts } from './shot-variety'
+import type { RepeatedFramingAdvisory } from './shot-variety'
+import { detectRepeatedFraming, detectSimilarShotPrompts } from './shot-variety'
 import { isShotDurationAllowed } from './shot-duration-rule'
 import { hasSignificantNarrationCopy } from './prompt-guard'
 
@@ -63,6 +64,7 @@ export type ShotListValidation =
       readonly draft: ShotListDraft
       readonly plan: ShotPlan
       readonly advisories: readonly SimilarShotAdvisory[]
+      readonly repeatedFraming: readonly RepeatedFramingAdvisory[]
     }
   | { readonly ok: false; readonly reason: string }
 
@@ -523,11 +525,11 @@ export function validateShotList(
     return { ok: false, reason: finalNumbersError }
   }
 
-  const advisories = detectSimilarShotPrompts(
-    flat.map((shot, index) => ({ ...shot, order: index + 1 })),
-  )
+  const ordered = flat.map((shot, index) => ({ ...shot, order: index + 1 }))
+  const advisories = detectSimilarShotPrompts(ordered)
+  const repeatedFraming = detectRepeatedFraming(ordered)
 
-  return { ok: true, draft, plan, advisories }
+  return { ok: true, draft, plan, advisories, repeatedFraming }
 }
 
 export function assembleShotPlan(

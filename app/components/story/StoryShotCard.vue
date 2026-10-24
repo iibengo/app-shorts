@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import AppButton from '~/components/ui/AppButton.vue'
 import {
+  STORY_CHARACTER_REF_COPY,
   STORY_COST_MODE_COPY,
   STORY_SHOT_FRAMING_LABELS,
 } from '~/data/story'
@@ -28,6 +29,19 @@ const disabled = computed(() => props.legacy === true
 const characters = computed(() => props.scene?.characters.join(', ') ?? '—')
 const propsList = computed(() => props.scene?.props.join(', ') ?? '—')
 const continuity = computed(() => '—')
+
+// 012: the framing actually sent may differ from the plan when the action
+// belongs to a secondary character. Showing the sent one avoids a review that
+// argues with the picture it is looking at.
+const focusName = computed<string | null>(() => {
+  const subject = (props.shot.subject ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const names = props.scene?.characters ?? []
+  const match = names.find((name) => subject.includes(
+    name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(),
+  ))
+
+  return match ?? null
+})
 </script>
 
 <template>
@@ -53,6 +67,7 @@ const continuity = computed(() => '—')
     <dl class="mt-2 grid grid-cols-2 gap-2 text-xs">
       <div data-testid="story-shot-duration"><dt class="text-brand-muted">Duración</dt><dd>{{ shot.durationSeconds }} s</dd></div>
       <div data-testid="story-shot-framing"><dt class="text-brand-muted">Encuadre</dt><dd>{{ STORY_SHOT_FRAMING_LABELS[shot.framing] }}</dd></div>
+      <div v-if="focusName !== null" data-testid="story-shot-focus"><dt class="text-brand-muted">Foco</dt><dd>{{ STORY_CHARACTER_REF_COPY.focus.replace('{name}', focusName) }}</dd></div>
       <div data-testid="story-shot-camera"><dt class="text-brand-muted">Cámara</dt><dd>{{ storyCameraLabel(shot.camera) }}</dd></div>
       <div data-testid="story-shot-location"><dt class="text-brand-muted">Localización</dt><dd>{{ shot.locationId }}</dd></div>
       <div data-testid="story-shot-subject"><dt class="text-brand-muted">Sujeto</dt><dd>{{ shot.subject }}</dd></div>

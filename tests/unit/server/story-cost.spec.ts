@@ -47,6 +47,7 @@ describe('story cost estimates', () => {
       videoFastCostUsd: 0.35,
       videoQualityCostUsd: 0.7,
       videoQualityShortCostUsd: 0.35,
+      characterRefCostUsd: 0.04,
       qcUnitCostUsd: 0.02,
       dailyBudgetUsd: 50,
     })

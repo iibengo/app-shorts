@@ -26,11 +26,12 @@ export type SceneStatus =
 export type StoryPreset = 'fast' | 'quality'
 
 /** Look visual del canal. El cliente envía el id; el texto vive en el servidor. */
-export type StoryVisualStyle = 'cartoon3d' | 'papercraft' | 'clay' | 'anime' | 'photo'
+export type StoryVisualStyle = 'cartoon3d' | 'papercraft' | 'voxel' | 'clay' | 'anime' | 'photo'
 
 export const STORY_VISUAL_STYLES: readonly StoryVisualStyle[] = [
   'cartoon3d',
   'papercraft',
+  'voxel',
   'clay',
   'anime',
   'photo',
@@ -443,6 +444,19 @@ export type StoryCharacterView = 'front' | 'three-quarter' | 'profile' | 'smile'
 /** Character sheet: one URL per view. Server-only in the DTO. */
 export type StoryCharacterSheet = Readonly<Record<StoryCharacterView, string>>
 
+export type StoryCharacterRefStatus = 'pending' | 'ready' | 'failed'
+
+/** Cómo se obtuvo la imagen del personaje. */
+export type StoryCharacterRefSource = 'user' | 'generated'
+
+/** Proyección pública de una referencia. Sin request ids ni URLs de proveedor distintas de la imagen. */
+export interface StoryCharacterReference {
+  readonly characterId: string
+  readonly source: StoryCharacterRefSource
+  readonly status: StoryCharacterRefStatus
+  readonly imageUrl: string | null
+}
+
 export interface Story {
   readonly id: string
   readonly status: StoryStatus
@@ -453,8 +467,6 @@ export interface Story {
   readonly referenceExpiresAt: string | null
   readonly preset: StoryPreset
   readonly visualStyle: StoryVisualStyle
-  /** `ready` when the sheet exists; a single anchor is the fallback. */
-  readonly characterSheetStatus: 'none' | 'ready' | 'failed'
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode
@@ -469,6 +481,8 @@ export interface Story {
   readonly aspectRatio: StoryAspectRatio
   readonly plan: StoryPlan | null
   readonly scenes: readonly StoryScene[]
+  /** Orden del canon. Nunca incluye la hoja ni las anclas. */
+  readonly characterRefs: readonly StoryCharacterReference[]
   readonly finalVideoUrl: string | null
   readonly finalVideoExpiresAt: string | null
   readonly approvedAt: string | null

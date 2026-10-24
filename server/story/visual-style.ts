@@ -12,6 +12,8 @@ const STYLE_BLOCKS: Readonly<Record<StoryVisualStyle, string>> = {
     '3D cartoon render, glossy stylized characters, Pixar-like proportions, soft studio lighting, clean pastel palette',
   papercraft:
     'low-poly papercraft 3D render, faceted geometric shapes, matte paper texture, dark navy background with neon pink and blue accents, dramatic rim light',
+  voxel:
+    'voxel art 3D render, blocky cubic characters and props, chunky pixel-like volumes, flat shaded faces, saturated palette, clean isometric-friendly lighting',
   clay:
     'claymation stop-motion look, handmade plasticine characters, visible fingerprints, warm soft light, miniature set',
   anime:
@@ -24,6 +26,7 @@ const STYLE_BLOCKS: Readonly<Record<StoryVisualStyle, string>> = {
 const STYLE_BLOCKS_SHORT: Readonly<Record<StoryVisualStyle, string>> = {
   cartoon3d: '3D cartoon render, glossy stylized characters, soft studio lighting',
   papercraft: 'low-poly papercraft 3D render, faceted paper planes, neon accents',
+  voxel: 'voxel art 3D render, blocky cubic characters, flat shaded faces',
   clay: 'claymation look, handmade plasticine characters, warm soft light',
   anime: 'anime illustration, clean cel shading, vibrant colors',
   photo: 'photorealistic cinematic still, natural lighting',
@@ -32,6 +35,7 @@ const STYLE_BLOCKS_SHORT: Readonly<Record<StoryVisualStyle, string>> = {
 const NEGATIVE_BY_STYLE: Readonly<Record<StoryVisualStyle, string>> = {
   cartoon3d: 'photorealistic, live action, gritty texture',
   papercraft: 'photorealistic, smooth plastic, glossy reflections',
+  voxel: 'photorealistic, smooth organic surfaces, soft gradients',
   clay: 'photorealistic, digital CGI, sharp edges',
   anime: 'photorealistic, 3D render, western cartoon',
   photo: 'cartoon, illustration, 3D render, anime',

@@ -7,6 +7,7 @@ import {
 import StoryErrorAlert from '~/components/story/StoryErrorAlert.vue'
 import StoryHeader from '~/components/story/StoryHeader.vue'
 import StoryPlanProgress from '~/components/story/StoryPlanProgress.vue'
+import StoryCharacterRefs from '~/components/story/StoryCharacterRefs.vue'
 import StoryReview from '~/components/story/StoryReview.vue'
 import StoryVideoProgress from '~/components/story/StoryVideoProgress.vue'
 import StoryQCProgress from '~/components/story/StoryQCProgress.vue'
@@ -69,6 +70,17 @@ const {
   restart,
   retryPolling,
 } = useStory({ api, storyId })
+
+/** Canon names keyed by id, so the reference list is readable. */
+const characterNames = computed<Readonly<Record<string, string>>>(() => {
+  const names: Record<string, string> = {}
+
+  for (const character of story.value?.plan?.storyBible?.characters ?? []) {
+    names[character.id] = character.name
+  }
+
+  return names
+})
 
 const orderedScenes = computed(() => (
   story.value
@@ -345,11 +357,14 @@ watch(
         @regenerateShot="(shotId, prompt, duration) => handleRegenerateShot(shotId, { visualPrompt: prompt, durationSeconds: duration, regenerate: true })"
       />
 
-      <StoryPlanProgress
-        v-else-if="state.status === 'keyframes'"
-        status="keyframes"
-        @cancel="handleCancel"
-      />
+      <div v-else-if="state.status === 'keyframes'">
+        <StoryPlanProgress status="keyframes" @cancel="handleCancel" />
+        <StoryCharacterRefs
+          v-if="story !== null"
+          :refs="story.characterRefs"
+          :names="characterNames"
+        />
+      </div>
 
       <StoryShotReview
         v-else-if="state.status === 'review' && story && isReelStory"

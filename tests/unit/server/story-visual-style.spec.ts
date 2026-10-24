@@ -11,7 +11,7 @@ import { StoryError } from '../../../server/story/errors'
 
 describe('visual style registry', () => {
   it('maps every id to an English style block', () => {
-    expect(STORY_VISUAL_STYLES).toHaveLength(5)
+    expect(STORY_VISUAL_STYLES).toHaveLength(6)
 
     for (const style of STORY_VISUAL_STYLES) {
       const block = styleBlockFor(style)
@@ -37,5 +37,17 @@ describe('visual style registry', () => {
     expect(new Set(blocks).size).toBe(blocks.length)
     expect(styleBlockFor('papercraft')).toContain('low-poly')
     expect(styleBlockFor('cartoon3d')).toContain('3D cartoon')
+  })
+})
+
+describe('voxel style', () => {
+  it('describes blocky cubes and forbids smooth surfaces', () => {
+    expect(styleBlockFor('voxel')).toContain('voxel')
+    expect(styleBlockFor('voxel')).toContain('cubic')
+    expect(styleNegativeFor('voxel')).toContain('smooth')
+  })
+
+  it('is accepted by the validator', () => {
+    expect(validateVisualStyle('voxel')).toBe('voxel')
   })
 })
