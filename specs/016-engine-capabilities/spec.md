@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Implemented (2026-10-24). Aprobada por el humano, que acepta la consecuencia: con un motor de mínimo 6 s, 15 s son 2 planos, no 4. Implementadas las fichas, la elección de duración por ficha y el coste derivado. **No `Validated`:** la prueba con una historia real no se pudo completar porque el proveedor bloquea la cuenta sin saldo; queda pendiente de recarga.
+**Status**: Implemented **parcial** (2026-10-24). Lo que funciona: las fichas con datos oficiales, y el orquestador ya no contiene duraciones literales. Lo que **no**: `planShotDurations` y `billedSecondsFor` solo los usan los tests; la tolerancia por clip no se lee de la ficha (el ensamblador usa 0,1); el coste sigue por unidades fijas y no por segundo; y los códigos `engine-unsupported-duration` y `engine-unsupported-plan` no existen. **Consecuencia:** el reparto de planos que la spec describe (adaptar el director al motor) **no está implementado**. **No `Validated`:** falta la prueba con una historia real.
 
 **Input**: User description: "En el futuro podremos poner diferentes modelos con diferentes formas de comunicarnos, incluso de prompts, ya que usan diferentes inputs: más fotos, vídeo, etc. Depende del modelo debería funcionar bien. Tenemos que tener la info de cada modelo para saber qué hacer; incluso el tipo de clip cambiará, y el precio. Todo eso debemos dejarlo atado."
 
