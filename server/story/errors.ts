@@ -198,6 +198,11 @@ const DEFINITIONS: Readonly<Record<StoryErrorCode, StoryErrorDefinition>> = {
     message: 'Esta historia ha alcanzado su límite de coste. Empieza una nueva o elige una duración menor.',
     retryable: false,
   },
+  'character-ref-retry-limit-reached': {
+    status: 409,
+    message: 'Ese personaje ya usó todos sus intentos. Empieza una historia nueva.',
+    retryable: false,
+  },
   // 016: the provider locks the account when its balance runs out. Saying
   // "service unavailable" for that describes nothing and sends the user to
   // retry something that cannot work until they top up.

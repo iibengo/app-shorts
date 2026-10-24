@@ -286,3 +286,14 @@ describe('character reference elements', () => {
     expect(elements.map((element) => element.characterId)).toEqual(['mara'])
   })
 })
+
+describe('retry cap', () => {
+  it('the service and the reconciler agree on the cap', async () => {
+    // They live in two modules to avoid an import cycle, which is exactly the
+    // kind of duplication that drifts. This keeps them equal.
+    const { CHARACTER_REF_RETRY_CAP } = await import('../../../server/story/reel-service')
+    const { CHARACTER_REF_MAX_ATTEMPTS } = await import('../../../server/story/reel-reconciler')
+
+    expect(CHARACTER_REF_RETRY_CAP).toBe(CHARACTER_REF_MAX_ATTEMPTS)
+  })
+})

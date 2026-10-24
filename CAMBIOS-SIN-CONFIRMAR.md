@@ -234,3 +234,26 @@ generada falló. No aparece si ya está lista, ni en la foto subida por el usuar
 no hay nada que redibujar; un botón que no hace nada es peor que no tenerlo.
 **Coste:** 0 hasta pulsarlo; entonces, una imagen por personaje.
 **Tests:** 4 nuevos de componente, 6 de ruta, suite completa en 1920 / 12 skipped.
+
+### 21. Revisión externa: cuatro bloqueantes corregidos
+
+Un revisor independiente encontró cuatro fallos graves en el trabajo anterior.
+Todos corregidos:
+
+1. **El motivo del fallo se guardaba y se descartaba al leer.** El parseo no
+   leía `errorCode`, así que la mejora del punto 18 no funcionaba de punta a
+   punta. Ahora se lee y se escribe.
+2. **La ruta de reintentar aceptaba estados donde nadie la procesa.** En
+   `WAITING_APPROVAL` devolvía 202 y dejaba la referencia en `pending` para
+   siempre. Ahora solo se acepta durante la fase de keyframes, que es la única
+   donde se recoge.
+3. **Reiniciaba `attempts` a 0**, que es el único freno al gasto y la base del
+   cálculo de coste. Una referencia se podía reencolar en bucle. Ahora no se
+   toca el contador y se rechaza al llegar al tope.
+4. **Faltaban la guarda de sesión y el límite de comandos** que tienen todas las
+   rutas hermanas. Sin ellas, la ruta se podía llamar sin freno.
+
+**Coste:** 0.
+**Tests:** 1921 passed / 12 skipped, build correcto. Se añadieron dos casos
+nuevos (estado incorrecto y tope agotado) y un test que impide que las dos
+constantes del tope divergan.

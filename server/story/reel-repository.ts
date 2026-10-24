@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { isStoryVisualStyle } from './visual-style'
 import { parseCharacterSheet } from './character-sheet'
-import { canonCharacters, parseCharacterRefs } from './character-refs'
+import { canonCharacters, parseCharacterRefs, serializeCharacterRefs } from './character-refs'
 import type { StoredCharacterRefs } from './character-refs'
 import type { StoryCharacterSheet, StoryGraphic } from '~/models/story'
 import type {
@@ -949,7 +949,7 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
         ...(guard.leaseOwner === undefined ? {} : { leaseOwner: guard.leaseOwner }),
       },
       data: {
-        characterRefsJson: refs as unknown as never,
+        characterRefsJson: serializeCharacterRefs(refs) as unknown as never,
         version: { increment: 1 },
       },
     })

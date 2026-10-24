@@ -1,42 +1,45 @@
 # CLAUDE.md — AI Shorts
 
-El contexto canónico del proyecto está en [`AGENTS.md`](./AGENTS.md). Léelo antes de proponer o implementar cambios.
+Este archivo es estable: solo reglas de trabajo y punteros. El estado del
+proyecto (specs, cifras de tests, gates abiertos, siguiente spec) vive en
+`AGENTS.md` y se actualiza allí al cerrar cada spec, nunca aquí.
 
-## Orden de lectura
+La constitución es la autoridad máxima y `AGENTS.md` el contexto canónico. Se
+importan para que estén siempre en contexto:
 
-1. `.specify/memory/constitution.md`
-2. `AGENTS.md`
-3. La spec relevante en `specs/NNN-feature-name/spec.md`
-4. El código y los tests afectados
+@.specify/memory/constitution.md
+@AGENTS.md
 
-## Reglas críticas
+## Cómo trabajar en este repo desde Claude Code
 
-- No escribir código sin una spec aprobada. Respetar Checkpoint 1 (spec) y Checkpoint 2 (implementación).
-- Mantener el flujo por defecto en 1–3 clics; la configuración avanzada es opcional.
-- `NUXT_FAL_KEY` y cualquier secreto viven solo en servidor. Nunca en `app/`, HTML, logs, respuestas o tokens.
-- Las rutas `server/api/` son finas; la lógica de proveedor vive en `server/<domain>/` con adaptadores e inyección de dependencias.
-- Contratos compartidos en `app/models/`; DTOs de proveedor solo en `server/`; sin `any`, sin `File`/`Blob` en modelos compartidos.
-- El navegador solo puede hacer el `PUT` scoped de una subida firmada; no llama a Fal directamente.
-- Los jobs de vídeo son asíncronos: submit, token opaco, polling/backoff, cancelación y estados terminales.
-- Keyframe-first para vertical 9:16; conservar el keyframe como póster y éxito parcial.
-- Rate limit, idempotencia, presupuesto y allowlists son obligatorios en rutas que cuestan dinero.
-- Tests con stubs; nunca Fal real en CI. Gate final: `npm run test:run` + `npm run build`.
-- Despliegue Node/Nitro con `npm run build`; `nuxt generate` no sirve para `/api/**` ni Composer real.
+- La sesión principal hace de orquestador, el mismo papel que `ionias` en
+  OpenCode, con las mismas fases y checkpoints:
+  investigación (`/io-plan`) → spec → **Checkpoint 1** → implementación →
+  revisión read-only → **Checkpoint 2** → tests y gate → cierre (`/io-close`).
+- Antes de tocar una feature, leer su spec en `specs/NNN-feature-name/spec.md`.
+- Gate final: `npm run test:run` + `npm run build`. Tests con stubs; nunca
+  proveedores reales sin autorización explícita.
+- Nunca commit sin aprobación explícita del humano; nunca `git push`.
+- Nunca leer, mostrar ni copiar `.env`. Las variables se documentan en
+  `.env.example`.
+
+## Convivencia con OpenCode
+
+- OpenCode (`.opencode/`, agente `ionias`) sigue siendo un flujo válido y es
+  la fuente de comandos, agentes y skills. No se duplican en `.claude/`.
+- El estado compartido está en el repo: specs, `AGENTS.md`, `BACKLOG.md`,
+  `CAMBIOS-SIN-CONFIRMAR.md` y git. Cada fase deja su resultado escrito antes
+  de cambiar de herramienta.
+- No trabajar con OpenCode y Claude Code a la vez sobre el mismo árbol; si hace
+  falta en paralelo, usar otra rama o worktree.
 
 ## Project skills
 
-Carga bajo demanda desde `.opencode/skills/`:
+Viven en `.opencode/skills/<skill-id>/SKILL.md`. Cargar el del dominio que se
+toque (la tabla de cuándo está en `AGENTS.md`):
+`sdd-spec-guardrails`, `fal-deepseek-pipeline`, `prisma-leases`,
+`ffmpeg-media`, `story-test-harness`.
 
-- `sdd-spec-guardrails` antes de una spec o cambio de contrato.
-- `fal-deepseek-pipeline` para Fal/DeepSeek.
-- `prisma-leases` para Prisma/PostgreSQL/leases.
-- `ffmpeg-media` para ensamblaje de vídeo.
-- `story-test-harness` para tests de Story y regresión 004.
-
-Los skills de `.cursor/skills` son exclusivos de Cursor. El reviewer read-only está en `.opencode/agents/reviewer.md` y se invoca con `/io-review`.
-
-## Estado actual
-
-- Specs 004 y 005 implementadas.
-- 1505 tests en verde y 7 skips opt-in; 613 tests de 004 intactos.
-- Build Node/Nitro correcto con Prisma 7, PostgreSQL, FFmpeg y Story Composer.
+Los comandos `/io-*` están en `.opencode/commands/` y los roles de los
+subagentes en `.opencode/agents/`; desde aquí se leen como instrucciones del
+paso correspondiente. Los skills de `.cursor/skills` son exclusivos de Cursor.

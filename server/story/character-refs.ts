@@ -111,6 +111,9 @@ function parseStoredCharacterRef(value: unknown): StoredCharacterRef | null {
     frontalUrl,
     referenceUrls,
     attempts: readAttempts(value.attempts),
+    ...(typeof value.errorCode === 'string' && value.errorCode.length > 0
+      ? { errorCode: value.errorCode }
+      : {}),
     updatedAt: readUpdatedAt(value.updatedAt),
   }
 
@@ -259,6 +262,7 @@ export function serializeCharacterRefs(
       frontalUrl: ref.frontalUrl,
       referenceUrls: [...ref.referenceUrls],
       attempts: ref.attempts,
+      ...(ref.errorCode === undefined ? {} : { errorCode: ref.errorCode }),
       updatedAt: ref.updatedAt,
     }
   }

@@ -27,6 +27,11 @@ jobs:
 
       - name: Generate Prisma client
         run: npm run db:generate
+        env:
+          # prisma.config.ts reads DIRECT_URL when it loads, before dispatching
+          # any command, and throws if it is unset. The client generator does not
+          # connect, so a placeholder is enough.
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Full suite
         run: npm run test:run

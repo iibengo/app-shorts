@@ -35,7 +35,11 @@ function request(): StoryCreateRequest {
   }
 }
 
-function failedRef(source: 'generated' | 'user', status: 'failed' | 'ready') {
+function failedRef(
+  source: 'generated' | 'user',
+  status: 'failed' | 'ready',
+  attempts = 1,
+) {
   const ready = status === 'ready'
 
   return {
@@ -43,12 +47,15 @@ function failedRef(source: 'generated' | 'user', status: 'failed' | 'ready') {
     source,
     frontalUrl: ready ? 'https://v3.fal.media/files/x.png' : null,
     referenceUrls: ready ? ['https://v3.fal.media/files/x.png'] : [],
-    attempts: ready ? 0 : 2,
+    attempts: ready ? 0 : attempts,
     updatedAt: new Date(NOW).toISOString(),
   }
 }
 
-async function setup(references: Record<string, ReturnType<typeof failedRef>>) {
+async function setup(
+  references: Record<string, ReturnType<typeof failedRef>>,
+  status: 'GENERATING_KEYFRAMES' | 'WAITING_APPROVAL' = 'GENERATING_KEYFRAMES',
+) {
   const repository = new FakeReelStoryRepository()
   const service = createReelStoryService({
     repository,
@@ -74,7 +81,7 @@ async function setup(references: Record<string, ReturnType<typeof failedRef>>) {
 
   repository.records[index] = {
     ...record,
-    status: 'WAITING_APPROVAL',
+    status,
     characterRefs: references as never,
   }
 
@@ -97,6 +104,9 @@ async function setup(references: Record<string, ReturnType<typeof failedRef>>) {
 
 describe('POST /api/story/[id]/characters/[characterId]/retry', () => {
   it('queues a failed generated reference again', async () => {
+    // Only while the keyframe phase runs: that is the only place a pending
+    // reference is picked up. Any other state would answer 202 and leave it
+    // pending for good.
     const ctx = await setup({ pixel: failedRef('generated', 'failed') })
 
     const response = await ctx.retry('pixel')
@@ -117,6 +127,20 @@ describe('POST /api/story/[id]/characters/[characterId]/retry', () => {
     const ctx = await setup({ ionias: failedRef('user', 'failed') })
 
     expect((await ctx.retry('ionias')).status).toBe(409)
+  })
+
+  it('refuses when the story is past the keyframe phase', async () => {
+    const ctx = await setup({ pixel: failedRef('generated', 'failed') }, 'WAITING_APPROVAL')
+
+    expect((await ctx.retry('pixel')).status).toBe(409)
+  })
+
+  it('refuses when the retry cap is spent', async () => {
+    // Resetting the counter would erase images already billed and remove the
+    // only spending gate.
+    const ctx = await setup({ pixel: failedRef('generated', 'failed', 2) })
+
+    expect((await ctx.retry('pixel')).status).toBe(409)
   })
 
   it('returns 404 for a character the story does not have', async () => {

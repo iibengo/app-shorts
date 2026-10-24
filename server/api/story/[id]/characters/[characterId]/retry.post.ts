@@ -32,6 +32,13 @@ export default defineEventHandler(async (event): Promise<StoryJob | void> => {
     }
 
     const context = getStoryReadContext(event, runtime.ipSalt)
+
+    // Every other paid command does both: a session and a rate window. Without
+    // them this route could be looped to spend images with no limit.
+    if (!context.sessionId) throw new StoryError('story-not-found')
+
+    runtime.rateLimiter.consumeCommand(context.sessionId)
+
     const record = await runtime.reelService.retryCharacterReference(
       id,
       context.sessionId,

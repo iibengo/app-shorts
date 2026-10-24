@@ -37,6 +37,13 @@ import {
   MAX_CHARACTER_REFS,
 } from './character-refs'
 
+/**
+ * Same value as the reconciler's cap, kept here because the retry decision is
+ * made in this service. A test asserts both stay equal; importing one from the
+ * other created a cycle that silently stopped the generator.
+ */
+export const CHARACTER_REF_RETRY_CAP = 2
+
 export interface ReelStoryServiceConfig {
   readonly storyTtlMs: number
   readonly pollAfterMs: number
@@ -1222,17 +1229,29 @@ export class ReelStoryServiceImpl implements ReelStoryService {
     if (ref.source === 'user') throw new StoryError('scene-not-ready')
     if (ref.status === 'ready') throw new StoryError('scene-not-ready')
 
-    const allowed = story.status === 'GENERATING_KEYFRAMES'
-      || story.status === 'WAITING_APPROVAL'
-      || story.status === 'GENERATING_VIDEOS'
-    if (!allowed) throw new StoryError('story-not-ready')
+    // Only while the keyframe phase runs: that is the only place a pending
+    // reference is picked up. Accepting WAITING_APPROVAL would answer 202 and
+    // leave the reference pending for good, which is worse than refusing.
+    if (story.status !== 'GENERATING_KEYFRAMES') throw new StoryError('story-not-ready')
+
+    // `attempts` is the only spending gate and the cost estimate is built from
+    // it. Resetting it would erase images already billed and remove the cap.
+    if (ref.attempts >= CHARACTER_REF_RETRY_CAP) {
+      throw new StoryError('character-ref-retry-limit-reached')
+    }
+
+    this.costGuard.assertWithinCap(story, this.costGuard.estimateCharacterRefAttempt(story, characterId))
 
     const next = {
       ...story.characterRefs,
-      [characterId]: { ...ref, status: 'pending' as const, attempts: 0, errorCode: undefined },
+      [characterId]: { ...ref, status: 'pending' as const, errorCode: undefined },
     }
 
-    const stored = await this.repository.updateCharacterRefs(story.id, next)
+    const stored = await this.repository.updateCharacterRefs(
+      story.id,
+      next,
+      { statuses: ['GENERATING_KEYFRAMES'], version: story.version },
+    )
     if (!stored) throw new StoryError('story-not-ready')
 
     return this.reload(id)
