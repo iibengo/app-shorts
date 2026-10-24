@@ -351,10 +351,22 @@ Se añadió integración continua: la suite completa y el build se ejecutan en c
 
 Eso confirma algo importante: **las pruebas no dependen de infraestructura real**. Cualquiera puede descargar el proyecto y comprobarlo.
 
-### Lo que sigue sin poderse demostrar
+### El hueco que la serie no puede tapar: nunca se ha visto funcionar de principio a fin
 
-**Ninguna historia completa se ha entregado de principio a fin.** No por un fallo del código, sino porque no hay saldo en el proveedor y la subida del vídeo final pasa por ahí.
+Este es el punto más importante de todo el documento, y no es un detalle menor.
 
-Es el hueco honesto de toda la serie: hay piezas montadas a mano que demuestran que el sistema sabría hacerlo, pero nadie ha visto al sistema hacerlo solo, de principio a fin, con una cuenta con fondos.
+**Ninguna historia completa se ha entregado nunca de principio a fin.**
 
-Contarlo así —lo que funciona, lo que está probado y lo que todavía no— es más útil que contar un éxito que no ha ocurrido.
+No por un fallo del código. Hay doce clips generados, montados a mano, con sus textos encima y sus treinta segundos exactos. Existe la prueba de que **el sistema sabría hacerlo**. Lo que no existe es la prueba de que **lo hace solo**.
+
+El motivo es prosaico: la cuenta del proveedor está bloqueada sin saldo, y el último paso —subir el vídeo final— pasa precisamente por ahí.
+
+Y eso convierte este proyecto en un caso de estudio incómodo y muy real:
+
+> Se fueron añadiendo piezas. Cada pieza tenía sus pruebas. Todas las pruebas pasaban. Y en ningún momento se comprobó que el conjunto, entero, hiciera lo que se supone que hace.
+
+Cuando por fin se intentó, aparecieron cuatro fallos graves seguidos. Todos en código que parecía terminado. Todos con la suite en verde.
+
+**La conclusión no es que las pruebas sobren.** Es que hay una prueba que no se había escrito: la que ejecuta el sistema completo, de la primera idea al último archivo, y mira el resultado. Mientras esa prueba no exista, «funciona» es una hipótesis, no un hecho.
+
+Escribir esto cuesta más que escribir un éxito, y por eso mismo es lo que merece contarse.

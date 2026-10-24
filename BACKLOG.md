@@ -6,9 +6,7 @@ Actualizado: 2026-10-24. Ordenado por prioridad real: primero lo que bloquea, de
 
 | # | Tarea | Coste | Por qué |
 |---|---|---|---|
-| 0a | **`assembly-failed` con historias largas** — **causa raíz: saldo agotado** | resuelto en código | Medido el 2026-10-24 en una historia de 30 s y 12 planos: el proveedor devuelve **5,875 s** por clip aunque se pidan 2 o 3, el montaje recorta bien y después la **verificación rechaza** por una tolerancia de 0,1 s. Con 4 planos de 5 s no aparecía. Los 12 vídeos eran válidos: se montaron a mano y salieron 30,0 s exactos. Consecuencia: ninguna historia de 30 s o más termina el montaje. **Prioridad máxima: bloquea cualquier historia real.**
-
-**Causa raíz (2026-10-24, tarde):** el ensamblador real monta 30,0 s con los clips reales. El fallo era **la subida final**: el proveedor responde 403 con `User is locked. Reason: Exhausted balance` porque la cuenta no tiene saldo. Nuestro código traducía ese 403 a **"servicio no disponible"**, así que parecía un fallo del montaje. Corregido: un 403 que menciona el saldo se reconoce como `provider-balance-exhausted`, no como caída del servicio. Pendiente: recargar saldo y comprobar una historia completa de principio a fin. descartados duraciones (6×3 + 6×2 = 30 exacto), tamaño (9 MB de 1536), timeout (falla a los 30 s con 420 configurados), redirecciones y fallo de FFmpeg (la misma secuencia a mano produce 30,0 s). La tolerancia acumulada se arregló y **no era la causa**. Siguiente paso: reproducir el ensamblador con los clips reales en un script fuera de la suite y leer el error exacto. El código ya adjunta `detail` al fallo. |
+| 0a | ~~**`assembly-failed` con historias largas**~~ **CAUSA ENCONTRADA: saldo agotado** | — | El ensamblador monta 30,0 s con los clips reales: el montaje nunca estuvo roto. El fallo era la **subida final**: el proveedor responde 403 con `User is locked. Reason: Exhausted balance`. Nuestro código lo traducía a «servicio no disponible», y eso mandó a buscar el fallo en el montaje durante horas. Corregido: un 403 que menciona el saldo ahora es `provider-balance-exhausted`. **Pendiente:** recargar y comprobar una historia completa. |
 | 0 | ~~**El vídeo inventa texto sobre pantallas**~~ **HECHO (013)** | — | Resuelto con una frase en positivo en `VIDEO_STAGE_BLOCK`. Medido: sin la frase había titulares y rótulos; con la frase, cero texto y la pantalla queda idéntica. |
 | 1 | **Terminar y ver la historia con hoja de personaje** | ~1,1 USD | Primera historia con identidad real. Sin verla, el resto es teoría. |
 | 3 | ~~**Cerrar la spec 011**~~ **HECHO** | 0 | Cerrada con sus enmiendas. |
@@ -18,6 +16,18 @@ Actualizado: 2026-10-24. Ordenado por prioridad real: primero lo que bloquea, de
 Sospecha revisada el 2026-10-24 y **descartada**. `PrismaReelStoryRepository.cancel` ya marca los planos activos como `CANCELLED` dentro de la misma transacción, así que la cancelación por API libera el cupo.
 
 Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hechas con `UPDATE` directo en SQL durante el trabajo, que no pasan por la transacción. No es un defecto del producto.
+
+## 🔴 Validación (antes que cualquier función nueva)
+
+**Criterio del humano (2026-10-24):** *"estamos añadiendo muchas funcionalidades pero realmente no está validado, entonces igual lo mejor es validar antes de crear más."*
+
+| # | Tarea | Bloquea a |
+|---|---|---|
+| **V1** | **Una historia completa, de la idea al MP4, sin intervenir a mano.** Requiere saldo en el proveedor. | Todo lo demás |
+| **V2** | Revisar con ojo humano los keyframes y el vídeo de esa historia: ¿vale para publicar? | Decidir motor |
+| **V3** | Smoke real opt-in de los caminos nuevos (gráficos, reintento de personaje) | Cerrar 015 y 016 |
+
+**Todo lo que sigue está en pausa hasta que V1 pase.** Añadir funciones encima de algo que nunca se ha ejecutado entero ya ha costado cuatro fallos en una noche.
 
 ## 🟡 Producto
 
@@ -29,6 +39,7 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 | 7 | **Notas del director** | 2-4 h | Campo opcional para dar contexto técnico sin dictar los planos. |
 | 8 | **Estilo `explainer`** | 5-8 h | Estilo del vídeo 3; depende de la 015. |
 | 9 | **Rúbrica de calidad + juez** | 4-6 h | Medir si las historias son buenas, no solo válidas. |
+| 9g | **Conectar la ficha del motor con el adaptador** | 3 h | Hoy solo la duración se lee de la ficha; los nombres de campo, el prompt negativo y el coste siguen escritos a mano en cada adaptador. Añadir un motor sin esto obliga a buscar todos esos puntos. **En pausa hasta V1.** |
 | 9a | **Pantalla de personajes** — **parcial** | 2-3 h restantes | Ver cada personaje con su imagen generada, regenerarla y asignarle una foto. Mismo patrón que la regeneración por escena, que ya existe. **Hecho (2026-10-24):** las referencias se ven también al revisar, un fallo explica su motivo y se puede reintentar una referencia fallida. **Falta:** asignar una foto propia a un personaje concreto. |
 | 9b | **Varias fotos del usuario, una por personaje** | 6-10 h | Subir varias fotos y, si la premisa tiene varios personajes, detectar con DeepSeek Vision qué foto es de quién, asignarla y mencionarla en la historia. Cambia el contrato del formulario (`STORY_MAX_REFERENCES = 1` hoy). **Hecho (2026-10-24):** las referencias se ven también al revisar, un fallo explica su motivo y se puede reintentar una referencia fallida. **Falta:** asignar una foto propia a un personaje concreto. |
 | 9d | **Series y personajes reutilizables (spec 013)** | 6-10 h | Tabla `Series` + `Character` global: el personaje (Ionias, Pixel) se genera **una vez** y todas las historias de la serie lo reutilizan. Hoy cada historia vuelve a pagar 0,04 por secundario. Es la base de "crear nuevas historias dentro de una serie". Decisión pendiente: personaje **inmutable** en 013 (crear otra serie si cambia el look), con versionado en una spec posterior. Inspirado en ArcReel, que modela personajes/escenarios/props como activos referenciados por ID. |
