@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#101a30"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38e0ff"/>
+    </marker>
+    <marker id="arrowRetry" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff7a90"/>
+    </marker>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+
+  <!-- Título -->
+  <text x="540" y="62" text-anchor="middle" fill="#ffffff" font-size="34" font-weight="700" letter-spacing="2">AI SHORTS — CÓMO FUNCIONA</text>
+  <text x="540" y="94" text-anchor="middle" fill="#7f8ca8" font-size="19">De una idea escrita a un vídeo vertical de 30 segundos</text>
+
+  <!-- ============ CAPA 1 ============ -->
+  <g>
+    <rect x="70" y="128" width="660" height="104" rx="16" fill="#13203a" stroke="#38e0ff" stroke-width="2"/>
+    <text x="94" y="160" fill="#38e0ff" font-size="20" font-weight="700" letter-spacing="1.5">1 · TU IDEA</text>
+    <text x="94" y="188" fill="#c3cee0" font-size="16">Escribes una premisa. Eliges duración (15–90 s) y estilo</text>
+    <text x="94" y="212" fill="#c3cee0" font-size="16">visual: cartoon, papercraft, voxel, clay, anime o photo.</text>
+  </g>
+
+  <line x1="400" y1="232" x2="400" y2="272" stroke="#38e0ff" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ CAPA 2 · EL DIRECTOR ============ -->
+  <rect x="52" y="276" width="700" height="404" rx="20" fill="none" stroke="#ff5fa8" stroke-width="1.6" stroke-dasharray="7 6" opacity="0.85"/>
+  <text x="72" y="306" fill="#ff5fa8" font-size="16" font-weight="700" letter-spacing="1">2 · EL DIRECTOR · DeepSeek · solo texto, no dibuja</text>
+
+  <!-- Canon -->
+  <rect x="72" y="322" width="660" height="100" rx="14" fill="#1b1430" stroke="#ff5fa8" stroke-width="2"/>
+  <text x="94" y="354" fill="#ff9ac6" font-size="19" font-weight="700" letter-spacing="1.2">CANON</text>
+  <text x="94" y="380" fill="#c3cee0" font-size="15">Fija personajes, lugares, props, estilo, prohibiciones y</text>
+  <text x="94" y="402" fill="#c3cee0" font-size="15">reglas de continuidad. Es la fuente de verdad.</text>
+
+  <line x1="400" y1="422" x2="400" y2="452" stroke="#38e0ff" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Beats -->
+  <rect x="72" y="456" width="660" height="100" rx="14" fill="#1b1430" stroke="#ff5fa8" stroke-width="2"/>
+  <text x="94" y="488" fill="#ff9ac6" font-size="19" font-weight="700" letter-spacing="1.2">BEATS · 12 ESCENAS</text>
+  <text x="94" y="514" fill="#c3cee0" font-size="15">Gancho, complicación, escalada, giro, remate. Cada escena</text>
+  <text x="94" y="536" fill="#c3cee0" font-size="15">declara qué está EN JUEGO (stake).</text>
+
+  <line x1="400" y1="556" x2="400" y2="586" stroke="#38e0ff" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Planos -->
+  <rect x="72" y="590" width="660" height="100" rx="14" fill="#1b1430" stroke="#ff5fa8" stroke-width="2"/>
+  <text x="94" y="622" fill="#ff9ac6" font-size="19" font-weight="700" letter-spacing="1.2">PLANOS</text>
+  <text x="94" y="648" fill="#c3cee0" font-size="15">Divide cada escena en planos. Decide sujeto, encuadre y</text>
+  <text x="94" y="670" fill="#c3cee0" font-size="15">cámara. Aquí nace el prompt de cada imagen.</text>
+
+  <!-- nota lateral -->
+  <rect x="770" y="318" width="250" height="120" rx="14" fill="#141b2c" stroke="#5a6a88" stroke-width="1.2"/>
+  <text x="790" y="360" fill="#8fa0bd" font-size="14" font-weight="700">COSTE</text>
+  <text x="790" y="386" fill="#9fb0cc" font-size="13">Se paga por keyframe</text>
+  <text x="790" y="406" fill="#9fb0cc" font-size="13">y por vídeo.</text>
+  <text x="790" y="432" fill="#8fe6a8" font-size="13">Montaje y gráficos: 0 €</text>
+
+  <line x1="400" y1="690" x2="400" y2="726" stroke="#38e0ff" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ CAPA 3 · IMAGEN ============ -->
+  <text x="72" y="756" fill="#38e0ff" font-size="20" font-weight="700" letter-spacing="1.5">3 · IMAGEN</text>
+
+  <rect x="72" y="776" width="325" height="128" rx="14" fill="#0f2a35" stroke="#38e0ff" stroke-width="2"/>
+  <text x="92" y="806" fill="#7de9ff" font-size="17" font-weight="700" letter-spacing="1">REFERENCIA</text>
+  <text x="92" y="830" fill="#c3cee0" font-size="14">Una imagen por personaje</text>
+  <text x="92" y="850" fill="#c3cee0" font-size="14">al inicio de la historia.</text>
+  <text x="92" y="876" fill="#9fe8b8" font-size="14">Ancla la identidad.</text>
+
+  <rect x="425" y="776" width="305" height="138" rx="14" fill="#0f2a35" stroke="#38e0ff" stroke-width="2"/>
+  <text x="445" y="806" fill="#7de9ff" font-size="17" font-weight="700" letter-spacing="1">KEYFRAME</text>
+  <text x="445" y="830" fill="#c3cee0" font-size="14">Una imagen 9:16 por plano.</text>
+  <text x="445" y="850" fill="#c3cee0" font-size="14">Nano Banana con referencia,</text>
+  <text x="445" y="870" fill="#c3cee0" font-size="14">FLUX cuando no hay ninguna.</text>
+  <text x="445" y="890" fill="#9fe8b8" font-size="13">Aquí se decide look y luz.</text>
+
+  <line x1="400" y1="904" x2="400" y2="946" stroke="#38e0ff" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ CAPA 4 · VÍDEO ============ -->
+  <rect x="72" y="950" width="660" height="186" rx="16" fill="#13203a" stroke="#38e0ff" stroke-width="2"/>
+  <text x="94" y="982" fill="#38e0ff" font-size="20" font-weight="700" letter-spacing="1.5">4 · VÍDEO POR PLANO</text>
+  <text x="94" y="1010" fill="#c3cee0" font-size="15">El keyframe es el primer fotograma. El modelo solo anima el movimiento.</text>
+
+  <rect x="94" y="1026" width="188" height="46" rx="10" fill="#0d1626" stroke="#3f7fa0" stroke-width="1.4"/>
+  <text x="188" y="1055" text-anchor="middle" fill="#9fd8ef" font-size="14">motor barato · 6–10 s</text>
+
+  <rect x="298" y="1026" width="188" height="46" rx="10" fill="#0d1626" stroke="#3f7fa0" stroke-width="1.4"/>
+  <text x="392" y="1055" text-anchor="middle" fill="#9fd8ef" font-size="14">motor calidad · 5–10 s</text>
+
+  <rect x="502" y="1026" width="188" height="46" rx="10" fill="#0d1626" stroke="#ff7a90" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="596" y="1055" text-anchor="middle" fill="#ffb3c1" font-size="14">reintento si falla ↩</text>
+
+  <text x="94" y="1104" fill="#c3cee0" font-size="15">Si un plano falla, vuelve al keyframe: un vídeo cuesta tres veces</text>
+  <text x="94" y="1126" fill="#c3cee0" font-size="15">más que una imagen.</text>
+
+  <!-- flecha de reintento curvada -->
+  <path d="M 694 1049 C 726 1049 726 900 700 900" fill="none" stroke="#ff7a90" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowRetry)"/>
+
+  <line x1="400" y1="1136" x2="400" y2="1178" stroke="#38e0ff" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ CAPA 5 · MONTAJE ============ -->
+  <text x="72" y="1208" fill="#38e0ff" font-size="20" font-weight="700" letter-spacing="1.5">5 · MONTAJE Y ENTREGA</text>
+
+  <rect x="72" y="1228" width="208" height="132" rx="14" fill="#0f2a35" stroke="#38e0ff" stroke-width="2"/>
+  <text x="92" y="1258" fill="#7de9ff" font-size="16" font-weight="700">MONTAJE</text>
+  <text x="92" y="1282" fill="#c3cee0" font-size="13">Descarga los clips,</text>
+  <text x="92" y="1302" fill="#c3cee0" font-size="13">normaliza a 720×1280,</text>
+  <text x="92" y="1322" fill="#c3cee0" font-size="13">une y verifica duración.</text>
+
+  <rect x="298" y="1228" width="208" height="132" rx="14" fill="#0f2a35" stroke="#38e0ff" stroke-width="2"/>
+  <text x="318" y="1258" fill="#7de9ff" font-size="16" font-weight="700">GRÁFICOS</text>
+  <text x="318" y="1282" fill="#c3cee0" font-size="13">FFmpeg pinta título,</text>
+  <text x="318" y="1302" fill="#c3cee0" font-size="13">terminal y badge.</text>
+  <text x="318" y="1326" fill="#ffb3c1" font-size="13">El texto legible NUNCA</text>
+  <text x="318" y="1346" fill="#ffb3c1" font-size="13">lo genera la IA.</text>
+
+  <rect x="524" y="1228" width="206" height="132" rx="14" fill="#0f2a35" stroke="#8fe6a8" stroke-width="2"/>
+  <text x="544" y="1258" fill="#8fe6a8" font-size="16" font-weight="700">ENTREGA</text>
+  <text x="544" y="1282" fill="#c3cee0" font-size="13">MP4 guardado en el</text>
+  <text x="544" y="1302" fill="#c3cee0" font-size="13">servidor y servido con</text>
+  <text x="544" y="1322" fill="#c3cee0" font-size="13">enlace propio.</text>
+
+  <line x1="176" y1="1360" x2="198" y2="1360" stroke="#38e0ff" stroke-width="2"/>
+  <line x1="402" y1="1360" x2="424" y2="1360" stroke="#38e0ff" stroke-width="2"/>
+
+  <!-- ============ SERVICIOS ============ -->
+  <text x="72" y="1420" fill="#6f7f9c" font-size="16" font-weight="700" letter-spacing="1.4">SERVICIOS EXTERNOS</text>
+
+  <rect x="72" y="1436" width="158" height="66" rx="12" fill="#101828" stroke="#3d4c66" stroke-width="1.2"/>
+  <text x="151" y="1464" text-anchor="middle" fill="#9fb0cc" font-size="14" font-weight="600">DeepSeek</text>
+  <text x="151" y="1488" text-anchor="middle" fill="#6f7f9c" font-size="12">el guion</text>
+
+  <rect x="248" y="1436" width="158" height="66" rx="12" fill="#101828" stroke="#3d4c66" stroke-width="1.2"/>
+  <text x="327" y="1464" text-anchor="middle" fill="#9fb0cc" font-size="14" font-weight="600">Fal</text>
+  <text x="327" y="1488" text-anchor="middle" fill="#6f7f9c" font-size="12">imágenes y vídeo</text>
+
+  <rect x="424" y="1436" width="158" height="66" rx="12" fill="#101828" stroke="#3d4c66" stroke-width="1.2"/>
+  <text x="503" y="1464" text-anchor="middle" fill="#9fb0cc" font-size="14" font-weight="600">PostgreSQL</text>
+  <text x="503" y="1488" text-anchor="middle" fill="#6f7f9c" font-size="12">el estado</text>
+
+  <rect x="600" y="1436" width="132" height="66" rx="12" fill="#101828" stroke="#3d4c66" stroke-width="1.2"/>
+  <text x="666" y="1464" text-anchor="middle" fill="#9fb0cc" font-size="14" font-weight="600">FFmpeg</text>
+  <text x="666" y="1488" text-anchor="middle" fill="#6f7f9c" font-size="12">el montaje</text>
+
+  <!-- ============ LEYENDA ============ -->
+  <line x1="72" y1="1540" x2="750" y2="1540" stroke="#24314a" stroke-width="1"/>
+  <text x="72" y="1576" fill="#6f7f9c" font-size="16" font-weight="700" letter-spacing="1.4">LO QUE HAY QUE ENTENDER</text>
+
+  <text x="72" y="1608" fill="#c3cee0" font-size="15">· El director escribe texto. No dibuja nada.</text>
+  <text x="72" y="1634" fill="#c3cee0" font-size="15">· La imagen decide cómo se ve. El vídeo solo la mueve.</text>
+  <text x="72" y="1660" fill="#c3cee0" font-size="15">· El texto en pantalla lo pinta FFmpeg, nunca el modelo.</text>
+  <text x="72" y="1686" fill="#8fe6a8" font-size="15">· Montar y pintar gráficos no cuesta nada.</text>
+
+  <line x1="72" y1="1730" x2="750" y2="1730" stroke="#24314a" stroke-width="1"/>
+  <text x="72" y="1766" fill="#6f7f9c" font-size="16" font-weight="700" letter-spacing="1.4">DEUDA CONOCIDA</text>
+  <text x="72" y="1796" fill="#ffb3c1" font-size="15">· El vídeo aún no tiene voz ni subtítulos: no se entiende la historia.</text>
+  <text x="72" y="1822" fill="#ffb3c1" font-size="15">· Ninguna spec está marcada como Validated.</text>
+  <text x="72" y="1848" fill="#c3cee0" font-size="15">· Estado: la tubería funciona de punta a punta; el producto no.</text>
+</svg>
