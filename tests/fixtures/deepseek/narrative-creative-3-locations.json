@@ -82,10 +82,11 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara abre el obrador al amanecer y descubre una figura en el merengue.",
+      "action": "Clara abre el obrador al amanecer y descubre una figura en el merengue. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Cada mañana, antes de encender el horno, Clara escucha.",
       "storyFunction": "hook",
-      "gag": "El merengue dibuja un reloj sin agujas."
+      "gag": "El merengue dibuja un reloj sin agujas.",
+      "stake": "Clara necesita saber quién deja la figura antes de abrir al público."
     },
     {
       "order": 2,
@@ -99,10 +100,11 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara intenta repetir la figura y el merengue cambia de forma.",
+      "action": "Clara intenta repetir la figura y el merengue cambia de forma. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "El azúcar se mueve como si quisiera contar algo.",
       "storyFunction": "complication",
-      "gag": "La figura señala la puerta con una cuchara."
+      "gag": "La figura señala la puerta con una cuchara.",
+      "stake": "Si el merengue vuelve a cambiar, Clara pierde el encargo del día."
     },
     {
       "order": 3,
@@ -118,10 +120,11 @@
         "merengue",
         "paraguas"
       ],
-      "action": "Un cliente entra y reconoce la figura del merengue.",
+      "action": "Un cliente entra y reconoce la figura del merengue. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "El primer cliente trae la cara que anunciaba el postre.",
       "storyFunction": "escalation",
-      "gag": "El cliente saluda a la figura del merengue."
+      "gag": "El cliente saluda a la figura del merengue.",
+      "stake": "Clara quiere ver la figura entera, pero cada vez le falta una parte."
     },
     {
       "order": 4,
@@ -135,10 +138,11 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara descubre que el merengue anuncia una desgracia y duda.",
+      "action": "Clara descubre que el merengue anuncia una desgracia y duda. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Clara entiende que no todos los avisos son buenos.",
       "storyFunction": "twist",
-      "gag": "La tarta se esconde bajo la bandeja."
+      "gag": "La tarta se esconde bajo la bandeja.",
+      "stake": "La figura empieza a deshacerse y Clara debe elegir qué salvar."
     },
     {
       "order": 5,
@@ -152,10 +156,11 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara decide no preguntar al azúcar y cierra el obrador.",
+      "action": "Clara decide no preguntar al azúcar y cierra el obrador. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Esa mañana decide no volver a preguntar al azúcar.",
       "storyFunction": "payoff",
-      "gag": "El merengue forma un signo de interrogación y se deshace."
+      "gag": "El merengue forma un signo de interrogación y se deshace.",
+      "stake": "Clara descubre quién lo hace y decide si lo cuenta o lo guarda."
     }
   ]
 }

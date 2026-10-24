@@ -1,87 +1,121 @@
 # Backlog — AI Shorts
 
-Actualizado: 2026-10-24. Ordenado por prioridad real: primero lo que bloquea, después lo que mejora el producto, y al final la deuda que no bloquea nada.
+Actualizado: 2026-10-25. Ordenado por prioridad real: **primero lo que hace que el vídeo se entienda** (validación de producto), después lo que mejora la calidad, y al final la deuda que no bloquea nada.
 
-## 🔴 Ahora mismo
+## El criterio que manda (2026-10-25)
+
+La primera historia completa se generó y **no se entendía**. Comparada con `examples/video4.mp4`, la diferencia no son los prompts: es que **la referencia habla y la nuestra no**.
+
+> «La generación ha ido bien, pero le falta audio y los subtítulos no están cuadrados y no se entiende bien la historia.» — humano, 2026-10-25
+
+**Todo lo que no contribuya a que una historia se entienda es secundario.** Las tareas están agrupadas por esa pregunta, no por área técnica.
+
+---
+
+## 🎯 Bloque 1 — Que la historia se entienda (antes que nada)
+
+**Esta es la validación real.** Ninguna función nueva entra hasta que un vídeo generado por el sistema se entienda sin explicaciones.
+
+| Orden | # | Tarea | Coste | Qué arregla |
+|---|---|---|---|---|
+| 1 | **E1** ✅ **HECHO 2026-10-25** | **Guion con conflicto: una frase con sustancia por plano** | 0 (código) | Hoy el director escribe *imágenes* («mira pantallas», «bebe café»); la referencia escribe un *problema que se resuelve* («alguien tomó algo y hay que devolverlo»). Es la raíz de que la historia no tenga trama. **Test de aceptación:** cada plano se resume en una frase con sujeto, acción y consecuencia, y el conjunto cuenta un cambio de estado. **Implementado:** campo `stake` (12–120) obligatorio en cada beat, validado en `canon-validator` y en `plan-validator`; va al prompt de vídeo como «What is at stake». Tests: rechaza stake de 3 caracteres y de 121; el prompt de vídeo lo lleva; los planes legacy sin stake siguen funcionando. |
+| 2 | **E2** | **Audio, voz y subtítulos (spec 014)** | 15-25 h | **La tarea de producto número uno.** La referencia se entiende porque habla, no por sus prompts. Sin voz, 12 planos de acción genérica no se entienden nunca. Incluye voz por escena, subtítulos quemados con ASS y mezcla con FFmpeg. |
+| 3 | **E3** ✅ **HECHO 2026-10-25** | **Vídeo largo y narrativo en el prompt de vídeo** | 0 (código) | Los prompts de ~20 palabras dejan huecos que el modelo rellena: texto en pantalla, encapuchados, clones. La referencia usa párrafos de ~90 palabras con acción continua. **Implementado:** `action` sube de 20–240 a **120–400 caracteres** (mínimo `BEAT_MIN_ACTION = 120`); `VIDEO_STAGE_BLOCK` pide «one continuous action» y prohíbe que entre nadie más al plano. Tests: el mínimo rechaza una acción de 20 caracteres; el bloque de vídeo exige acción continua. |
+| 4 | **E4** ✅ **HECHO 2026-10-25** | **Marcadores `char_001` y repetir el personaje en cada frase** | 0 (código) | La referencia nombra al personaje tres veces por párrafo y usa etiquetas, no nombres. Causa probable de que el modelo escriba nombres en pantalla. **Implementado:** `characterMarker` compone `Nombre (id)` en el prompt de vídeo y `anchorActorsAtStart` repite el actor al principio, **solo si el `subject` del plano es ese personaje**: forzarlo es lo que puso a un encapuchado haciendo el papel de Clara. Tests: ancla con marcador cuando hay sujeto; no lo fuerza cuando el plano es de otro. |
+| 5 | **E5** ✅ **HECHO 2026-10-25** | **Separar atmósfera del bloque de estilo** | 0 (código) | `papercraft` impone «dark navy background with neon accents» en todos los planos; el primer plano salió de día y el resto de noche. El estilo da material y forma; la luz y el fondo los pone la escena. **Implementado:** fuera «dark navy background with neon pink and blue accents» del bloque `papercraft`; el keyframe añade `Lighting: <hora> light, <clima>` desde el beat. Tests: el keyframe ya no contiene `dark navy` y sí la luz de la escena. |
+| 6 | **E6** 🟡 **PARCIAL 2026-10-25** | **Personajes ajenos al guion** | ? | El modelo añadió un encapuchado, clones y figuras translúcidas. **Hecho sin coste:** el keyframe declara ahora cuántas personas hay en cuadro («Exactly one person in frame»), que es el positivo y funciona en todos los motores; el negativo ya incluía `extra characters`. **Falta medir** con una historia real: si persiste, hace falta trabajo aparte. |
+
+**E1, E3, E4 y E5 son código puro y coste cero.** E2 es el trabajo grande. **E6 se decide cuando se vea el resultado de E3/E4.**
+
+### Fallos observados en el vídeo del 2026-10-25
+
+**Lo que se vio al reproducir la historia entregada**, con su causa y su tarea. Sin esta lista, «el vídeo no se entiende» no se puede atacar.
+
+| # | Fallo visible en el vídeo | Causa conocida | Dónde se arregla |
+|---|---|---|---|
+| **F1** | **No hay voz ni audio**: el vídeo es mudo | No existe la capa de audio | **E2** |
+| **F2** | **No hay subtítulos**: el texto es solo título, terminal y badge, no las frases de la historia | No existe la capa de subtítulos | **E2** |
+| **F3** | **No se entiende la trama**: sale un fantasma, luego clones, y no se sabe qué pasa | El guion describe imágenes, no un conflicto | **E1** |
+| **F4** | **Texto inventado en pantalla**: «10 tips», «1,2K», «PUBLISH», «CaféAndCode Office» | Prompts de vídeo cortos dejan huecos que el modelo rellena | **E3** (y E4) |
+| **F5** | **Personajes que no existen**: un encapuchado, clones, figuras translúcidas | El prompt no ata quién está en escena | **E3**, **E4**; si persiste, **E6** |
+| **F6** | **Pantallas con contenido inventado**: un portátil con una manzana que no pedimos | El modelo rellena las pantallas | **E3** |
+| **F7** | **Planos repetidos por parejas**: encuadres casi idénticos seguidos | El director no varía encuadre | **S1** (se mide tras E1) |
+| **F8** | **Fondo incoherente**: el primer plano es de día y luminoso, el resto nocturno con neón | El bloque de estilo impone fondo fijo | **E5** |
+| **F9** | **12 planos de 2 s** recortados, cuando el motor hace clips de 6 y 10 s | Desalineación entre guion y capacidad del motor | **S2** (decisión de producto) |
+
+**F1 y F2 son los que más pesan.** Sin ellos, el resto son matices: la referencia se entiende porque habla.
+
+**Estado:** ninguno cerrado. **F1–F2 → E2. F3 → E1. F4–F6 → E3/E4. F7 → S1. F8 → E5. F9 → S2.**
+
+---
+
+## 🎯 Bloque 2 — Decidir si las escenas y los planos son el problema
+
+**Duda abierta del humano (2026-10-25):** *"no sé si las escenas…"*. **No se toca todavía.** Primero E1–E5, porque si el problema es el guion o la voz, cambiar la estructura de escenas no arregla nada y cuesta días.
+
+| # | Tarea | Coste | Cuándo |
+|---|---|---|---|
+| **S1** | **Planos repetidos por parejas** | 2-4 h | Se mide tras E1: si el guion tiene conflicto, el director debería variar encuadres solo. Si no, reglas de variedad de encuadre por escena. |
+| **S2** | **Alinear la duración del plano con el motor (9g)** | 3 h | La referencia usa 2 tomas largas; nosotros 12 planos de 2 s. Encaja con E3, pero cambia el producto. **Decisión de producto, no técnica.** |
+| **S3** | **Guion por escenas vs. por planos** | 3-5 días | Solo si E1–E5 no bastan. Hoy no hay evidencia de que haga falta. |
+
+---
+
+## 🎯 Bloque 3 — Entregar el vídeo (hecho)
+
+| # | Tarea | Estado |
+|---|---|---|
+| **D1** | **El proveedor borra los MP4 en minutos** | **HECHO 2026-10-25.** Dos historias quedaron `READY` con URL 404. Ahora se copia a `.data/story-output/<storyId>.mp4` **antes** de subir, y `GET /api/story/:id/download` lo sirve comprobando sesión. |
+| **D2** | **Almacenamiento persistente para despliegue** | Pendiente. `.data/` no sobrevive a un contenedor. Necesita disco persistente o bucket (S3/R2) antes de desplegar. |
+
+---
+
+## 🔴 Bloque 4 — Deuda que muerde (sin producto nuevo)
 
 | # | Tarea | Coste | Por qué |
 |---|---|---|---|
-| 0a | ~~**`assembly-failed` con historias largas**~~ **CAUSA ENCONTRADA: saldo agotado** | — | El ensamblador monta 30,0 s con los clips reales: el montaje nunca estuvo roto. El fallo era la **subida final**: el proveedor responde 403 con `User is locked. Reason: Exhausted balance`. Nuestro código lo traducía a «servicio no disponible», y eso mandó a buscar el fallo en el montaje durante horas. Corregido: un 403 que menciona el saldo ahora es `provider-balance-exhausted`. **Pendiente:** recargar y comprobar una historia completa. |
-| 0 | ~~**El vídeo inventa texto sobre pantallas**~~ **HECHO (013)** | — | Resuelto con una frase en positivo en `VIDEO_STAGE_BLOCK`. Medido: sin la frase había titulares y rótulos; con la frase, cero texto y la pantalla queda idéntica. |
-| 1 | **Terminar y ver la historia con hoja de personaje** | ~1,1 USD | Primera historia con identidad real. Sin verla, el resto es teoría. |
+| 0a | ~~`assembly-failed` con historias largas~~ **CAUSA: saldo agotado** | — | El montaje nunca estuvo roto; el 403 de saldo se traducía como «servicio no disponible». Corregido a `provider-balance-exhausted`. |
+| 0 | ~~El vídeo inventa texto sobre pantallas~~ **HECHO (013)** | — | Frase en positivo en `VIDEO_STAGE_BLOCK`. Medido: cero texto. |
+| 1 | ~~**Terminar y ver la historia con hoja de personaje**~~ **HECHO (V1)** | — | Primera historia completa el 2026-10-25. |
 | 3 | ~~**Cerrar la spec 011**~~ **HECHO** | 0 | Cerrada con sus enmiendas. |
+| **P1** | **`isDatabaseError` marca cualquier error `Prisma*` como caída** | 1 h | Un error de validación se reportó como «base de datos no disponible» durante horas. Debe mirar el código, no el nombre. |
+| **P2** | **Referencia de personaje falla si la descripción pasa de 600 caracteres** | 2 h | `ghostwriter` falló con `invalid-visual-prompt`. Debe recortar u omitir en vez de fallar. |
+| **P3** | **Typecheck: 306 errores** | 1-2 días | No está en el gate. Se arregla en un pase propio. |
+| **P4** | **`legacy: true`** | 3-5 h | Retirarlo o dejar condición de retirada explícita. |
 
-### Descartado: cupo de concurrencia y cancelación
+---
 
-Sospecha revisada el 2026-10-24 y **descartada**. `PrismaReelStoryRepository.cancel` ya marca los planos activos como `CANCELLED` dentro de la misma transacción, así que la cancelación por API libera el cupo.
-
-Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hechas con `UPDATE` directo en SQL durante el trabajo, que no pasan por la transacción. No es un defecto del producto.
-
-## 🔴 Validación (antes que cualquier función nueva)
-
-**Criterio del humano (2026-10-24):** *"estamos añadiendo muchas funcionalidades pero realmente no está validado, entonces igual lo mejor es validar antes de crear más."*
-
-| # | Tarea | Bloquea a |
-|---|---|---|
-| **V1** | **Una historia completa, de la idea al MP4, sin intervenir a mano.** Requiere saldo en el proveedor. | Todo lo demás |
-| **V2** | Revisar con ojo humano los keyframes y el vídeo de esa historia: ¿vale para publicar? | Decidir motor |
-| **V3** | Smoke real opt-in de los caminos nuevos (gráficos, reintento de personaje) | Cerrar 015 y 016 |
-
-**Todo lo que sigue está en pausa hasta que V1 pase.** Añadir funciones encima de algo que nunca se ha ejecutado entero ya ha costado cuatro fallos en una noche.
-
-## 🟡 Producto
+## 🟢 Bloque 5 — Producto, cuando haya algo que publicar
 
 | # | Tarea | Coste | Por qué |
 |---|---|---|---|
-| 4 | ~~**Estilo `voxel`**~~ **HECHO (013)** | — | Una entrada en el registro de estilos. Es el look del vídeo 4 y el más fácil de mantener consistente. |
-| 5 | **Voz, música y subtítulos** (spec 014) | 15-25 h | Sin audio ni subtítulos el vídeo no se parece a las referencias. Bloquea la publicación real. |
-| 6 | ~~**Gráficos y overlays**~~ **HECHO (015)** | — | Título, terminal y badge pintados con FFmpeg sobre el MP4 montado. |
-| 7 | **Notas del director** | 2-4 h | Campo opcional para dar contexto técnico sin dictar los planos. |
-| 8 | **Estilo `explainer`** | 5-8 h | Estilo del vídeo 3; depende de la 015. |
-| 9 | **Rúbrica de calidad + juez** | 4-6 h | Medir si las historias son buenas, no solo válidas. |
-| 9g | **Conectar la ficha del motor con el adaptador** | 3 h | Hoy solo la duración se lee de la ficha; los nombres de campo, el prompt negativo y el coste siguen escritos a mano en cada adaptador. Añadir un motor sin esto obliga a buscar todos esos puntos. **En pausa hasta V1.** |
-| 9a | **Pantalla de personajes** — **parcial** | 2-3 h restantes | Ver cada personaje con su imagen generada, regenerarla y asignarle una foto. Mismo patrón que la regeneración por escena, que ya existe. **Hecho (2026-10-24):** las referencias se ven también al revisar, un fallo explica su motivo y se puede reintentar una referencia fallida. **Falta:** asignar una foto propia a un personaje concreto. |
-| 9b | **Varias fotos del usuario, una por personaje** | 6-10 h | Subir varias fotos y, si la premisa tiene varios personajes, detectar con DeepSeek Vision qué foto es de quién, asignarla y mencionarla en la historia. Cambia el contrato del formulario (`STORY_MAX_REFERENCES = 1` hoy). **Hecho (2026-10-24):** las referencias se ven también al revisar, un fallo explica su motivo y se puede reintentar una referencia fallida. **Falta:** asignar una foto propia a un personaje concreto. |
-| 9d | **Series y personajes reutilizables (spec 013)** | 6-10 h | Tabla `Series` + `Character` global: el personaje (Ionias, Pixel) se genera **una vez** y todas las historias de la serie lo reutilizan. Hoy cada historia vuelve a pagar 0,04 por secundario. Es la base de "crear nuevas historias dentro de una serie". Decisión pendiente: personaje **inmutable** en 013 (crear otra serie si cambia el look), con versionado en una spec posterior. Inspirado en ArcReel, que modela personajes/escenarios/props como activos referenciados por ID. |
-| 9e | **Versiones de assets** (regenerar y comparar sin sobrescribir) | 15-25 h | Lo mejor de ArcReel: cada personaje y cada keyframe guarda historial y se puede volver a una versión anterior. Potente pero no resuelve ningún problema actual; va detrás de 9d y solo con usuarios reales. **No copiar su código**: ArcReel es AGPL-3.0. |
-| 9f | ~~**Retrato de secundario con fondo neutro**~~ **HECHO (013)** | — | El prompt pide ya "plain neutral studio backdrop, evenly lit". |
-| 9c | **Kling v3 Pro con `elements` en el vídeo** | 8-12 h | La sonda B del 2026-10-24 funcionó: un elemento por personaje (`frontal_image_url` + `reference_image_urls`, ambos obligatorios), `@ElementN` en el prompt, 1088×1904 mudo. Descartado por coste: 0,112 USD/s (0,56 por plano) y ~7 min por plano, frente a 0,35 y segundos del motor actual. Reabrir cuando el coste importe menos que la calidad, o solo en un preset premium. |
+| 4 | ~~Estilo `voxel`~~ **HECHO (013)** | — | El look del vídeo 4. |
+| 6 | ~~Gráficos y overlays~~ **HECHO (015)** | — | Título, terminal y badge con FFmpeg. |
+| 9g | **Conectar ficha del motor con adaptador** | 3 h | Solo la duración se lee de la ficha; el resto sigue a mano en cada adaptador. |
+| 9a | **Pantalla de personajes** — parcial | 2-3 h | Falta asignar una foto propia a un personaje concreto. |
+| 9b | **Varias fotos del usuario, una por personaje** | 6-10 h | Cambia el contrato del formulario (`STORY_MAX_REFERENCES = 1`). |
+| 7 | **Notas del director** | 2-4 h | Contexto técnico sin dictar planos. |
+| 8 | **Estilo `explainer`** | 5-8 h | Estilo del vídeo 3. |
+| 9 | **Rúbrica de calidad + juez** | 4-6 h | Medir si las historias son buenas, no solo válidas. **Cobra sentido después de E-series.** |
+| 9c | **Kling v3 con `elements`** | — | Probado y descartado por coste (0,56 vs 0,35 por plano, ~7 min/plano). Evidencia conservada. |
+| 9h | **Series con personajes reutilizables** | ? | Futuro. |
+| 9i | **Versiones de assets** | ? | Futuro. |
 
-## 🟢 Deuda técnica (no bloquea)
+---
 
-| # | Tarea | Coste |
-|---|---|---|
-| 10 | `typecheck`: 306 errores | 8-15 h |
-| 11 | QA de navegador y accesibilidad | 3-5 h |
-| 12 | Retirar el motor `legacy` 005-007 | 4-6 h | **Dato (2026-10-24):** de 20 historias en la base, **0 usan el formato legacy**; todas están en `contract: '008'`. La rama es código muerto en la práctica. Retirarla toca persistencia y validación, así que sigue siendo una sesión aparte, pero ya no hay riesgo de romper historias reales. |
-| 13 | ~~CI~~ **HECHO** | — | `.github/workflows/gate.yml`: suite completa y build en cada push. |
-| 14 | ~~Trocear la suite~~ **NO HACE FALTA** | 0 | Medido el 2026-10-24: la suite completa tarda **27 s** con 4 workers. Trocearla añadiría complejidad sin ganar tiempo. |
-| 15 | Transaccionalidad de escrituras batch historia→shots | 2-3 h |
-| 16 | ~~Fallback de `qc-frames` con ruta nula~~ **HECHO** | — | Un clip sin archivo ya no pasa el QC como limpio. |
-| 17 | ~~Director: evitar tres planos seguidos con el mismo encuadre~~ **HECHO (013)** | — | El prompt del director lo prohíbe y `detectRepeatedFraming` lo registra. |
+## Estado de la validación
 
-## Bugs encontrados y cerrados (2026-10-24)
+| Hito | Estado |
+|---|---|
+| **Cadena completa hasta `READY`** | ✅ 2026-10-25 |
+| **MP4 entregado y abrible** | ✅ 2026-10-25 (tras D1) |
+| **El vídeo se entiende** | ❌ Bloque 1 |
+| **Vale para publicar** | ❌ Bloque 1 |
 
-| Bug | Causa | Arreglo |
-|---|---|---|
-| Texto inventado en los keyframes | `no text` en un modelo sin canal negativo activa el concepto | Prompts en positivo (013) |
-| Prompt de vídeo repetía la escena entera | I2V solo quiere movimiento | `composeVideoMotionBlock` (013) |
-| Plano atascado en `KEYFRAME_QUEUED` | `attempts >= 2` hacía `return` sin cerrar el plano | Falla con `provider-invalid-output` |
-| Plano rechazado por texto durante la fase de vídeos | Nadie volvía a la fase de keyframes | `rebuildPendingKeyframes` |
-| Detector de texto marcaba escenas limpias | Ningún muestreo separa neón de texto | **Retirado** (enmienda 013) |
-| `updateCharacterRefs` sin guarda | Un worker lento podía repetir un cobro | Guarda de estado, versión y lease |
-| Check de visión sin presupuestar | Una llamada pagada por keyframe | Apagado por defecto |
+**Ninguna spec está `Validated`.** `Validated` significa que el humano ve un vídeo y dice «esto lo publico». Ese listón no se mueve.
 
-## Sondas reales pagadas (evidencia)
+---
 
-| Sonda | Coste | Resultado |
-|---|---|---|
-| Nano Banana, personaje secundario "Pixel" con avatar como estilo | 0,0398 | Gato coherente con el estilo papercraft. Válido. |
-| Kling v3 Pro + 2 elementos, 5 s | 0,56 | Identidad del gato estable, estilo mantenido, 1088×1904 mudo, ~7 min. No adoptado por coste. |
-| Kling v3 Pro, envío inválido (solo `frontal_image_url`) | 0,00 | Rechazado en validación; no se cobra. Contrato documentado. |
+## Descartado
 
-## Orden recomendado
-
-1 → 2 → 3 → ver el vídeo → 5 (voz) → 4 (voxel) → 6 (gráficos) → 7 → deuda cuando haya hueco.
-
-La deuda no se toca hasta que haya usuarios reales: hoy no mejora nada visible.
+**Cupo de concurrencia y cancelación** (revisado 2026-10-24): `PrismaReelStoryRepository.cancel` ya marca los planos activos como `CANCELLED` dentro de la misma transacción. Los 6 jobs huérfanos vinieron de cancelaciones hechas con `UPDATE` directo en SQL, que no pasan por la transacción. No es un defecto del producto.

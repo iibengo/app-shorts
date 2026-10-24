@@ -57,6 +57,7 @@ function narrativeScene(order: number, total: number): StoryNarrativeScene {
     narration: `Narración de la escena ${order}.`,
     storyFunction: order === 1 ? 'hook' : order === total ? 'payoff' : 'complication',
     gag: null,
+    stake: `El protagonista necesita cerrar el plano ${order} antes de que se acabe el tiempo.`,
     continuityFromPrevious: order === 1
       ? null
       : 'Continúa desde la escena anterior con el mismo conflicto.',

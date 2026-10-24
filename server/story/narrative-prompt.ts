@@ -29,10 +29,11 @@ export const BEATS_JSON_SCHEMA = `{
     "weather": "clear|cloudy|overcast|light-rain|rain|storm|snow|fog|windy",
     "characters": ["id de la biblia"],
     "props": ["id de la biblia"],
-    "action": "string (20-240)",
+    "action": "string (120-400, una sola acción continua)",
     "narration": "string (10-140)",
     "storyFunction": "hook|complication|escalation|twist|payoff",
-    "gag": "string (4-80) o null"
+    "gag": "string (4-80) o null",
+    "stake": "string (12-120)"
   }]
 }`
 
@@ -92,9 +93,17 @@ export function storyBeatsSystemPrompt(sceneCount: number, mode: StoryMode): str
     + 'No añadas campos visuales: no incluyas visualPrompt, camera, continuityFromPrevious ni transition. '
     + 'La historia debe tener un gancho en el primer segundo, un conflicto claro, una complicación, una escalada, un giro y un remate visual. '
     + 'No repitas la misma acción. Cambia de escena si aporta. '
+    + 'El primer beat presenta el deseo del protagonista; el twist lo obliga a cambiar de plan; el payoff muestra qué se gana o qué se pierde. '
     + 'La narración es texto en pantalla: no hay audio, no hay voz, no hay música. '
     + 'Incluye gags visuales cuando encajen. No prometas viralidad ni garantices gracia. '
-    + 'Cada beat declara locationId, timeOfDay, weather, characters (1–3), props (0–3), action (20–240), narration (10–140), storyFunction y gag (4–80). '
+    + 'Cada beat declara locationId, timeOfDay, weather, characters (1–3), props (0–3), action (20–240), narration (10–140), storyFunction, gag (4–80) y stake (12–120). '
+    + 'stake es la frase que dice qué está en juego: quién quiere qué y qué pasa si no lo consigue. '
+    + 'Si una escena no se puede resumir con un deseo y un obstáculo, reescríbela: una escena sin stake es una imagen, no una historia. '
+    + 'action cuenta lo que sucede, no lo que se ve: un cambio de estado, no una pose. '
+    + 'action es el prompt del vídeo: entre 120 y 400 caracteres, una sola acción continua que empieza y termina dentro del plano. '
+    + 'No pongas varias acciones seguidas ni «y entonces»: si necesitas dos cosas, es otra escena. '
+    + 'Nombra a quien actúa al principio de la frase, para que el modelo no tenga que adivinar quién se mueve. '
+    + 'narration es la frase que entendería alguien que solo oye el vídeo. Debe tener sujeto, verbo y consecuencia; nada de describir el plano. '
     + 'El protagonista y el prop característico aparecen al menos una vez, no en todas las escenas. '
     + 'Cada personaje, localización y prop del canon aparece al menos una vez. '
     + 'Valores de storyFunction: hook|complication|escalation|twist|payoff. '

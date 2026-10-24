@@ -58,6 +58,7 @@ export const NARRATIVE_BEAT_KEYS = [
   'narration',
   'storyFunction',
   'gag',
+  'stake',
 ] as const
 
 export const DRAFT_KEYS = ['title', 'logline', 'tone', 'storyBible', 'beats'] as const
@@ -84,12 +85,19 @@ export const CANON_MAX_FORBIDDEN_LENGTH = 50
 export const CANON_MAX_RULES = 5
 export const CANON_MIN_RULE = 4
 export const CANON_MAX_RULE = 140
-export const BEAT_MIN_ACTION = 20
+/**
+ * E3 (2026-10-25): twenty words of action is what let the video model invent
+ * people and on-screen text. The delivered story that did not read had short
+ * actions; the reference narrates one continuous action per shot.
+ */
+export const BEAT_MIN_ACTION = 120
 export const BEAT_MAX_ACTION = 600
 export const BEAT_MIN_NARRATION = 10
 export const BEAT_MAX_NARRATION = 280
 export const BEAT_MIN_VISUAL_PROMPT = 20
 export const BEAT_MAX_VISUAL_PROMPT = 600
+export const BEAT_MIN_STAKE = 12
+export const BEAT_MAX_STAKE = 120
 export const BEAT_MIN_GAG = 4
 export const BEAT_MAX_GAG = 120
 export const BEAT_MIN_CONTINUITY = 20
@@ -462,6 +470,12 @@ function validateBeat(
     if (gagError) return { reason: gagError }
   }
 
+  // E1: a scene without a stake describes a picture. The reference story reads
+  // because every scene states who wants what and what is lost.
+  const stakeError = validateText(value.stake, BEAT_MIN_STAKE, BEAT_MAX_STAKE, `${field}.stake`)
+
+  if (stakeError) return { reason: stakeError }
+
   if (index === 0 && value.sceneRole !== 'establishing') {
     return { reason: `${field}.sceneRole: la primera escena debe ser establishing` }
   }
@@ -511,6 +525,7 @@ function validateBeat(
       narration: normalize(value.narration as string).replace(/\s*\n+\s*/g, ' '),
       storyFunction: value.storyFunction as StoryStoryFunction,
       gag: value.gag === null ? null : normalize(value.gag as string),
+      stake: normalize(value.stake as string),
     },
   }
 }

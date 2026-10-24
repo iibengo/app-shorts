@@ -233,7 +233,8 @@ describe('canon-validator: narrative structure', () => {
     const value = clone(narrativeCreative)
     value.beats[1]!.timeOfDay = 'night'
     value.beats[1]!.weather = 'rain'
-    value.beats[1]!.action = 'Clara cruza la calle bajo la lluvia nocturna con el merengue.'
+    value.beats[1]!.action = 'Clara cruza la calle bajo la lluvia nocturna con el merengue: '
+      + 'lo esconde bajo la chaqueta, mira si alguien la sigue y sigue caminando hasta la esquina sin girarse.'
 
     const result = validateNarrativeDraft(value, { sceneCount: 5, mode: 'creative' })
 

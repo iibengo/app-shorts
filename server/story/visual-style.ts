@@ -6,12 +6,18 @@ import { StoryError } from './errors'
  * Single source of truth for the look of the channel. The client sends an id;
  * the prompt text lives here, in English, and is versioned with the code.
  * Adding a style is one entry in this registry, never a new spec.
+ *
+ * E5 (2026-10-25): a style describes *how the world looks*, never *where each
+ * scene happens*. `papercraft` used to impose "dark navy background with neon
+ * accents" on every shot, so the first scene came out in daylight and the rest
+ * at night — the style was fighting the script. Background, light and palette
+ * belong to the scene; material and shape belong to the style.
  */
 const STYLE_BLOCKS: Readonly<Record<StoryVisualStyle, string>> = {
   cartoon3d:
     '3D cartoon render, glossy stylized characters, Pixar-like proportions, soft studio lighting, clean pastel palette',
   papercraft:
-    'low-poly papercraft 3D render, faceted geometric shapes, matte paper texture, dark navy background with neon pink and blue accents, dramatic rim light',
+    'low-poly papercraft 3D render, faceted geometric shapes, matte paper texture, neon accent lighting',
   voxel:
     'voxel art 3D render, blocky cubic characters and props, chunky pixel-like volumes, flat shaded faces, saturated palette, clean isometric-friendly lighting',
   clay:

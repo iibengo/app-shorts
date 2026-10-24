@@ -57,14 +57,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara descubre una figura en el merengue dentro del obrador.",
+      "action": "Clara descubre una figura en el merengue dentro del obrador. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "La casa lleva vacía treinta años y huele a lluvia.",
       "storyFunction": "hook",
       "gag": "El merengue dibuja una puerta.",
       "visualPrompt": "Plano general de Clara en el obrador con la puerta al fondo.",
       "camera": "wide",
       "continuityFromPrevious": null,
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 1 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 2,
@@ -78,14 +79,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara sigue la figura por el pasillo del obrador.",
+      "action": "Clara sigue la figura por el pasillo del obrador. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Esa noche aparece un pasillo que nadie había visto.",
       "storyFunction": "complication",
       "gag": "La bandeja marca el camino.",
       "visualPrompt": "Plano medio del pasillo con la bandeja en el suelo.",
       "camera": "medium",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 2 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 3,
@@ -99,14 +101,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara intenta dibujar el plano del obrador y las paredes cambian.",
+      "action": "Clara intenta dibujar el plano del obrador y las paredes cambian. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Cada mañana el plano tiene una puerta nueva.",
       "storyFunction": "escalation",
       "gag": "El merengue dibuja una puerta más.",
       "visualPrompt": "Plano detalle del merengue sobre el plano.",
       "camera": "detail",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 3 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 4,
@@ -120,14 +123,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara encuentra una habitación llena de bandejas cubiertas.",
+      "action": "Clara encuentra una habitación llena de bandejas cubiertas. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Detrás de una puerta esperan bandejas de otra época.",
       "storyFunction": "twist",
       "gag": "Una bandeja levanta su tapa sola.",
       "visualPrompt": "Plano sobre el hombro de Clara ante las bandejas.",
       "camera": "over-the-shoulder",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 4 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 5,
@@ -141,14 +145,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara reúne el merengue y las bandejas en el mostrador.",
+      "action": "Clara reúne el merengue y las bandejas en el mostrador. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Deciden pasar una noche despiertos para entenderla.",
       "storyFunction": "complication",
       "gag": "El merengue forma una luna.",
       "visualPrompt": "Plano medio del mostrador lleno de bandejas.",
       "camera": "medium",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 5 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 6,
@@ -162,14 +167,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara cierra el obrador y deja el merengue quieto.",
+      "action": "Clara cierra el obrador y deja el merengue quieto. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "La casa deja de moverse cuando todos duermen fuera.",
       "storyFunction": "payoff",
       "gag": "El merengue forma un punto final.",
       "visualPrompt": "Detalle del merengue inmóvil al amanecer.",
       "camera": "detail",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 6 necesita un deseo y un obstáculo antes de acabar."
     }
   ]
 }

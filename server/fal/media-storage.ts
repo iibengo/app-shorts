@@ -115,11 +115,71 @@ export class NativeMediaStorage implements MediaStorage {
       timeoutMs: 120_000,
     })
 
+    // The upload can answer 200 and still leave no object behind: that is what
+    // shipped a READY story with a 404 URL on 2026-10-24. A HEAD on the final
+    // URL is the only proof the file exists, and it costs nothing.
+    const reachable = await this.verifyUploaded(safeFileUrl)
+
+    // Server-only trace: a READY story shipped a 404 URL twice, and the
+    // verifier itself was the only thing that could tell us why. It stays
+    // until a real story delivers a file that opens.
+    console.info(JSON.stringify({
+      event: 'fal.upload.verify',
+      fileUrl: safeFileUrl,
+      reachable,
+      served: await this.uploadedBytes(safeFileUrl),
+      size: await stat(input.filePath).then((info) => info.size, () => -1),
+    }))
+
+    if (!reachable) {
+      throw new ComposerError('provider-error')
+    }
+
     return {
       fileUrl: safeFileUrl,
       expiresAt: new Date(
         this.now() + input.lifecycleSeconds * 1000,
       ).toISOString(),
+    }
+  }
+
+  /** Bytes the CDN reports, or -1 when it reports nothing. */
+  private async uploadedBytes(fileUrl: string): Promise<number> {
+    try {
+      const response = await fetch(fileUrl, {
+        method: 'HEAD',
+        redirect: 'error',
+        credentials: 'omit',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15_000),
+      })
+
+      return Number(response.headers.get('content-length') ?? -1)
+    } catch {
+      return -1
+    }
+  }
+
+  /**
+   * True when the provider serves the object it just accepted.
+   *
+   * It uses a plain HEAD because the storage host is not an API origin: the
+   * client's allowlist would reject it before the request left. The URL was
+   * already validated by `assertFalMediaUrl` above.
+   */
+  private async verifyUploaded(fileUrl: string): Promise<boolean> {
+    try {
+      const response = await fetch(fileUrl, {
+        method: 'HEAD',
+        redirect: 'error',
+        credentials: 'omit',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15_000),
+      })
+
+      return response.ok
+    } catch {
+      return false
     }
   }
 }

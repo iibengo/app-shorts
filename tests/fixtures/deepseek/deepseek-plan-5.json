@@ -57,14 +57,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara abre el obrador al amanecer y descubre una figura en el merengue.",
+      "action": "Clara abre el obrador al amanecer y descubre una figura en el merengue. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Cada mañana, antes de encender el horno, Clara escucha.",
       "storyFunction": "hook",
       "gag": "El merengue dibuja un reloj sin agujas.",
       "visualPrompt": "Plano general de Clara en el obrador al amanecer con el bol de merengue.",
       "camera": "wide",
       "continuityFromPrevious": null,
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 1 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 2,
@@ -78,14 +79,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara intenta repetir la figura y el merengue cambia de forma.",
+      "action": "Clara intenta repetir la figura y el merengue cambia de forma. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "El azúcar se mueve como si quisiera contar algo.",
       "storyFunction": "complication",
       "gag": "La figura señala la puerta con una cuchara.",
       "visualPrompt": "Primer plano del merengue dibujando una figura imposible.",
       "camera": "close-up",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 2 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 3,
@@ -99,14 +101,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Un cliente entra y reconoce la figura del merengue.",
+      "action": "Un cliente entra y reconoce la figura del merengue. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "El primer cliente trae la cara que anunciaba el postre.",
       "storyFunction": "escalation",
       "gag": "El cliente saluda a la figura del merengue.",
       "visualPrompt": "Plano medio de Clara y el cliente junto al mostrador.",
       "camera": "medium",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 3 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 4,
@@ -120,14 +123,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara descubre que el merengue anuncia una desgracia y duda.",
+      "action": "Clara descubre que el merengue anuncia una desgracia y duda. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Clara entiende que no todos los avisos son buenos.",
       "storyFunction": "twist",
       "gag": "La tarta se esconde bajo la bandeja.",
       "visualPrompt": "Plano sobre el hombro de Clara mirando la bandeja.",
       "camera": "over-the-shoulder",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 4 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 5,
@@ -141,14 +145,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara decide no preguntar al azúcar y cierra el obrador.",
+      "action": "Clara decide no preguntar al azúcar y cierra el obrador. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Esa mañana decide no volver a preguntar al azúcar.",
       "storyFunction": "payoff",
       "gag": "El merengue forma un signo de interrogación y se deshace.",
       "visualPrompt": "Detalle del bol de merengue mientras Clara apaga el horno.",
       "camera": "detail",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 5 necesita un deseo y un obstáculo antes de acabar."
     }
   ]
 }

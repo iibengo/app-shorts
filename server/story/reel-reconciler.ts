@@ -1519,7 +1519,9 @@ export class ReelStoryReconciler {
         event: 'reel.assembly.failed',
         storyId: assembling.id,
         errorCode: code,
-        detail: storyError.detail,
+        // The raw error class and message, because "database-unavailable" is a
+        // guess made by isDatabaseError and it has been wrong before.
+        detail: `${storyError.detail ?? ''} raw=${(error as { name?: string }).name ?? '?'}:${(error as { message?: string }).message?.slice(0, 120) ?? '?'}`.trim(),
       })
       await this.failStory(
         assembling,

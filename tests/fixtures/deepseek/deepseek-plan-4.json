@@ -57,14 +57,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara espera en el obrador con el merengue y una bandeja.",
+      "action": "Clara espera en el obrador con el merengue y una bandeja. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "El reloj marca las once y el obrador está en silencio.",
       "storyFunction": "hook",
       "gag": "El merengue forma la hora exacta.",
       "visualPrompt": "Plano general de Clara esperando junto al merengue.",
       "camera": "wide",
       "continuityFromPrevious": null,
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 1 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 2,
@@ -78,14 +79,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara encuentra una bandeja con una figura distinta.",
+      "action": "Clara encuentra una bandeja con una figura distinta. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Algo queda atrás cuando la luz parpadea.",
       "storyFunction": "complication",
       "gag": "La bandeja tintinea sola.",
       "visualPrompt": "Plano medio de la bandeja con la figura nueva.",
       "camera": "medium",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 2 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 3,
@@ -99,14 +101,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara comprende que la figura anuncia una visita.",
+      "action": "Clara comprende que la figura anuncia una visita. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Dentro hay una forma que solo ella podría recordar.",
       "storyFunction": "twist",
       "gag": "La figura saluda con una cuchara.",
       "visualPrompt": "Primer plano de Clara ante la figura del merengue.",
       "camera": "close-up",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 3 necesita un deseo y un obstáculo antes de acabar."
     },
     {
       "order": 4,
@@ -120,14 +123,15 @@
       "props": [
         "merengue"
       ],
-      "action": "Clara sonríe y guarda el merengue al amanecer.",
+      "action": "Clara sonríe y guarda el merengue al amanecer. La acción empieza y termina dentro del plano, sin cortes ni personajes nuevos, con el mismo encuadre y la misma luz hasta el final.",
       "narration": "Cuando sale el sol, ya sabe a dónde ir.",
       "storyFunction": "payoff",
       "gag": "El merengue forma una sonrisa.",
       "visualPrompt": "Detalle del merengue y la bandeja al amanecer.",
       "camera": "detail",
       "continuityFromPrevious": "Clara conserva el delantal y el bol de merengue de la escena anterior.",
-      "transition": "cut"
+      "transition": "cut",
+      "stake": "La escena 4 necesita un deseo y un obstáculo antes de acabar."
     }
   ]
 }

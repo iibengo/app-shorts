@@ -67,6 +67,13 @@ export interface StoryPromptComposer {
 
 export const STORY_PROMPT_MAX_LENGTH = 4_000
 export const STORY_VIDEO_PROMPT_MAX_LENGTH = 2_000
+/**
+ * E3 (2026-10-25): a video prompt of twenty words leaves the model to invent
+ * the rest, and it invents people and on-screen text. The reference stories
+ * narrate one continuous action in about ninety words. This is the floor we ask
+ * the script for, not a hard cap: the ceiling is the provider's.
+ */
+export const STORY_VIDEO_MOTION_MIN_WORDS = 40
 export const STORY_GLOBAL_BLOCK_MAX_LENGTH = 2_600
 
 /**
@@ -96,6 +103,12 @@ export const KEYFRAME_STAGE_BLOCK_EN =
  */
 export const VIDEO_STAGE_BLOCK =
   'The first frame already shows the subject, the place and the look: animate only what happens next. '
+  // E3 (2026-10-25): prompts of twenty words leave holes, and the model fills
+  // them with invented people and invented text. The reference stories work
+  // because their video prompt narrates a continuous action of about ninety
+  // words. It still describes motion only: the first frame owns the scene.
+  + 'Describe the motion as one continuous action: who moves, how, towards what, and what changes by the end of the shot. '
+  + 'Keep the action physical and specific, and let it finish inside the shot instead of starting a new one. '
   + 'One clear action, one camera move, smooth natural motion, the same person and the same palette throughout. '
   // 013: the video model invents headlines on every screen it animates, and
   // neither MiniMax nor Kling takes a negative channel that survives contact
@@ -103,6 +116,7 @@ export const VIDEO_STAGE_BLOCK =
   // is an unreadable one. Colour, bars and blurry shapes read as a working
   // monitor, while real copy belongs to the graphics layer, not to the model.
   + 'Every screen shows abstract unreadable content: colour blocks, soft bars and blurry shapes, with letters that never resolve into words. '
+  + 'Nobody else enters the frame: only the people named above are present. '
   + 'Screens and surfaces keep the same look as the first frame, and the only motion is the action described, vertical 9:16.'
 
 const BASE_NEGATIVE: readonly string[] = [
@@ -324,13 +338,24 @@ export function composeVideoMotionBlock(
   bible: StoryBible,
   beat: StoryBeat,
 ): string {
-  const action = beat.action.trim()
+  const actors = beat.characters
+    .map((id) => characterById(bible, id))
+    .filter((character): character is StoryCharacter => character !== undefined)
+    .map((character) => characterMarker(character))
+  // E4: the action often starts with a pronoun. Naming the actor first is what
+  // stops the model from casting someone else in the shot.
+  const action = anchorActorsAtStart(beat.action, actors, beat.subject)
   const camera = storyCameraLabel(beat.camera)
   const continuity = beat.continuityFromPrevious
     ? 'The same framing and lighting continue from the first frame. '
     : ''
+  // E1: the stake is what makes the movement mean something. A shot that only
+  // animates a pose gives the model a hole to fill, and it fills it with
+  // invented people and text. Plans written before 008 have no stake.
+  const stake = typeof beat.stake === 'string' ? beat.stake.trim() : ''
+  const stakeBlock = stake.length === 0 ? '' : `What is at stake: ${stake} `
 
-  return `${action} ${continuity}Camera: ${camera}.`.trim()
+  return `${action} ${stakeBlock}${continuity}Camera: ${camera}.`.trim()
 }
 
 export function composeSceneBlock(
@@ -368,6 +393,13 @@ export function composeSceneBlock(
     + `Acción: ${beat.action}. `
     + `Composición: ${beat.visualPrompt}. `
     + continuity
+}
+
+/** What the scene is about: the sentence a viewer would say it is. */
+export function composeStakeBlock(beat: StoryBeat): string {
+  const stake = typeof beat.stake === 'string' ? beat.stake.trim() : ''
+
+  return stake.length === 0 ? '' : `Qué está en juego: ${stake}. `
 }
 
 /** Compact, deterministic video block, specific to the scene. */
@@ -631,14 +663,68 @@ function keyframeShotLine(beat: StoryBeat): string {
     : `${capitalizeFirst(framing)} of ${subject}: ${action}.`
 }
 
+/**
+ * E4 (2026-10-25): a natural name is a word the video model will happily paint
+ * on a screen or a wall. The reference stories use `char_001`-style markers for
+ * exactly that reason. The name survives inside the marker so the model still
+ * knows who it is describing.
+ */
+export function characterMarker(character: { readonly id: string; readonly name: string }): string {
+  return `${character.name} (${character.id})`
+}
+
+/**
+ * Repeats the actor at the start of the motion line.
+ *
+ * The reference names the character several times in one paragraph and it reads
+ * as redundant to a human; for the model it is what keeps the identity anchored
+ * and what stops an invented extra from taking the action.
+ *
+ * It only anchors when the shot's own subject is that person: forcing the lead
+ * into a shot where a secondary acts is how the delivered story ended up with a
+ * hooded figure doing Clara's part.
+ */
+export function anchorActorsAtStart(
+  action: string,
+  actors: readonly string[],
+  subject: string | undefined,
+): string {
+  if (actors.length === 0) return action
+  const head = action.trim()
+  if (head.length === 0) return action
+
+  const anchor = subject === undefined
+    ? undefined
+    : actors.find((actor) => {
+        const [name] = actor.split(' (')
+
+        return (name ?? '').toLowerCase() === subject.trim().toLowerCase()
+      })
+
+  if (anchor === undefined) return head
+
+  // "Clara (clara) abre..." needs nothing: the marker is already the subject.
+  const [plainName] = anchor.split(' (')
+  const lower = head.toLowerCase()
+
+  if (lower.startsWith(anchor.toLowerCase()) || lower.startsWith((plainName ?? '').toLowerCase())) {
+    return head
+  }
+
+  const rest = head.replace(/^(ella|él|ellos|ellas|they|she|he)\s+/iu, '')
+
+  return `${anchor} ${rest[0]!.toLowerCase()}${rest.slice(1)}`
+}
+
 function keyframeEntities(
   bible: StoryBible,
   beat: StoryBeat,
   detailed: boolean,
 ): string {
-  const characters = beat.characters
+  const present = beat.characters
     .map((id) => characterById(bible, id))
     .filter((character): character is StoryCharacter => character !== undefined)
+  const characters = present
     .map((character) => detailed
       ? `${character.name} (${stripTrailingPeriod(compactText(character.wardrobe, 60))})`
       : character.name)
@@ -648,8 +734,17 @@ function keyframeEntities(
     .filter((prop): prop is StoryProp => prop !== undefined)
     .map((prop) => prop.name)
     .join(', ')
+  // E6 (2026-10-25): the delivered story grew a hooded stranger and several
+  // translucent duplicates. The negative channel catches that only on engines
+  // that accept one, so the positive says how many people are in frame.
+  const cast = present.length === 1
+    ? 'Exactly one person in frame'
+    : present.length > 1
+      ? `Exactly ${present.length} people in frame`
+      : 'No people in frame'
 
   return [
+    `${cast}.`,
     characters.length === 0 ? '' : `Characters: ${characters}.`,
     props.length === 0 ? '' : `Props: ${props}.`,
   ].filter((part) => part.length > 0).join(' ')
@@ -657,8 +752,12 @@ function keyframeEntities(
 
 function keyframeContext(bible: StoryBible, beat: StoryBeat): string {
   const location = sceneLocation(bible, beat)
+  // E5: the scene carries its own light. The style no longer imposes a
+  // background, so this line is what tells the model whether it is a bright
+  // office or a dark corridor with neon.
+  const light = `${TIME_OF_DAY_EN[beat.timeOfDay]} light, ${WEATHER_EN[beat.weather]}`
 
-  return `Location: ${compactText(location.name, 60)}. Time: ${TIME_OF_DAY_EN[beat.timeOfDay]}. Weather: ${WEATHER_EN[beat.weather]}.`
+  return `Location: ${compactText(location.name, 60)}. Time: ${TIME_OF_DAY_EN[beat.timeOfDay]}. Weather: ${WEATHER_EN[beat.weather]}. Lighting: ${light}.`
 }
 
 function keyframeComposition(beat: StoryBeat): string {

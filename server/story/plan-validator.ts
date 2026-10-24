@@ -43,6 +43,7 @@ const NARRATIVE_KEYS = [
   'narration',
   'storyFunction',
   'gag',
+  'stake',
 ] as const
 const STORYBOARD_KEYS = [
   'order',

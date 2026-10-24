@@ -10,6 +10,10 @@ import {
   createMediaStorage,
 } from '../../../server/fal/media-storage'
 
+// The storage verifies the upload with a HEAD to the CDN, which does not go
+// through the API client. The tests answer it as the provider would.
+vi.stubGlobal('fetch', async () => new Response(null, { status: 200 }))
+
 const NOW = Date.parse('2026-10-21T18:00:00.000Z')
 const STORAGE = 'https://rest.fal.ai'
 const created: string[] = []
@@ -254,5 +258,28 @@ describe('NativeMediaStorage.uploadFile', () => {
 
     expect(createMediaStorage({ client, storageBaseUrl: STORAGE }))
       .toBeInstanceOf(NativeMediaStorage)
+  })
+})
+
+describe('upload verification', () => {
+  it('fails when the CDN does not serve the object it just accepted', async () => {
+    // On 2026-10-24 a story was marked READY with a URL that returned 404: the
+    // upload answered 200 and no object was created. This is that case.
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 404 }))
+
+    const harness = fakeClient()
+    const storage = new NativeMediaStorage({ client: harness.client, storageBaseUrl: STORAGE, now: () => NOW })
+    const path = await tempFile()
+
+    const error = await storage.uploadFile({
+      filePath: path,
+      fileName: 'story-final.mp4',
+      contentType: 'video/mp4',
+      lifecycleSeconds: 3_600,
+    }).catch((caught: unknown) => caught)
+
+    expect(isComposerError(error)).toBe(true)
+
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 200 }))
   })
 })

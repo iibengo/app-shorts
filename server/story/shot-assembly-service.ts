@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdtemp, rm, stat, unlink, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import type { MediaStorage } from '../fal/media-storage'
@@ -76,6 +76,11 @@ export interface ShotAssemblerConfig {
   readonly concatTimeoutMs?: number
   readonly totalTimeoutMs?: number
   readonly maxOutputBytes?: number
+  /**
+   * Where delivered MP4s are kept after the provider forgets them. When it is
+   * absent the upload still happens and only the URL is returned.
+   */
+  readonly outputDirectory?: string | null
 }
 
 interface ProbeStream {
@@ -148,6 +153,8 @@ export class NativeShotAssembler implements ShotAssembler {
   private readonly concatTimeoutMs: number
   private readonly totalTimeoutMs: number
   private readonly maxOutputBytes: number
+  /** Where the delivered MP4 survives the provider's deletion. */
+  private readonly outputDirectory: string | null
   /**
    * 015: declared as an option but never assigned, so overlays were silently
    * skipped on every story. The field existed, the code that used it existed,
@@ -169,6 +176,7 @@ export class NativeShotAssembler implements ShotAssembler {
     this.concatTimeoutMs = config.concatTimeoutMs ?? CONCAT_TIMEOUT_MS
     this.totalTimeoutMs = config.totalTimeoutMs ?? TOTAL_TIMEOUT_MS
     this.maxOutputBytes = config.maxOutputBytes ?? MAX_OUTPUT_BYTES
+    this.outputDirectory = config.outputDirectory ?? null
     this.graphics = options.graphics ?? null
   }
 
@@ -334,6 +342,11 @@ export class NativeShotAssembler implements ShotAssembler {
         throw new StoryError('assembly-failed', { detail: `too-large-${finalStat.size}` })
       }
 
+      // The provider deletes uploaded MP4s within minutes: two delivered
+      // stories turned into 404s while still marked READY on 2026-10-24. The
+      // local copy is written before the upload so the result outlives the URL.
+      await this.keepLocalCopy(input.storyId, outputPath)
+
       const upload = await this.mediaStorage.uploadFile({
         filePath: outputPath,
         fileName: `story-${sanitizeStoryId(input.storyId)}-${randomBytes(6).toString('hex')}.mp4`,
@@ -369,6 +382,24 @@ export class NativeShotAssembler implements ShotAssembler {
       if (directory) {
         await rm(directory, { recursive: true, force: true }).catch(() => undefined)
       }
+    }
+  }
+
+  /**
+   * Copies the delivered MP4 into the app's own directory.
+   *
+   * It never throws: losing the local copy must not turn a delivered story
+   * into a failed one. The provider URL stays as the primary reference.
+   */
+  private async keepLocalCopy(storyId: string, sourcePath: string): Promise<void> {
+    if (!this.outputDirectory) return
+
+    try {
+      await mkdir(this.outputDirectory, { recursive: true })
+      await copyFile(sourcePath, join(this.outputDirectory, `${sanitizeStoryId(storyId)}.mp4`))
+      this.stage = 'kept'
+    } catch {
+      this.stage = 'keep-failed'
     }
   }
 

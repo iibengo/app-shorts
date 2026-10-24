@@ -20,9 +20,12 @@ describe('narrative prompt concision', () => {
   })
 
   it('uses the tightened beats schema maxima', () => {
-    expect(BEATS_JSON_SCHEMA).toContain('"action": "string (20-240)"')
+    // E3 (2026-10-25): the action is the video prompt. Twenty words gave the
+    // model room to invent people and on-screen text.
+    expect(BEATS_JSON_SCHEMA).toContain('"action": "string (120-400, una sola acción continua)"')
     expect(BEATS_JSON_SCHEMA).toContain('"narration": "string (10-140)"')
     expect(BEATS_JSON_SCHEMA).toContain('"gag": "string (4-80) o null"')
+    expect(BEATS_JSON_SCHEMA).toContain('"stake": "string (12-120)"')
     expect(BEATS_JSON_SCHEMA).not.toContain('"storyBible"')
   })
 

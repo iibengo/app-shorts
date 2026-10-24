@@ -63,6 +63,22 @@ describe('canon beat structure', () => {
     reject(value, 'beats[0].gag')
   })
 
+  it('rejects a scene that only describes a picture', () => {
+    // E1 (2026-10-25): the delivered story did not read because every beat was
+    // a visual, not a stake. A scene with no stake is now invalid.
+    const value = clone()
+    value.beats[1] = { ...value.beats[1]!, stake: 'Mira.' }
+
+    reject(value, 'beats[1].stake')
+  })
+
+  it('rejects a scene whose stake is too long to be a sentence', () => {
+    const value = clone()
+    value.beats[1] = { ...value.beats[1]!, stake: 'x'.repeat(121) }
+
+    reject(value, 'beats[1].stake')
+  })
+
   it('rejects two twists', () => {
     const value = clone()
     value.beats[1] = {

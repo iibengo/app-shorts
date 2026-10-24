@@ -114,6 +114,8 @@ interface RuntimeStoryConfig {
   readonly falRunBaseUrl?: string
   readonly falStorageBaseUrl?: string
   readonly assemblyTimeoutMs?: number
+  /** Where delivered MP4s are kept after the provider deletes its copy. */
+  readonly outputDirectory?: string
   readonly assemblyConcurrency?: number
   readonly costQcUsd?: number
   readonly qcEnabled?: boolean
@@ -185,6 +187,8 @@ export interface StoryRuntime {
   readonly hasFfmpeg: boolean
   readonly videoConcurrency: number
   readonly assemblyTimeoutMs: number
+  /** Where delivered MP4s are kept, so the download route finds them. */
+  readonly storyConfig: RuntimeStoryConfig
   readonly reconciler: StoryReconciler | null
   readonly uploadIdempotency: Map<string, StoryUploadIdempotencyEntry>
 }
@@ -493,6 +497,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         },
         {
           totalTimeoutMs: numberValue(story.assemblyTimeoutMs, 420_000),
+          outputDirectory: story.outputDirectory,
         },
       )
     : null
@@ -665,6 +670,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     hasFfmpeg,
     videoConcurrency: numberValue(story.videoConcurrency, 4),
     assemblyTimeoutMs,
+    storyConfig: story,
     reconciler,
     uploadIdempotency: new Map<string, StoryUploadIdempotencyEntry>(),
   }

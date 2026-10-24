@@ -31,6 +31,8 @@ export interface NarrativeBeat {
   readonly narration: string
   readonly storyFunction: StoryStoryFunction
   readonly gag: string | null
+  /** What is at stake here, so the scene moves the story instead of posing. */
+  readonly stake: string
 }
 
 export interface CanonDraft {

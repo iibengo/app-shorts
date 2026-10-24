@@ -277,3 +277,93 @@ canon.
 **Por qué:** el detalle es visible en la pantalla de revisión. Los tests nuevos
 lo ocultaban porque usaban ids ya capitalizados.
 **Coste:** 0.
+
+---
+
+## Sesión de validación — 2026-10-25
+
+Contexto: una historia completa llegó a `READY` y **no se entendía**. Comparada
+con `examples/video4.mp4`, la diferencia no eran los prompts: la referencia
+**habla** y la nuestra no. Se trabaja sin gastar saldo (quedan 4,99 USD).
+
+### 24. El proveedor borra los MP4 subidos en minutos
+
+**Qué:** la entrega final subía el MP4 y guardaba la URL del proveedor. Dos
+historias quedaron `READY` con una URL que devolvía `404` uno o dos minutos
+después. Se añade una copia local antes de subir
+(`.data/story-output/<storyId>.mp4`) y una ruta `GET /api/story/:id/download`
+que la sirve comprobando sesión.
+**Por qué:** medido, no supuesto. La traza `fal.upload.verify` enseñó
+`served = size = 7.140.803` bytes: la subida era correcta y el archivo
+desaparecía después. El producto entregaba una URL temporal de un proveedor que
+borra.
+**Efecto:** el vídeo sobrevive al proveedor. La lectura del archivo vive en
+`server/story/delivered-file.ts`, no en la ruta.
+**Coste:** 0.
+**Pendiente:** almacenamiento persistente (S3/R2) antes de desplegar: `.data/`
+no sobrevive a un contenedor.
+
+### 25. E1 — el guion escribe imágenes, no conflictos
+
+**Qué:** cada beat gana un campo `stake` obligatorio (12–120 caracteres) que
+dice quién quiere qué y qué se pierde. Se valida en `canon-validator` y en
+`plan-validator`, y viaja al prompt de vídeo como `What is at stake`.
+**Por qué:** la historia entregada era «mira pantallas, bebe café, camina». La
+referencia es «alguien tomó algo y hay que devolverlo». Sin stake no hay trama.
+**Efecto:** los planes legacy sin `stake` siguen funcionando (se omite el
+bloque). Tests en ambos sentidos: el prompt lo lleva con `stake` y no lo lleva
+sin él.
+**Coste:** 0.
+
+### 26. E5 — el estilo imponía el fondo de todos los planos
+
+**Qué:** se quita «dark navy background with neon pink and blue accents» del
+bloque `papercraft`. El keyframe añade `Lighting: <hora> light, <clima>` tomado
+del beat.
+**Por qué:** el estilo peleaba con el guion. El primer plano de la historia
+salió de día y los demás de noche, porque el estilo fijaba un fondo oscuro con
+neón en todos.
+**Efecto:** el estilo da material y forma; la luz y el fondo los pone la escena.
+**Coste:** 0.
+
+### 27. E3 — veinte palabras de acción dejan huecos
+
+**Qué:** el mínimo de `action` sube de 20 a **120 caracteres** (el tope sigue en
+600) y el esquema pide una sola acción continua de 120–400. `VIDEO_STAGE_BLOCK`
+pide «one continuous action» y «Nobody else enters the frame».
+**Por qué:** el modelo rellena lo que no se le cuenta, y lo rellena con
+personajes inventados y texto en pantalla. La referencia narra ~90 palabras por
+plano.
+**Efecto:** los fixtures del director se alargaron al nuevo mínimo.
+**Coste:** 0.
+
+### 28. E4 — nombres naturales se pintan en pantalla
+
+**Qué:** el prompt de vídeo usa `Nombre (id)` como marcador y repite el actor al
+principio de la frase, **solo cuando el `subject` del plano es ese personaje**.
+**Por qué:** en la referencia es redundante para un humano y ancla la identidad
+para el modelo. Pero forzarlo es peor: en la primera versión el anclaje metió a
+Clara en un plano donde actuaba un cliente. Es exactamente el mismo error que
+puso a un encapuchado haciendo su papel.
+**Efecto:** un test fija que no se fuerza el sujeto cuando el plano es de otro.
+**Coste:** 0.
+
+### 29. Los fixtures del director se alargaron a mano
+
+**Qué:** siete fixtures de `tests/fixtures/` tienen ahora `stake` y `action` de
+más de 120 caracteres, con una coletilla genérica.
+**Por qué:** el contrato cambió y los fixtures son datos de prueba del contrato.
+**Riesgo:** la coletilla es relleno, no narrativa. Un fixture debería parecerse a
+una salida real del director. **Revisar cuando haya una historia real con el
+contrato nuevo.**
+**Coste:** 0.
+
+### 30. E6 parcial — cuánta gente hay en el plano
+
+**Qué:** el keyframe declara el número exacto de personas en cuadro («Exactly one
+person in frame», o el número que toque). El negativo ya tenía `extra
+characters`, pero solo sirve en motores que aceptan canal negativo.
+**Por qué:** la historia entregada creció un encapuchado, clones y figuras
+translúcidas. Un positivo funciona en todos los motores.
+**Falta:** medir con una historia real si desaparecen. Si no, es trabajo aparte.
+**Coste:** 0.

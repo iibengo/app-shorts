@@ -273,4 +273,69 @@ describe('story-prompt-composer: visual style', () => {
     expect(video.prompt.startsWith(styleBlockFor('anime'))).toBe(true)
     expect(video.negativePrompt).toContain(styleNegativeFor('anime'))
   })
+
+  it('carries the stake into the video prompt so the shot has something to do', () => {
+    // E1 (2026-10-25): the delivered story did not read because the shots only
+    // animated a pose. The stake is what the movement has to accomplish.
+    const beat = { ...beats(PLAN)[0]!, stake: 'Clara debe esconder el merengue antes de que abran.' }
+    const video = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
+
+    expect(video.prompt).toContain('Clara debe esconder el merengue antes de que abran.')
+    expect(video.prompt).toContain('What is at stake')
+  })
+
+  it('leaves legacy beats without a stake unchanged', () => {
+    const { stake: _stake, ...legacy } = beats(PLAN)[0]!
+    const video = composeVideo({ bible: BIBLE, beat: legacy as never, preset: 'fast' })
+
+    expect(video.prompt).not.toContain('What is at stake')
+  })
+
+  it('lets the scene decide the light instead of the style', () => {
+    // E5 (2026-10-25): the delivered story opened in a bright office and went
+    // night-time for the remaining shots because `papercraft` forced a dark
+    // navy background on every prompt.
+    const beat = { ...beats(PLAN)[0]!, timeOfDay: 'morning' as const, weather: 'clear' as const }
+    const keyframe = composeKeyframe({ bible: BIBLE, beat, hasReference: false, visualStyle: 'papercraft' }).prompt
+
+    expect(keyframe).not.toContain('dark navy')
+    expect(keyframe).toContain('Lighting: morning light, clear sky')
+  })
+
+  it('keeps material and shape in the style block', () => {
+    expect(styleBlockFor('papercraft')).toContain('low-poly')
+    expect(styleBlockFor('papercraft')).toContain('matte paper texture')
+  })
+
+  it('anchors the subject with its marker when the shot names one', () => {
+    // E4 (2026-10-25): a natural name is a word the video model paints on walls.
+    const beat = { ...beats(PLAN)[0]!, subject: 'Clara', action: 'Abre el horno y mira dentro.' }
+    const video = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
+
+    expect(video.prompt).toContain('Clara (clara) abre el horno')
+  })
+
+  it('never forces the lead into a shot that belongs to someone else', () => {
+    // The delivered story had a hooded stranger doing Clara's part because the
+    // shorthand "present in the scene" became "acts in the shot".
+    const beat = { ...beats(PLAN)[0]!, subject: undefined, action: 'Un cliente entra y saluda.' }
+    const video = composeVideo({ bible: BIBLE, beat, preset: 'fast' })
+
+    expect(video.prompt.startsWith('Un cliente entra')).toBe(true)
+  })
+
+  it('asks for one continuous action instead of a pose', () => {
+    // E3: twenty words of prompt left the model to invent the rest.
+    expect(VIDEO_STAGE_BLOCK).toContain('one continuous action')
+    expect(VIDEO_STAGE_BLOCK).toContain('Nobody else enters the frame')
+  })
+
+  it('says how many people are in frame, not only who they are', () => {
+    // E6 (2026-10-25): the delivered story grew a hooded stranger and several
+    // duplicates. The negative channel only works on engines that take one.
+    const beat = beats(PLAN)[0]!
+    const keyframe = composeKeyframe({ bible: BIBLE, beat, hasReference: false }).prompt
+
+    expect(keyframe).toContain('Exactly one person in frame')
+  })
 })

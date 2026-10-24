@@ -69,6 +69,7 @@ export default defineNuxtConfig({
       falRunBaseUrl: 'https://fal.run',
       falStorageBaseUrl: 'https://rest.fal.ai',
       assemblyTimeoutMs: 420_000,
+      outputDirectory: process.env.STORY_OUTPUT_DIR ?? '.data/story-output',
       assemblyConcurrency: 1,
       costQcUsd: 0.02,
       qcEnabled: false,

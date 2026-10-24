@@ -182,6 +182,12 @@ export interface StoryNarrativeScene {
   readonly narration: string
   readonly storyFunction: StoryStoryFunction
   readonly gag: string | null
+  /**
+   * What is at stake in this scene: who wants what and what happens if they
+   * fail. A scene without a stake is a picture, not a story, and pictures do
+   * not explain themselves (E1, 2026-10-25).
+   */
+  readonly stake: string
   readonly continuityFromPrevious: string | null
   /** Presupuesto narrativo orientativo; los planos son la autoridad de duración. */
   readonly durationHintSeconds?: number

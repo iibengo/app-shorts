@@ -293,6 +293,16 @@ describe('server story guards', () => {
     expect(routes).not.toMatch(/multipart\/form-data/)
     expect(routes).not.toMatch(/createReadStream|writeFile/)
   })
+
+  it('serves the delivered video through the story layer, not from the route', () => {
+    // E-series 2026-10-25: the provider deletes uploaded MP4s within minutes, so
+    // the app keeps its own copy. The route only asks for it.
+    const route = read('server/api/story/[id]/download.get.ts')
+
+    expect(route).toContain('openDeliveredStory')
+    expect(route).not.toMatch(/node:fs|node:path/)
+    expect(read('server/story/delivered-file.ts')).toContain('createReadStream')
+  })
 })
 
 describe('story continuity guards (006)', () => {
