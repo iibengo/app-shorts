@@ -97,11 +97,13 @@ export const KEYFRAME_STAGE_BLOCK_EN =
 export const VIDEO_STAGE_BLOCK =
   'The first frame already shows the subject, the place and the look: animate only what happens next. '
   + 'One clear action, one camera move, smooth natural motion, the same person and the same palette throughout. '
-  // 013: the video model invents headlines on every screen it animates. The
-  // sentence is positive because neither MiniMax nor Kling takes a negative
-  // channel that survives contact with the prompt.
-  + 'Every screen and surface keeps exactly the image it has in the first frame, unchanged, static and blank where it was blank. '
-  + 'The only motion is the action described, vertical 9:16.'
+  // 013: the video model invents headlines on every screen it animates, and
+  // neither MiniMax nor Kling takes a negative channel that survives contact
+  // with the prompt. The target is not a blank screen, which looks broken: it
+  // is an unreadable one. Colour, bars and blurry shapes read as a working
+  // monitor, while real copy belongs to the graphics layer, not to the model.
+  + 'Every screen shows abstract unreadable content: colour blocks, soft bars and blurry shapes, with letters that never resolve into words. '
+  + 'Screens and surfaces keep the same look as the first frame, and the only motion is the action described, vertical 9:16.'
 
 const BASE_NEGATIVE: readonly string[] = [
   'extra characters',
