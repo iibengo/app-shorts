@@ -29,7 +29,7 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 | 9b | **Varias fotos del usuario, una por personaje** | 6-10 h | Subir varias fotos y, si la premisa tiene varios personajes, detectar con DeepSeek Vision qué foto es de quién, asignarla y mencionarla en la historia. Cambia el contrato del formulario (`STORY_MAX_REFERENCES = 1` hoy). Aparcado al aprobar 012. |
 | 9d | **Series y personajes reutilizables (spec 013)** | 6-10 h | Tabla `Series` + `Character` global: el personaje (Ionias, Pixel) se genera **una vez** y todas las historias de la serie lo reutilizan. Hoy cada historia vuelve a pagar 0,04 por secundario. Es la base de "crear nuevas historias dentro de una serie". Decisión pendiente: personaje **inmutable** en 013 (crear otra serie si cambia el look), con versionado en una spec posterior. Inspirado en ArcReel, que modela personajes/escenarios/props como activos referenciados por ID. |
 | 9e | **Versiones de assets** (regenerar y comparar sin sobrescribir) | 15-25 h | Lo mejor de ArcReel: cada personaje y cada keyframe guarda historial y se puede volver a una versión anterior. Potente pero no resuelve ningún problema actual; va detrás de 9d y solo con usuarios reales. **No copiar su código**: ArcReel es AGPL-3.0. |
-| 9f | **Retrato de secundario con fondo neutro** | 1 h | El repo de micro-drama genera el retrato con "neutral background, studio lighting" antes de usarlo como referencia. Probablemente mejora la cara en los planos; se mide con una sola imagen (0,04). |
+| 9f | ~~**Retrato de secundario con fondo neutro**~~ **HECHO (013)** | — | El prompt pide ya "plain neutral studio backdrop, evenly lit". |
 | 9c | **Kling v3 Pro con `elements` en el vídeo** | 8-12 h | La sonda B del 2026-10-24 funcionó: un elemento por personaje (`frontal_image_url` + `reference_image_urls`, ambos obligatorios), `@ElementN` en el prompt, 1088×1904 mudo. Descartado por coste: 0,112 USD/s (0,56 por plano) y ~7 min por plano, frente a 0,35 y segundos del motor actual. Reabrir cuando el coste importe menos que la calidad, o solo en un preset premium. |
 
 ## 🟢 Deuda técnica (no bloquea)
@@ -43,7 +43,19 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 | 14 | Trocear la suite (rápidos / lentos) | 2 h |
 | 15 | Transaccionalidad de escrituras batch historia→shots | 2-3 h |
 | 16 | Reforzar el fallback de `qc-frames` con `filePath === null` | 2 h |
-| 17 | Director: evitar tres planos seguidos con el mismo encuadre en la misma localización | 3-4 h | Detectado el 2026-10-24: la historia `802575b0` puso tres planos "Ionias sentado en el escritorio" seguidos. El lugar no es el problema; la repetición visual sí. |
+| 17 | ~~Director: evitar tres planos seguidos con el mismo encuadre~~ **HECHO (013)** | — | El prompt del director lo prohíbe y `detectRepeatedFraming` lo registra. |
+
+## Bugs encontrados y cerrados (2026-10-24)
+
+| Bug | Causa | Arreglo |
+|---|---|---|
+| Texto inventado en los keyframes | `no text` en un modelo sin canal negativo activa el concepto | Prompts en positivo (013) |
+| Prompt de vídeo repetía la escena entera | I2V solo quiere movimiento | `composeVideoMotionBlock` (013) |
+| Plano atascado en `KEYFRAME_QUEUED` | `attempts >= 2` hacía `return` sin cerrar el plano | Falla con `provider-invalid-output` |
+| Plano rechazado por texto durante la fase de vídeos | Nadie volvía a la fase de keyframes | `rebuildPendingKeyframes` |
+| Detector de texto marcaba escenas limpias | Muestreo 32×96 demasiado pequeño | 128×384 y umbral calibrado |
+| `updateCharacterRefs` sin guarda | Un worker lento podía repetir un cobro | Guarda de estado, versión y lease |
+| Check de visión sin presupuestar | Una llamada pagada por keyframe | Apagado por defecto |
 
 ## Sondas reales pagadas (evidencia)
 
