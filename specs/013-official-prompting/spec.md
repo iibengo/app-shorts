@@ -194,3 +194,22 @@ server/story/runtime.ts                 cableado del inspector
 4. Prompts de vídeo de movimiento + tests.
 5. Referencia propia por personaje en el orquestador + test.
 6. Gate completo y una historia real de 15 s (0,36 USD) para comparar con `ebddcea6`.
+
+## Resultado medido (2026-10-24)
+
+Dos historias reales, `budget` 15 s, `papercraft`, mismas premisas.
+
+| Métrica | Antes (012) `ebddcea6` | Después (013) `9d241a89` |
+|---|---|---|
+| Titular inventado en pantalla | **Sí**: `WHO STOLE MY ARTICLE?` + 2 bocadillos en inglés | **No** |
+| Titular inventado en pantalla (2.ª carrera) | **Sí**: `¡Un administrador excesivo descubre que su popono...!` | **No** |
+| Logo quemado | `CaféAndCode` en la mesa | **No** |
+| Planos con texto detectable | 4 de 4 | 1 de 4, y es una etiqueta técnica pequeña (`DEVICE Q003`) |
+| Regeneraciones automáticas | 0 (no había guardia) | 2 (planos 2 y 3) |
+| Coste de keyframes | 0,32 | 0,48 (4 + 2 regeneraciones) |
+
+El guardia de texto se ejecutó en producción real: `reel.keyframe.text-detected` dos veces, ambas con regeneración correcta y sin pagar vídeo.
+
+**Conclusión:** el diagnóstico de la documentación oficial era correcto. Las prohibiciones en el prompt positivo activaban el concepto que se quería evitar.
+
+**Deuda declarada:** el detector marca texturas finas de alta frecuencia (etiquetas, rejillas de rack). Aceptable: cuesta una imagen y nunca rompe la historia.
