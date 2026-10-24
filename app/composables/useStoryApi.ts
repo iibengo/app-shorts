@@ -32,6 +32,8 @@ export interface StoryApi {
   approve(storyId: string): Promise<StoryJob>
   retryVideo(storyId: string, sceneId: string): Promise<StoryJob>
   retryShot(storyId: string, shotId: string): Promise<StoryJob>
+  /** 015: requeue a failed character reference. */
+  retryCharacter(storyId: string, characterId: string): Promise<StoryJob>
   recoverShot(storyId: string, shotId: string): Promise<StoryJob>
   assemble(storyId: string): Promise<StoryJob>
   retryQc(storyId: string): Promise<StoryJob>
@@ -302,6 +304,12 @@ export function useStoryApi(): StoryApi {
     )
   }
 
+  async function retryCharacter(storyId: string, characterId: string): Promise<StoryJob> {
+    return postEmpty<StoryJob>(
+      `/api/story/${encodeURIComponent(storyId)}/characters/${encodeURIComponent(characterId)}/retry`,
+    )
+  }
+
   async function recoverShot(storyId: string, shotId: string): Promise<StoryJob> {
     return postEmpty<StoryJob>(
       `/api/story/${encodeURIComponent(storyId)}/shots/${encodeURIComponent(shotId)}/recover`,
@@ -353,6 +361,7 @@ export function useStoryApi(): StoryApi {
     approve,
     retryVideo,
     retryShot,
+    retryCharacter,
     recoverShot,
     assemble,
     retryQc,

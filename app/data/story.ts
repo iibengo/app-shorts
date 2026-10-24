@@ -506,4 +506,5 @@ export const STORY_CHARACTER_REF_COPY = {
     'content-blocked': 'El proveedor rechazó la descripción.',
   } as Readonly<Record<string, string>>,
   reasonFallback: 'No se pudo generar la imagen.',
+  retry: 'Volver a intentar',
 } as const

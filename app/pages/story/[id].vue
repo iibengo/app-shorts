@@ -61,6 +61,7 @@ const {
   approve,
   retryScene,
   retryShot,
+  retryCharacter,
   recoverShot,
   retryAssembly,
   retryQc,
@@ -70,6 +71,11 @@ const {
   restart,
   retryPolling,
 } = useStory({ api, storyId })
+
+/** 015: the reference list can ask for a failed character to be drawn again. */
+const handleRetryCharacter = async (characterId: string): Promise<void> => {
+  await retryCharacter(characterId)
+}
 
 /** Canon names keyed by id, so the reference list is readable. */
 const characterNames = computed<Readonly<Record<string, string>>>(() => {
@@ -363,6 +369,7 @@ watch(
           v-if="story !== null"
           :refs="story.characterRefs"
           :names="characterNames"
+          @retry="handleRetryCharacter"
         />
       </div>
 
@@ -370,7 +377,11 @@ watch(
         <!-- The character references were only visible while they were being
              generated, so the user never saw how a secondary character ended
              up. They belong to the review too. -->
-        <StoryCharacterRefs :refs="story.characterRefs" :names="characterNames" />
+        <StoryCharacterRefs
+          :refs="story.characterRefs"
+          :names="characterNames"
+          @retry="handleRetryCharacter"
+        />
 
         <StoryShotReview
           :story="story"

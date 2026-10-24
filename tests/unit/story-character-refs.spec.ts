@@ -106,3 +106,53 @@ describe('failure reason', () => {
     expect(wrapper.text()).toContain('No se pudo generar la imagen')
   })
 })
+
+describe('retry button', () => {
+  it('offers a retry only for a failed generated reference', async () => {
+    const wrapper = await mountSuspended(StoryCharacterRefs, {
+      props: {
+        refs: [ref({ characterId: 'pixel', status: 'failed' })],
+        names: { pixel: 'Pixel' },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="story-character-ref-retry-pixel"]').exists()).toBe(true)
+  })
+
+  it('offers no retry for the uploaded photo', async () => {
+    // The photo is the user's own image: there is nothing to redraw, and a
+    // button that does nothing is worse than no button.
+    const wrapper = await mountSuspended(StoryCharacterRefs, {
+      props: {
+        refs: [ref({ characterId: 'ionias', source: 'user', status: 'failed' })],
+        names: { ionias: 'Ionias' },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="story-character-ref-retry-ionias"]').exists()).toBe(false)
+  })
+
+  it('offers no retry once the image is ready', async () => {
+    const wrapper = await mountSuspended(StoryCharacterRefs, {
+      props: {
+        refs: [ref({ status: 'ready', imageUrl: 'https://v3b.fal.media/files/x.png' })],
+        names: { pixel: 'Pixel' },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="story-character-ref-retry-pixel"]').exists()).toBe(false)
+  })
+
+  it('emits the character id when pressed', async () => {
+    const wrapper = await mountSuspended(StoryCharacterRefs, {
+      props: {
+        refs: [ref({ characterId: 'pixel', status: 'failed' })],
+        names: { pixel: 'Pixel' },
+      },
+    })
+
+    await wrapper.get('[data-testid="story-character-ref-retry-pixel"]').trigger('click')
+
+    expect(wrapper.emitted('retry')).toEqual([['pixel']])
+  })
+})

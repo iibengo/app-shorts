@@ -57,6 +57,8 @@ export interface UseStoryReturn {
   approve: () => Promise<StoryJob | null>
   retryScene: (sceneId: string) => Promise<StoryJob | null>
   retryShot: (shotId: string) => Promise<StoryJob | null>
+  /** 015: requeue a failed character reference. */
+  retryCharacter: (characterId: string) => Promise<StoryJob | null>
   recoverShot: (shotId: string) => Promise<StoryJob | null>
   retryAssembly: () => Promise<StoryJob | null>
   retryQc: () => Promise<StoryJob | null>
@@ -431,6 +433,12 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     return runCommand((id) => api.retryVideo(id, sceneId))
   }
 
+  async function retryCharacter(characterId: string): Promise<StoryJob | null> {
+    if (!currentId) return null
+
+    return runCommand((id) => api.retryCharacter(id, characterId))
+  }
+
   async function retryShot(shotId: string): Promise<StoryJob | null> {
     if (!currentId) return null
 
@@ -585,6 +593,7 @@ export function useStory(options: UseStoryOptions = {}): UseStoryReturn {
     approve,
     retryScene,
     retryShot,
+    retryCharacter,
     recoverShot,
     retryAssembly,
     retryQc,

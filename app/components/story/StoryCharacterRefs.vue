@@ -9,6 +9,14 @@ const props = defineProps<{
   names?: Readonly<Record<string, string>>
 }>()
 
+const emit = defineEmits<{
+  retry: [characterId: string]
+}>()
+
+/** A generated reference that failed can be queued again; the photo cannot. */
+const canRetry = (ref: StoryCharacterReference): boolean =>
+  ref.status === 'failed' && ref.source === 'generated'
+
 /** Only a ready reference with an image deserves a thumbnail. */
 const items = computed(() => props.refs.map((ref) => ({
   ...ref,
@@ -84,6 +92,15 @@ const statusLabel = (ref: StoryCharacterReference, name: string): string => {
           >
             {{ statusLabel(item, item.name) }}
           </span>
+          <button
+            v-if="canRetry(item)"
+            type="button"
+            :data-testid="`story-character-ref-retry-${item.characterId}`"
+            class="mt-1 min-h-8 rounded-lg border border-white/10 px-2 text-xs text-brand-text hover:border-brand-fuchsia/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-fuchsia"
+            @click="emit('retry', item.characterId)"
+          >
+            {{ STORY_CHARACTER_REF_COPY.retry }}
+          </button>
           <span
             v-if="item.status === 'failed'"
             class="mt-0.5 block text-xs text-brand-muted"

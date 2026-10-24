@@ -224,3 +224,13 @@ pantalla de personajes del backlog (punto 9a).
 **Tests:** 6 de aceptación con los cinco casos, más la suite completa
 (1916 passed / 12 skipped) y build correcto.
 **Pendiente:** el botón en la interfaz. Sin él, la ruta existe pero nadie la usa.
+
+### 20. El botón de reintentar personaje
+
+**Qué:** la lista de personajes muestra «Volver a intentar» cuando una referencia
+generada falló. No aparece si ya está lista, ni en la foto subida por el usuario.
+**Por qué:** la ruta existía desde el cambio anterior pero nadie podía usarla.
+**Decisión de interfaz:** el botón no se muestra para la foto del usuario porque
+no hay nada que redibujar; un botón que no hace nada es peor que no tenerlo.
+**Coste:** 0 hasta pulsarlo; entonces, una imagen por personaje.
+**Tests:** 4 nuevos de componente, 6 de ruta, suite completa en 1920 / 12 skipped.
