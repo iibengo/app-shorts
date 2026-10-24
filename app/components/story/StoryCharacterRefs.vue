@@ -20,6 +20,19 @@ const readyCount = computed(() => items.value.filter((item) => item.status === '
 const summary = computed(() => STORY_CHARACTER_REF_COPY.count
   .replace('{n}', String(readyCount.value)))
 
+/**
+ * A failed reference says why, when the server kept the reason. "Not available"
+ * alone leaves the user guessing whether it was the photo, the provider or the
+ * budget.
+ */
+const failureReason = (ref: StoryCharacterReference & { readonly errorCode?: string }): string => {
+  const code = ref.errorCode
+
+  if (code === undefined || code.length === 0) return STORY_CHARACTER_REF_COPY.reasonFallback
+
+  return STORY_CHARACTER_REF_COPY.reasons[code] ?? STORY_CHARACTER_REF_COPY.reasonFallback
+}
+
 const statusLabel = (ref: StoryCharacterReference, name: string): string => {
   if (ref.status === 'ready') return STORY_CHARACTER_REF_COPY.ready
   if (ref.status === 'failed') return STORY_CHARACTER_REF_COPY.failed.replace('{name}', name)
@@ -75,6 +88,7 @@ const statusLabel = (ref: StoryCharacterReference, name: string): string => {
             v-if="item.status === 'failed'"
             class="mt-0.5 block text-xs text-brand-muted"
           >
+            {{ failureReason(item) }}
             {{ STORY_CHARACTER_REF_COPY.failedNote.replace('{name}', item.name) }}
           </span>
         </span>

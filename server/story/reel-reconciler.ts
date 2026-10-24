@@ -593,7 +593,7 @@ export class ReelStoryReconciler {
 
     const next: StoredCharacterRefs = {
       ...refs,
-      [characterId]: { ...ref, status: 'failed', updatedAt },
+      [characterId]: { ...ref, status: 'failed', errorCode, updatedAt },
     }
     await this.repository.updateCharacterRefs(story.id, next)
     this.onEvent?.({ event, storyId: story.id, characterId, errorCode })

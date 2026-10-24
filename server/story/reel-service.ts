@@ -350,6 +350,9 @@ function toCharacterReferenceDtos(
       source: ref.source,
       status: ref.status,
       imageUrl: ref.status === 'ready' ? ref.frontalUrl : null,
+      ...(ref.status === 'failed' && ref.errorCode !== undefined
+        ? { errorCode: ref.errorCode }
+        : {}),
     })
   }
 

@@ -17,6 +17,8 @@ export interface StoredCharacterRef {
   /** Further character views; at least one when `status === 'ready'`. */
   readonly referenceUrls: readonly string[]
   readonly attempts: number
+  /** Why it failed, so the review screen can say more than "not available". */
+  readonly errorCode?: string
   readonly updatedAt: string
 }
 

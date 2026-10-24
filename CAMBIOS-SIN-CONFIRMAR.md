@@ -195,3 +195,17 @@ secundario; solo se veía durante la generación y desaparecía. Si el usuario n
 mira en ese momento, nunca ve la cara de su personaje.
 **Coste:** 0. Reutiliza el componente que ya existía.
 **Tests:** 1914 passed / 12 skipped, build correcto.
+
+### 18. El motivo del fallo de un personaje
+
+**Qué:** cuando la referencia de un personaje falla, el servidor guarda ahora el
+código del fallo y la pantalla lo traduce a una frase («el proveedor tardó
+demasiado», «no cabía en el presupuesto»). Un código desconocido cae en una frase
+neutra.
+**Por qué:** en la historia real de hoy, **2 de 3 personajes fallaron** y la
+interfaz solo decía «referencia no disponible». El usuario no tenía forma de
+saber si era su foto, el proveedor o el dinero.
+**Sin filtrar detalles:** el código es estable y del servidor; nunca se muestra
+el mensaje crudo del proveedor.
+**Coste:** 0.
+**Tests:** 1914 + 2 nuevos, build correcto.

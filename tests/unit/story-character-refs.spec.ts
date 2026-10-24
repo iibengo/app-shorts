@@ -80,3 +80,29 @@ describe('StoryCharacterRefs', () => {
     expect(wrapper.text()).toContain('1 personajes con imagen propia')
   })
 })
+
+describe('failure reason', () => {
+  it('says why a reference failed when the server kept a code', async () => {
+    // "Not available" alone leaves the user guessing whether it was the photo,
+    // the provider or the budget.
+    const wrapper = await mountSuspended(StoryCharacterRefs, {
+      props: {
+        refs: [ref({ status: 'failed', errorCode: 'provider-timeout' })],
+        names: { pixel: 'Pixel' },
+      },
+    })
+
+    expect(wrapper.text()).toContain('tardó demasiado')
+  })
+
+  it('falls back to a neutral sentence for an unknown code', async () => {
+    const wrapper = await mountSuspended(StoryCharacterRefs, {
+      props: {
+        refs: [ref({ status: 'failed', errorCode: 'something-new' })],
+        names: { pixel: 'Pixel' },
+      },
+    })
+
+    expect(wrapper.text()).toContain('No se pudo generar la imagen')
+  })
+})

@@ -497,4 +497,13 @@ export const STORY_CHARACTER_REF_COPY = {
   failedNote: 'La historia continúa, pero {name} puede cambiar entre planos.',
   count: '{n} personajes con imagen propia',
   focus: 'En foco: {name}',
+  /** Server codes turned into something a person can act on. */
+  reasons: {
+    'provider-error': 'El proveedor no devolvió la imagen.',
+    'provider-timeout': 'El proveedor tardó demasiado.',
+    'story-budget-exhausted': 'No cabía en el presupuesto de la historia.',
+    'provider-invalid-output': 'La imagen no tenía el formato esperado.',
+    'content-blocked': 'El proveedor rechazó la descripción.',
+  } as Readonly<Record<string, string>>,
+  reasonFallback: 'No se pudo generar la imagen.',
 } as const

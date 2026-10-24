@@ -472,6 +472,11 @@ export interface StoryCharacterReference {
   readonly source: StoryCharacterRefSource
   readonly status: StoryCharacterRefStatus
   readonly imageUrl: string | null
+  /**
+   * Why it failed, when it failed. A stable server code, never a provider
+   * message: the client maps it to copy it can show.
+   */
+  readonly errorCode?: string
 }
 
 export interface Story {
