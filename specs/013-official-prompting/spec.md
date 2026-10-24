@@ -107,7 +107,7 @@ Cuatro cambios, todos en la capa de prompts y en lo que se envía como referenci
 |---|---|
 | Orden | estilo → identidad → sujeto → entorno → luz → cámara → foco → entidades → limpieza |
 | Prohibiciones | **Ninguna** en el keyframe: ni `no text` ni `without logos`. Solo descripciones de lo que se ve |
-| Pantallas | Cuando la escena tiene portátil, móvil o monitor, el prompt MUST describir la pantalla por su contenido visual (`a dark terminal with green text` solo si el guion lo pide; si no, `a blank dark screen`) |
+| Pantallas | Cuando la escena tiene portátil, móvil o monitor, el prompt MUST describir la pantalla por lo que **se ve**, no por lo que dice: `abstract unreadable content, colour blocks and soft bars`. Una pantalla en blanco parece un error; una ilegible parece un monitor encendido |
 | Estilo | El bloque de estilo positivo abre el prompt; el negativo sigue existiendo solo para modelos que lo aceptan |
 
 ### Vídeo
@@ -120,10 +120,14 @@ Cuatro cambios, todos en la capa de prompts y en lo que se envía como referenci
 |---|---|
 | Solo movimiento | Prohibido repetir localización, hora, clima, ropa o props |
 | Un movimiento de cámara | Una sola indicación por plano (`slow push in`, `the camera holds still`) |
+| Pantallas | MUST pedir `abstract unreadable content, letters that never resolve into words`. En positivo: los motores de vídeo no tienen canal negativo útil |
+| Cámara quieta por defecto | Si el plano no pide movimiento explícito, el prompt MUST decir que la cámara se queda fija. Medido: `one slow camera move` se interpretó como barrido al fondo y se comió medio plano |
 | Continuidad | En positivo: `the subject remains seated`, `the same lighting continues` |
 | Duración | La duración la fija el proveedor con su parámetro, nunca el texto |
 
-## Detección de texto (nueva)
+## Detección de texto — RETIRADA (ver enmienda)
+
+**Esta sección describe el diseño inicial. Se retiró el 2026-10-24: la heurística no distingue texto de geometría de neón. La enmienda al final del documento explica la medición.**
 
 Heurística pura sobre el muestreo en escala de grises que ya produce el inspector de dípticos.
 
@@ -143,7 +147,7 @@ Heurística pura sobre el muestreo en escala de grises que ya produce el inspect
 
 ## Coste
 
-**Sin cambios.** El guardia de texto gasta una imagen extra por rechazo (0,04), igual que ya hace el de dípticos, y se contabiliza con `keyframeAttempts`.
+**Sin cambios en las unidades.** El guardia de dípticos sigue gastando una imagen extra por rechazo (0,04). Con el guardia de texto retirado, una historia de 15 s vuelve a costar **0,16 en keyframes** en vez de 0,36.
 
 | Caso | Coste |
 |---|---|
@@ -299,3 +303,40 @@ Ni MiniMax ni Kling exponen un canal negativo útil (comprobado en sus esquemas 
 | Frase de superficie | `VIDEO_STAGE_BLOCK` MUST nombrar que las pantallas conservan la imagen del primer frame |
 | En positivo | MUST NOT introducir prohibiciones: los motores de vídeo no tienen canal negativo fiable |
 | Sin coste oculto | La frase sustituye al silencio, no añade una llamada |
+
+## Pantallas ilegibles en lugar de blancas (2026-10-24)
+
+La primera frase pedía pantallas **en blanco**. El humano corrigió el objetivo durante la validación:
+
+> *"No tiene que leerse claramente, porque para eso tenemos la capa de gráficos. No sé si me entiendes."*
+
+Tiene razón y cambia el diseño: una pantalla en blanco parece un error de render; una pantalla con contenido ilegible parece un monitor encendido. Y el texto real pertenecerá a la **capa de gráficos** (spec 015), no al modelo.
+
+| Frase | Resultado medido |
+|---|---|
+| `blank where it was blank` | Cero texto, pero la pantalla queda vacía y artificial |
+| `abstract unreadable content: colour blocks, soft bars, blurry shapes, letters that never resolve into words` | Formas, rejillas y barras de color **sin palabras legibles**. Es el estado elegido |
+
+**Hallazgo del mismo experimento:** con `one slow camera move`, el modelo barrió la cámara hacia la ventana y **perdió al sujeto los últimos 3 segundos**. El movimiento de cámara es tan inventable como el texto.
+
+## Estado final de 013
+
+| Pieza | Estado |
+|---|---|
+| Prompts de keyframe en positivo | **Implementado** |
+| Prompt de vídeo solo de movimiento | **Implementado** |
+| Pantallas abstractas ilegibles | **Implementado**, medido en sonda real |
+| Guardia de texto en el keyframe | **Retirado** (no distingue neón de texto) |
+| Guardia de dípticos | **Activo** (validado, nunca dio falso positivo) |
+| Tres bugs de estado | **Cerrados** con test verificado en ambos sentidos |
+| Cámara quieta por defecto | **Pendiente de aplicar en código** (ver deuda) |
+
+### Deuda declarada
+
+| Deuda | Impacto | Coste de cierre |
+|---|---|---|
+| `one slow camera move` sigue en el bloque de vídeo y provoca barridos no pedidos | Medio: medio plano perdido en una de cada tres pruebas | Cambiar el texto y medir en una sola tirada (0,28) |
+| El texto puede aparecer cuando el encuadre enfoca el monitor de cerca | Medio: depende de la escena | Elegir planos que no enfoquen la pantalla, o cambiar de motor |
+| La calidad visual es la del modelo | Alto: no es un bug | Fuera de esta spec: depende del motor y de la capa de gráficos |
+
+**013 queda `Implemented`, no `Validated`.** La validación real cubre claveframes, vídeo y montaje; la calidad visual y el control fino de cámara siguen abiertos.
