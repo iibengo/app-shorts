@@ -1027,7 +1027,7 @@ export class ReelStoryReconciler {
   }
 
   /**
-   * Runs the keyframe phase again for any shot the video stage returned. The
+   * Runs the keyframe phase again for every shot the video stage returned. The
    * story stays in GENERATING_VIDEOS; only those shots move.
    */
   private async rebuildPendingKeyframes(storyId: string): Promise<void> {
