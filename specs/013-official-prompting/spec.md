@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Implemented (2026-10-24). Commit `5449252`. Gate: 2258 passed / 21 skipped, build correcto. No `Validated`: faltan el control fino de cámara y un QA manual de calidad visual.
+**Status**: Implemented (2026-10-24). Commit `5449252`. Gate al cerrar 013: 2258 passed / 21 skipped. Gate actual con 015: 2287 passed / 21 skipped, build correcto. No `Validated`: faltan el control fino de cámara y un QA manual de calidad visual.
 
 **Input**: User description: "¿Por qué crea texto que no hemos pedido? ¿En qué estamos fallando? ¿Podemos arreglarlo o tenemos que cambiar de modelo?"
 

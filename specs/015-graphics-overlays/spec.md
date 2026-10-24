@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Approved (2026-10-24). Aprobada por el humano. Decisiones cerradas: **un título al principio y otro al final, nunca uno por escena**; **la terminal es opcional y solo aparece si el guion pide una pantalla con contenido**.
+**Status**: Implemented (2026-10-24). Commit `bc7a334`. Gate: 2287 passed / 21 skipped, build correcto. Aprobada por el humano. Decisiones cerradas: **un título al principio y otro al final, nunca uno por escena**; **la terminal es opcional y solo aparece si el guion pide una pantalla con contenido**.
 
 **Input**: User description: "El texto legible debe vivir en una capa de gráficos, no en el modelo. El modelo inventa titulares porque le pedimos que dibuje pantallas."
 
