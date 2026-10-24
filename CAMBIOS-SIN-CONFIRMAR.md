@@ -156,3 +156,11 @@ la historia.
 de qué. Es el mínimo de accesibilidad y no cambia nada visual.
 **Coste:** 0.
 **Tests:** 1911 passed / 12 skipped, build correcto.
+
+### 14. Fuera el interruptor de depuración del ensamblador
+
+**Qué:** se quita la variable de entorno que permitía conservar el directorio de
+trabajo del montaje.
+**Por qué:** la añadí para inspeccionar el fallo. En producción nadie debe poder
+desactivar la limpieza de temporales: se acumularían archivos.
+**Coste:** 0.

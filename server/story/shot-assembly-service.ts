@@ -366,9 +366,7 @@ export class NativeShotAssembler implements ShotAssembler {
       clearTimeout(timer)
       input.signal?.removeEventListener('abort', onAbort)
 
-      // Set SHOT_ASSEMBLY_KEEP_DIR=1 to keep the work directory for a manual
-      // inspection: the uploaded file is the only thing that survives.
-      if (directory && process.env.SHOT_ASSEMBLY_KEEP_DIR !== '1') {
+      if (directory) {
         await rm(directory, { recursive: true, force: true }).catch(() => undefined)
       }
     }
