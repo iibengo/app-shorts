@@ -29,7 +29,7 @@ onMounted(() => heading.value?.focus())
       {{ STORY_COPY.resultTitle }}
     </h2>
 
-    <video v-if="story.finalVideoUrl" data-testid="story-shot-final-video" :src="story.finalVideoUrl" :poster="poster ?? undefined" controls playsinline preload="metadata" controlslist="nodownload" class="mt-4 aspect-[9/16] w-full max-w-[20rem] rounded-2xl border border-white/10 bg-black object-cover" />
+    <video v-if="story.finalVideoUrl" data-testid="story-shot-final-video" :src="story.finalVideoUrl" :poster="poster ?? undefined" :aria-label="story.title ?? 'Vídeo final'" controls playsinline preload="metadata" controlslist="nodownload" class="mt-4 aspect-[9/16] w-full max-w-[20rem] rounded-2xl border border-white/10 bg-black object-cover" />
 
     <dl class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
       <div><dt class="text-brand-muted">Planos</dt><dd data-testid="story-shot-result-shots" class="text-brand-text">{{ shots }}</dd></div>

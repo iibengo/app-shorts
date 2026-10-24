@@ -63,6 +63,7 @@ onMounted(() => {
       data-testid="story-final-video"
       :src="story.finalVideoUrl"
       :poster="poster ?? undefined"
+      :aria-label="story.title ?? STORY_COPY.resultTitle"
       controls
       playsinline
       preload="metadata"

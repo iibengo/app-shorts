@@ -147,3 +147,12 @@ tipo de bug que costó una noche entera. **No se hace sin el humano delante.**
 en el plan o se deriva, si el resultado de QC es por escena o por plano). Son
 decisiones de diseño.
 **Coste:** 0.
+
+### 13. Etiqueta accesible en los vídeos
+
+**Qué:** los dos reproductores de vídeo llevan ahora `aria-label` con el título de
+la historia.
+**Por qué:** sin etiqueta, un lector de pantalla anuncia solo «vídeo», sin decir
+de qué. Es el mínimo de accesibilidad y no cambia nada visual.
+**Coste:** 0.
+**Tests:** 1911 passed / 12 skipped, build correcto.
