@@ -1,5 +1,13 @@
 /**
- * One-off reproduction of the long-story assembly failure.
+ * Reproduction harness for the assembler.
+ *
+ * Usage: `npx tsx scripts/repro-assembly.ts <clips-file> [--no-graphics] [plan.json]`
+ *
+ * The clips file has one line per clip: `order durationSeconds url`. The plan
+ * file is the story plan, needed only for overlays.
+ *
+ * It never uploads and never touches the database: only the upload result is
+ * faked, so a failure is the assembler's, not the provider's.
  *
  * Not a test: it downloads the real clips of an already-paid story and runs the
  * real assembler against them, so the actual error surfaces instead of being
