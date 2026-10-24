@@ -280,3 +280,22 @@ Los keyframes salieron limpios, pero el modelo de vídeo **añade rótulos al an
 | Alternativa si el prompt no basta | Elegir escenas sin pantallas, o cambiar de motor de vídeo. Ninguna entra sin spec y presupuesto |
 
 **Estado:** 013 queda `Implemented`, no `Validated`. El pipeline completo funciona y está medido; el texto inventado por el motor de vídeo es deuda declarada, no un fallo oculto.
+
+## El texto del vídeo: resuelto con una frase en positivo (2026-10-24)
+
+El MP4 completo (`bf1ffb3f`) salió con titulares inventados sobre el monitor aunque los keyframes estaban limpios. La causa: el motor de vídeo reescribe cualquier pantalla que anime.
+
+Ni MiniMax ni Kling exponen un canal negativo útil (comprobado en sus esquemas OpenAPI). La solución fue la misma que en imagen: **describir el estado deseado**.
+
+> *"Every screen and surface keeps exactly the image it has in the first frame, unchanged, static and blank where it was blank."*
+
+| Prueba | Plano | Resultado |
+|---|---|---|
+| Sin la frase (historia `bf1ffb3f`) | 2 | Titulares en español, cartel `UNPUBLISHED`, subtítulos quemados |
+| Con la frase (sonda directa, 0,28 USD) | 1 | **Cero texto**; la pantalla queda idéntica los 6 s; movimiento suave y coherente |
+
+| Regla | Contrato |
+|---|---|
+| Frase de superficie | `VIDEO_STAGE_BLOCK` MUST nombrar que las pantallas conservan la imagen del primer frame |
+| En positivo | MUST NOT introducir prohibiciones: los motores de vídeo no tienen canal negativo fiable |
+| Sin coste oculto | La frase sustituye al silencio, no añade una llamada |
