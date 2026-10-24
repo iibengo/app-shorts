@@ -176,3 +176,12 @@ puede saber cuánto le queda de verdad.
 **Comprobación:** suite completa en verde tras actualizar el test que fijaba el
 texto antiguo.
 **Coste:** 0.
+
+### 16. Tests de la línea de foco
+
+**Qué:** nuevo `tests/unit/story-shot-card.spec.ts`. Comprueba que la tarjeta de
+un plano nombra al personaje del que trata, que no dibuja la línea cuando el
+sujeto no nombra a nadie de la escena, y que el acento y las mayúsculas no
+impiden el emparejamiento.
+**Por qué:** la línea de foco se añadió hoy y no tenía cobertura de componente.
+**Coste:** 0.
