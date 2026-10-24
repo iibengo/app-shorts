@@ -1,6 +1,7 @@
 import type {
   SceneStatus,
   StoryBible,
+  StoryGraphic,
   StoryNarrativeScene,
   StoryPlan,
   StoryStatus,
@@ -296,6 +297,7 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
       anchors: input.anchors ?? {},
       characterSheet: null,
       characterRefs: input.characterRefs ?? {},
+      graphics: input.graphics ?? [],
       mode: input.mode,
       platform: input.platform,
       costMode: input.costMode,
@@ -577,6 +579,19 @@ export class FakeReelStoryRepository implements ReelStoryRepository {
     if (!story) return false
 
     story.characterSheet = sheet as never
+
+    return true
+  }
+
+  async updateGraphics(
+    storyId: string,
+    graphics: readonly StoryGraphic[],
+  ): Promise<boolean> {
+    const record = this.records.find((item) => item.id === storyId)
+
+    if (record === undefined) return false
+
+    record.graphics = graphics
 
     return true
   }

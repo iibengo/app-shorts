@@ -21,3 +21,18 @@ prueba real; todo lo que sigue se valida con tests locales y FFmpeg.
 **Qué:** crear `CAMBIOS-SIN-CONFIRMAR.md` en la raíz.
 **Por qué:** el humano lo pidió explícitamente para poder revisar después.
 **Coste:** 0.
+
+---
+
+### 2. Test del flujo completo que sí comprueba los gráficos
+
+**Qué:** el test de flujo completo existía y pasaba, pero su fake de montaje
+nunca devolvía gráficos, así que un pintor declarado y nunca asignado pasó
+inadvertido durante toda la spec 015. Se añade una aserción que comprueba que
+los gráficos llegan a la historia guardada.
+**Por qué:** hoy los bugs reales los encontró un script de reproducción, no la
+suite. Este es el hueco concreto: el flujo se probaba, pero no el dato que
+cruza el límite.
+**Comprobación:** el test falla si se quita el guardado y pasa con él.
+**Coste:** 0.
+**Tests:** 1909 passed / 12 skipped, build correcto.

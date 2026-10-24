@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ReelShotRecord } from '../../../server/story/reel-repository'
-import type { StoryErrorCode } from '~/models/story'
+import type { StoryErrorCode, StoryGraphic } from '~/models/story'
 import { StoryError } from '../../../server/story/errors'
 import type {
   ShotAssembler,
@@ -110,6 +110,8 @@ class FakeShotVideos implements ShotVideoOrchestrator {
 
 class FakeAssembler implements ShotAssembler {
   readonly calls: ShotAssemblyInput[] = []
+  /** Overlays this assembler claims to have painted. */
+  graphics: readonly StoryGraphic[] = []
 
   async assemble(input: ShotAssemblyInput) {
     this.calls.push(input)
@@ -120,7 +122,7 @@ class FakeAssembler implements ShotAssembler {
       width: 720 as const,
       height: 1280 as const,
       durationSeconds: input.plannedDurationSeconds,
-      graphics: [],
+      graphics: this.graphics,
     }
   }
 }
@@ -711,3 +713,26 @@ describe('split-frame safety net', () => {
   })
 })
 
+describe('the assembled file reaches the story', () => {
+  it('stores the overlays the assembler reports', async () => {
+    // The suite had a full pipeline test, but its fake assembler never reported
+    // graphics, so a painter that was declared and never assigned went unnoticed
+    // for a whole spec. This asserts the value crosses the boundary.
+    const ctx = await setup()
+    const overlays = [{ kind: 'title' as const, text: ['Hola'], startSeconds: 0, endSeconds: 2 }]
+
+    ctx.assembler.graphics = overlays
+
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+    await ctx.service.approve(ctx.story.id, 'reel-worker-session')
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+    await ctx.reconciler.runOnce()
+
+    const story = (await ctx.repository.findById(ctx.story.id))!
+
+    expect(story.status).toBe('READY')
+    expect(story.graphics).toEqual(overlays)
+  })
+})
