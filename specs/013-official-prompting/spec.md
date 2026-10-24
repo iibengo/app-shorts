@@ -213,3 +213,21 @@ El guardia de texto se ejecutó en producción real: `reel.keyframe.text-detecte
 **Conclusión:** el diagnóstico de la documentación oficial era correcto. Las prohibiciones en el prompt positivo activaban el concepto que se quería evitar.
 
 **Deuda declarada:** el detector marca texturas finas de alta frecuencia (etiquetas, rejillas de rack). Aceptable: cuesta una imagen y nunca rompe la historia.
+
+## Bugs encontrados durante la validación real
+
+La prueba end-to-end con vídeo destapó dos fallos de estado que la suite no cubría. Ambos ocurrieron con una historia real (`9d241a89`), no en un test.
+
+| Bug | Síntoma | Causa | Arreglo |
+|---|---|---|---|
+| **Plano atascado sin salida** | El plano 3 quedó en `KEYFRAME_QUEUED` con `requestId = null` y `attempts = 2`, y la historia nunca salió de `GENERATING_VIDEOS` | `processKeyframeShot` hacía `return` cuando `attempts >= 2` sin cerrar el plano | Se marca `KEYFRAME_FAILED` y se emite `reel.keyframe.failed` |
+| **Rechazo en la fase de vídeos** | El guardia de texto devolvió un plano a `KEYFRAME_QUEUED` cuando la historia ya estaba en `GENERATING_VIDEOS`, y nadie lo reconstruía | `processKeyframeShot` solo se invoca desde la fase de keyframes | `rebuildPendingKeyframes` al final de cada tick de vídeo |
+| **Intentos insuficientes** | Un rechazo automático consumía el presupuesto completo y el plano moría sin segundas | El tope de 2 se fijó antes de existir los guardias | `KEYFRAME_MAX_ATTEMPTS = 3` (0,12 USD peor caso) |
+
+| Regla | Contrato |
+|---|---|
+| Sin estados colgados | Un plano MUST NOT quedarse en un estado activo sin trabajo en vuelo. Si no quedan intentos, MUST cerrarse como fallido |
+| Recuperación entre fases | La fase de vídeos MUST reconstruir los planos que la fase de keyframes dejó pendientes |
+| Presupuesto de intentos | El tope MUST contar tanto los fallos del proveedor como los rechazos de los guardias |
+
+Cada arreglo tiene un test que se verificó **en ambos sentidos**: falla sin el arreglo y pasa con él. Se comprobó revirtiendo temporalmente el cambio.
