@@ -185,3 +185,13 @@ sujeto no nombra a nadie de la escena, y que el acento y las mayúsculas no
 impiden el emparejamiento.
 **Por qué:** la línea de foco se añadió hoy y no tenía cobertura de componente.
 **Coste:** 0.
+
+### 17. Las referencias de personaje se ven también al revisar
+
+**Qué:** la lista de personajes con su imagen aparecía solo mientras se generaban
+los planos. Ahora también se muestra en la pantalla de revisión.
+**Por qué:** al revisar era imposible saber cómo había quedado un personaje
+secundario; solo se veía durante la generación y desaparecía. Si el usuario no
+mira en ese momento, nunca ve la cara de su personaje.
+**Coste:** 0. Reutiliza el componente que ya existía.
+**Tests:** 1914 passed / 12 skipped, build correcto.

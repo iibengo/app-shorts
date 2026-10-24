@@ -366,13 +366,19 @@ watch(
         />
       </div>
 
-      <StoryShotReview
-        v-else-if="state.status === 'review' && story && isReelStory"
-        :story="story"
-        @regenerate-shot="handleRegenerateShot"
-        @approve="handleApprove"
-        @cancel="handleCancel"
-      />
+      <template v-else-if="state.status === 'review' && story && isReelStory">
+        <!-- The character references were only visible while they were being
+             generated, so the user never saw how a secondary character ended
+             up. They belong to the review too. -->
+        <StoryCharacterRefs :refs="story.characterRefs" :names="characterNames" />
+
+        <StoryShotReview
+          :story="story"
+          @regenerate-shot="handleRegenerateShot"
+          @approve="handleApprove"
+          @cancel="handleCancel"
+        />
+      </template>
 
       <StoryReview
         v-else-if="state.status === 'review' && story"
