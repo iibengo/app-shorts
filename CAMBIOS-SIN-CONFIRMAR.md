@@ -129,3 +129,21 @@ no se toman sin el humano.
 **Lo que sí se arregló hoy:** importaciones que faltaban, una variable
 inexistente, un valor que podía ser `undefined` y una función con parámetros de
 más. Todos introducidos en esta sesión.
+
+### 11. Escrituras batch: NO tocadas
+
+**Qué:** no se ha hecho nada con el punto 15 del backlog (transaccionalidad de las
+escrituras historia→planos).
+**Por qué:** implica envolver varias escrituras en una transacción y cambiar la
+firma del repositorio. Si el orden o el guard cambian mal, el resultado es peor
+que ahora (planos bloqueados en un estado del que no salen), y ese es justo el
+tipo de bug que costó una noche entera. **No se hace sin el humano delante.**
+**Coste:** 0.
+
+### 12. El typecheck antiguo: clasificado, no arreglado
+
+**Qué:** de 326 a 306 errores, solo los introducidos hoy.
+**Qué queda:** errores que exigen decidir qué contrato manda (si `beats` existe
+en el plan o se deriva, si el resultado de QC es por escena o por plano). Son
+decisiones de diseño.
+**Coste:** 0.
