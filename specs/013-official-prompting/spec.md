@@ -255,3 +255,28 @@ No existe umbral que acepte el monitor de neón y rechace el titular: **la geome
 **Por qué se retira en vez de aflojarse:** un guardia que no distingue texto de decoración gasta dinero en regeneraciones correctas y no protege de nada. La medida de que costaba el doble (9 imágenes para 4 planos) es la prueba.
 
 Lo que **sí** resolvió el problema real sigue en pie: los prompts en positivo. El texto inventado pasó de 4 de 4 planos a 0 de 4 en las imágenes finales.
+
+## Validación end-to-end (2026-10-24) — primer MP4 completo
+
+Historia `bf1ffb3f`: 15 s, `budget`, `papercraft`, 4 planos, Ionias desde el avatar y Pixel generado.
+
+| Métrica | Valor |
+|---|---|
+| Keyframes | **4 imágenes, un intento cada uno** (0,16 USD). Con el guardia de texto eran 9 |
+| Vídeos | 4 de 4 en el primer intento (1,40 USD) |
+| Montaje | 15,0 s exactos, 720×1280, 30 fps, h264 |
+| Coste total | **1,56 USD** |
+| Consistencia de Ionias | Correcta en los cuatro planos |
+| Movimiento | Real: camina, gira, cambia de postura |
+
+### Hallazgo: el vídeo inventa texto que el keyframe no tenía
+
+Los keyframes salieron limpios, pero el modelo de vídeo **añade rótulos al animar pantallas**: titulares en español sobre el monitor, un cartel `UNPUBLISHED` y subtítulos quemados. MiniMax asume que un monitor debe mostrar algo y lo inventa.
+
+| Regla | Contrato |
+|---|---|
+| El guardia de texto no se reimplanta en el keyframe | El keyframe ya estaba limpio; el texto aparece **después**, en el vídeo |
+| Ataque en el prompt de vídeo | El prompt de movimiento MUST nombrar que las pantallas siguen como en el primer frame. Pendiente de medir |
+| Alternativa si el prompt no basta | Elegir escenas sin pantallas, o cambiar de motor de vídeo. Ninguna entra sin spec y presupuesto |
+
+**Estado:** 013 queda `Implemented`, no `Validated`. El pipeline completo funciona y está medido; el texto inventado por el motor de vídeo es deuda declarada, no un fallo oculto.
