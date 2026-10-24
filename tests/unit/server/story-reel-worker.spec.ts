@@ -711,6 +711,52 @@ describe('split-frame safety net', () => {
 })
 
 describe('keyframe inspected on arrival', () => {
+  it('fails a shot parked out of retries instead of leaving it queued forever', async () => {
+    const ctx = await setup()
+    const reconciler = createReelStoryReconciler({
+      repository: ctx.repository,
+      keyframes: ctx.keyframes,
+      videos: ctx.videos,
+      assembler: ctx.assembler,
+      qcService: null,
+      costGuard: ctx.costGuard,
+      textInspector: { async hasText() { return true } },
+      qcEnabled: false,
+      owner: 'text-exhausted',
+      now: () => NOW + 1_000,
+      config: {
+        leaseMs: 60_000,
+        assemblyLeaseMs: 480_000,
+        qcLeaseMs: 720_000,
+        tickBudgetMs: 45_000,
+        keyframeConcurrency: 50,
+        videoConcurrency: 50,
+        claimLimit: 5,
+      },
+    })
+
+    // Reproduce the production state: two attempts spent, queued, no job in
+    // flight. Before the fix this returned silently and the shot never moved,
+    // so the story sat in GENERATING_VIDEOS forever.
+    const story = (await ctx.repository.findById(ctx.story.id))!
+    const order = 3
+
+    await ctx.repository.updateShot(
+      story.id,
+      story.shots.find((shot) => shot.order === order)!.id,
+      {},
+      { status: 'KEYFRAME_QUEUED', keyframeAttempts: 2, keyframeRequestId: null },
+    )
+
+    await reconciler.runOnce()
+
+    const after = (await ctx.repository.findById(story.id))!
+    const parked = after.shots.find((shot) => shot.order === order)!
+
+    expect(parked.status).not.toBe('KEYFRAME_QUEUED')
+    expect(parked.status).toBe('KEYFRAME_FAILED')
+  })
+
   it('rebuilds a keyframe with text as soon as it arrives, not at video time', async () => {
     const ctx = await setup()
     const reconciler = createReelStoryReconciler({
@@ -758,10 +804,13 @@ describe('keyframe inspected on arrival', () => {
     await reconciler.runOnce()
 
     // The rejection happens on arrival, never at video time, so not a single
-    // video is paid for a captured frame, and every shot used its retries.
+    // video is paid for a captured frame.
     const final = (await ctx.repository.findById(ctx.story.id))!
 
     expect(ctx.videos.submitted).toHaveLength(0)
+    // Out of retries the shot keeps its last image and is marked, instead of
+    // parking the story in KEYFRAME_QUEUED forever (seen on 2026-10-24).
     expect(final.shots.some((shot) => shot.keyframeAttempts >= 2)).toBe(true)
+    expect(final.shots.every((shot) => shot.status !== 'KEYFRAME_QUEUED')).toBe(true)
   })
 })

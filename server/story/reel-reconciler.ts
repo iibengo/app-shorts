@@ -720,7 +720,27 @@ export class ReelStoryReconciler {
     }
 
     if (shot.status !== 'PENDING' && shot.status !== 'KEYFRAME_QUEUED') return
-    if (shot.keyframeAttempts >= 2) return
+
+    if (shot.keyframeAttempts >= 2) {
+      // Out of retries with no job in flight. Returning here parks the shot in
+      // KEYFRAME_QUEUED forever and the story never finishes; seen in
+      // production on 2026-10-24.
+      await this.repository.updateShot(
+        story.id,
+        shot.id,
+        { statuses: ['PENDING', 'KEYFRAME_QUEUED'] },
+        { status: 'KEYFRAME_FAILED', keyframeError: 'provider-invalid-output' },
+      )
+      this.onEvent?.({
+        event: 'reel.keyframe.failed',
+        storyId: story.id,
+        shotId: shot.id,
+        order: shot.order,
+        errorCode: 'provider-invalid-output',
+      })
+
+      return
+    }
 
     // 012: a shot whose action belongs to a secondary character cannot be
     // framed wide, or that character comes out tiny. The rewrite is logged so a
@@ -844,8 +864,35 @@ export class ReelStoryReconciler {
       // stage means a captured frame sits in the review screen looking fine
       // until the user approves it, and the retry then happens at the worst
       // possible moment.
-      if (shot.keyframeAttempts < 2) {
+      {
         const unusable = await this.keyframeUnusableReason(result.keyframeUrl)
+
+        if (unusable !== null && shot.keyframeAttempts >= 2) {
+          // Out of retries: keep the last image and say so. Leaving the shot
+          // queued would park the story forever, which is worse than a frame
+          // the reviewer can see and reject.
+          await this.repository.updateShot(
+            story.id,
+            shot.id,
+            { statuses: ['KEYFRAME_QUEUED', 'KEYFRAME_RUNNING'] },
+            {
+              status: 'KEYFRAME_READY',
+              keyframeUrl: result.keyframeUrl,
+              keyframeError: 'provider-invalid-output',
+            },
+          )
+
+          this.onEvent?.({
+            event: unusable === 'text'
+              ? 'reel.keyframe.text-detected'
+              : 'reel.keyframe.split-frame',
+            storyId: story.id,
+            shotId: shot.id,
+            order: shot.order,
+          })
+
+          return
+        }
 
         if (unusable !== null) {
           await this.repository.updateShot(
