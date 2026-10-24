@@ -125,6 +125,8 @@ export interface ReelReconcilerOptions {
     readonly order?: number
     readonly characterId?: string
     readonly errorCode?: string
+    /** Server-only diagnostic, never serialized. */
+    readonly detail?: string
     /** 012: framing the plan asked for, before the focus rule rewrote it. */
     readonly from?: string
     /** 012: framing actually sent to the provider. */
@@ -1509,7 +1511,16 @@ export class ReelStoryReconciler {
       )
       this.onEvent?.({ event: 'reel.assembly.ok', storyId: assembling.id })
     } catch (error) {
-      const code = toStoryError(error).code
+      const storyError = toStoryError(error)
+      const code = storyError.code
+      // The reason has to reach the log, or "assembly-failed" tells nobody
+      // where to look. It is server-only and never serialized to the client.
+      this.onEvent?.({
+        event: 'reel.assembly.failed',
+        storyId: assembling.id,
+        errorCode: code,
+        detail: storyError.detail,
+      })
       await this.failStory(
         assembling,
         code === 'ffmpeg-not-configured'

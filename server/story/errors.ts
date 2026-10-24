@@ -338,18 +338,22 @@ export class StoryError extends Error {
   readonly retryable: boolean
   readonly retryAfterSeconds: number | undefined
   readonly providerStatus: number | undefined
+  readonly detail: string | undefined
 
   constructor(
     code: StoryErrorCode,
     options: {
       readonly retryAfterSeconds?: number
       readonly providerStatus?: number
+      /** Server-only detail for the log. Never serialized to the client. */
+      readonly detail?: string
     } = {},
   ) {
     const definition = getStoryErrorDefinition(code)
 
     super(definition.message)
     this.name = 'StoryError'
+    this.detail = options.detail
     this.code = code
     this.status = definition.status
     this.retryable = definition.retryable

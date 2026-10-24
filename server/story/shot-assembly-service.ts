@@ -171,7 +171,16 @@ export class NativeShotAssembler implements ShotAssembler {
       || expectedDuration > input.maxDurationSeconds
       || ordered.some((clip) => clip.durationSeconds < 2 || clip.durationSeconds > 6)
     ) {
-      throw new StoryError('assembly-failed')
+      // A bare "assembly-failed" cost an hour of guessing where the problem
+      // was. The code stays stable for the client; the detail goes in the
+      // message so it reaches the log.
+      throw new StoryError('assembly-failed', {
+        detail: ordered.length === 0
+          ? 'no-clips'
+          : expectedDuration !== input.plannedDurationSeconds
+            ? `total-${expectedDuration}-vs-${input.plannedDurationSeconds}`
+            : 'clip-out-of-range',
+      })
     }
 
     const controller = new AbortController()
@@ -293,7 +302,7 @@ export class NativeShotAssembler implements ShotAssembler {
       const finalStat = await stat(outputPath)
 
       if (finalStat.size > this.maxOutputBytes) {
-        throw new StoryError('assembly-failed')
+        throw new StoryError('assembly-failed', { detail: `too-large-${finalStat.size}` })
       }
 
       const upload = await this.mediaStorage.uploadFile({
@@ -320,7 +329,9 @@ export class NativeShotAssembler implements ShotAssembler {
         throw new StoryError('assembly-timeout')
       }
 
-      throw new StoryError('assembly-failed')
+      throw new StoryError('assembly-failed', {
+        detail: error instanceof Error ? error.message.slice(0, 120) : 'unknown',
+      })
     } finally {
       clearTimeout(timer)
       input.signal?.removeEventListener('abort', onAbort)
@@ -347,7 +358,12 @@ export class NativeShotAssembler implements ShotAssembler {
       signal,
     })
 
-    if (result.code !== 0) throw new StoryError('assembly-failed')
+    if (result.code !== 0) {
+      // The stderr is the only thing that says what FFmpeg disliked.
+      throw new StoryError('assembly-failed', {
+        detail: `ffmpeg-${result.code}-${result.stderr.slice(0, 100)}`.replace(/\s+/g, ' '),
+      })
+    }
   }
 
   private async probeAndVerify(
@@ -370,7 +386,11 @@ export class NativeShotAssembler implements ShotAssembler {
       timeoutMs: 30_000,
     })
 
-    if (result.code !== 0) throw new StoryError('assembly-failed')
+    if (result.code !== 0) {
+      throw new StoryError('assembly-failed', {
+        detail: `${binary}-code-${result.code}`.replace(/\s+/g, '-').slice(0, 80),
+      })
+    }
 
     let payload: unknown
     try {
