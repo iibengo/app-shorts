@@ -54,7 +54,7 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 | Prompt de vídeo repetía la escena entera | I2V solo quiere movimiento | `composeVideoMotionBlock` (013) |
 | Plano atascado en `KEYFRAME_QUEUED` | `attempts >= 2` hacía `return` sin cerrar el plano | Falla con `provider-invalid-output` |
 | Plano rechazado por texto durante la fase de vídeos | Nadie volvía a la fase de keyframes | `rebuildPendingKeyframes` |
-| Detector de texto marcaba escenas limpias | Muestreo 32×96 demasiado pequeño | 128×384 y umbral calibrado |
+| Detector de texto marcaba escenas limpias | Ningún muestreo separa neón de texto | **Retirado** (enmienda 013) |
 | `updateCharacterRefs` sin guarda | Un worker lento podía repetir un cobro | Guarda de estado, versión y lease |
 | Check de visión sin presupuestar | Una llamada pagada por keyframe | Apagado por defecto |
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Approved (2026-10-24). Aprobada por el humano tras la revisión de los repos de referencia.
+**Status**: Implemented (2026-10-24). Commit `5449252`. Gate: 2258 passed / 21 skipped, build correcto. No `Validated`: faltan el control fino de cámara y un QA manual de calidad visual.
 
 **Input**: User description: "¿Por qué crea texto que no hemos pedido? ¿En qué estamos fallando? ¿Podemos arreglarlo o tenemos que cambiar de modelo?"
 
@@ -87,9 +87,9 @@ Cuatro cambios, todos en la capa de prompts y en lo que se envía como referenci
 | FR-005 | `VIDEO_STAGE_BLOCK` MUST describir **solo movimiento y cámara**. MUST NOT repetir localización, hora, clima, props ni ropa: el primer frame ya los contiene. |
 | FR-006 | `composeVideo` MUST NOT añadir la localización, la hora ni el clima al prompt de vídeo. |
 | FR-007 | El prompt de vídeo MUST NOT contener prohibiciones; el movimiento y la continuidad se piden en positivo (`the subject stays in the same seat`, `the camera holds`) |
-| FR-008 | MUST existir `server/story/text-in-frame.ts`, heurística pura, y `keyframe-text-inspector.ts` con muestreo FFmpeg, con el mismo contrato que `keyframe-layout-inspector.ts`. |
-| FR-009 | Antes del vídeo, un keyframe con texto detectado MUST volver a `KEYFRAME_QUEUED` con evento `reel.keyframe.text-detected`, igual que el díptico. |
-| FR-010 | El inspector de texto MUST fallar abierto: si no puede decodificar o ffmpeg no está, acepta la imagen. |
+| ~~FR-008~~ | **RETIRADO** (enmienda §Detección de texto). La heurística no distingue texto de geometría de neón. |
+| ~~FR-009~~ | **RETIRADO**. El guardia de dípticos sí vuelve el plano a la cola (`reel.keyframe.split-frame`). |
+| FR-010 | El inspector de dípticos MUST fallar abierto: si no puede decodificar o ffmpeg no está, acepta la imagen. |
 | FR-011 | Los prompts MUST seguir siendo deterministas y puros: mismas entradas, mismo texto. |
 | FR-012 | El presupuesto de caracteres se mantiene: 900 del keyframe y 2.000 del vídeo, con la escalera de degradación existente. |
 
