@@ -709,3 +709,59 @@ describe('split-frame safety net', () => {
     expect(rebuilt?.videoAttempts).toBe(0)
   })
 })
+
+describe('keyframe inspected on arrival', () => {
+  it('rebuilds a keyframe with text as soon as it arrives, not at video time', async () => {
+    const ctx = await setup()
+    const reconciler = createReelStoryReconciler({
+      repository: ctx.repository,
+      keyframes: ctx.keyframes,
+      videos: ctx.videos,
+      assembler: ctx.assembler,
+      qcService: null,
+      costGuard: ctx.costGuard,
+      textInspector: {
+        // Every keyframe this fake produces carries text.
+        async hasText() {
+          return true
+        },
+      },
+      qcEnabled: false,
+      owner: 'text-test',
+      now: () => NOW + 1_000,
+      config: {
+        leaseMs: 60_000,
+        assemblyLeaseMs: 480_000,
+        qcLeaseMs: 720_000,
+        tickBudgetMs: 45_000,
+        keyframeConcurrency: 50,
+        videoConcurrency: 50,
+        claimLimit: 5,
+      },
+    })
+
+    // Tick 1 submits, tick 2 polls and inspects the arriving image.
+    await reconciler.runOnce()
+    await reconciler.runOnce()
+
+    // Every shot was rejected once and sent back to the queue, with no image
+    // kept and no video paid for.
+    const afterFirst = (await ctx.repository.findById(ctx.story.id))!
+    const rejectedShot = afterFirst.shots.filter((shot) => shot.status === 'PENDING')
+
+    expect(rejectedShot.length).toBeGreaterThan(0)
+    expect(rejectedShot.every((shot) => shot.keyframeUrl === null)).toBe(true)
+    // No video was paid for a captured frame.
+    expect(ctx.videos.submitted).toHaveLength(0)
+
+    await reconciler.runOnce()
+    await reconciler.runOnce()
+
+    // The rejection happens on arrival, never at video time, so not a single
+    // video is paid for a captured frame, and every shot used its retries.
+    const final = (await ctx.repository.findById(ctx.story.id))!
+
+    expect(ctx.videos.submitted).toHaveLength(0)
+    expect(final.shots.some((shot) => shot.keyframeAttempts >= 2)).toBe(true)
+  })
+})

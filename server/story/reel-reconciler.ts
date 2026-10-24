@@ -840,6 +840,42 @@ export class ReelStoryReconciler {
         return
       }
 
+      // 013: check the image the moment it arrives. Waiting until the video
+      // stage means a captured frame sits in the review screen looking fine
+      // until the user approves it, and the retry then happens at the worst
+      // possible moment.
+      if (shot.keyframeAttempts < 2) {
+        const unusable = await this.keyframeUnusableReason(result.keyframeUrl)
+
+        if (unusable !== null) {
+          await this.repository.updateShot(
+            story.id,
+            shot.id,
+            { statuses: ['KEYFRAME_QUEUED', 'KEYFRAME_RUNNING'] },
+            {
+              status: 'PENDING',
+              keyframeUrl: null,
+              keyframeRequestId: null,
+              keyframeStatusUrl: null,
+              keyframeResponseUrl: null,
+              keyframeCancelUrl: null,
+              keyframeError: null,
+            },
+          )
+
+          this.onEvent?.({
+            event: unusable === 'text'
+              ? 'reel.keyframe.text-detected'
+              : 'reel.keyframe.split-frame',
+            storyId: story.id,
+            shotId: shot.id,
+            order: shot.order,
+          })
+
+          return
+        }
+      }
+
       await this.repository.updateShot(
         story.id,
         shot.id,
