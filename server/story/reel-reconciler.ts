@@ -1019,7 +1019,61 @@ export class ReelStoryReconciler {
       await this.processVideoShot(fresh, shot, scene)
     }
 
+    // 013: a shot rejected by the text guard goes back to the keyframe phase,
+    // but by then the story is already generating videos and nobody would ever
+    // rebuild it. Seen on 2026-10-24: the shot sat in KEYFRAME_QUEUED forever.
+    await this.rebuildPendingKeyframes(story.id)
     await this.finalizeVideos(story.id)
+  }
+
+  /**
+   * Runs the keyframe phase again for any shot the video stage returned. The
+   * story stays in GENERATING_VIDEOS; only those shots move.
+   */
+  private async rebuildPendingKeyframes(storyId: string): Promise<void> {
+    const story = await this.repository.findById(storyId)
+
+    if (!story || story.status !== 'GENERATING_VIDEOS') return
+
+    const pending = story.shots.filter((shot) =>
+      shot.status === 'PENDING'
+      || shot.status === 'KEYFRAME_QUEUED'
+      || shot.status === 'KEYFRAME_RUNNING')
+
+    if (pending.length === 0) return
+
+    for (const initial of pending) {
+      const fresh = await this.repository.findById(storyId)
+
+      if (!fresh || fresh.leaseOwner !== this.owner) return
+
+      const shot = fresh.shots.find((item) => item.id === initial.id)
+      const scene = shot === undefined
+        ? undefined
+        : fresh.scenes.find((item) => item.id === shot.sceneId)
+
+      if (!shot || !scene) continue
+
+      if (shot.keyframeAttempts >= 2 && shot.keyframeRequestId === null) {
+        await this.repository.updateShot(
+          fresh.id,
+          shot.id,
+          { statuses: ['PENDING', 'KEYFRAME_QUEUED'] },
+          { status: 'KEYFRAME_FAILED', keyframeError: 'provider-invalid-output' },
+        )
+        this.onEvent?.({
+          event: 'reel.keyframe.failed',
+          storyId: fresh.id,
+          shotId: shot.id,
+          order: shot.order,
+          errorCode: 'provider-invalid-output',
+        })
+
+        continue
+      }
+
+      await this.processKeyframeShot(fresh, shot, scene)
+    }
   }
 
   /**

@@ -814,3 +814,63 @@ describe('keyframe inspected on arrival', () => {
     expect(final.shots.every((shot) => shot.status !== 'KEYFRAME_QUEUED')).toBe(true)
   })
 })
+
+describe('keyframe returned from the video stage', () => {
+  it('rebuilds a shot the text guard sent back while the story generates videos', async () => {
+    const ctx = await setup()
+    let armed = false
+    const reconciler = createReelStoryReconciler({
+      repository: ctx.repository,
+      keyframes: ctx.keyframes,
+      videos: ctx.videos,
+      assembler: ctx.assembler,
+      qcService: null,
+      costGuard: ctx.costGuard,
+      textInspector: {
+        // Armed only after the story reaches the video phase.
+        async hasText() { return armed },
+      },
+      qcEnabled: false,
+      owner: 'video-stage',
+      now: () => NOW + 1_000,
+      config: {
+        leaseMs: 60_000,
+        assemblyLeaseMs: 480_000,
+        qcLeaseMs: 720_000,
+        tickBudgetMs: 45_000,
+        keyframeConcurrency: 50,
+        videoConcurrency: 50,
+        claimLimit: 5,
+      },
+    })
+
+    // Reach the real video phase first: every keyframe ready, then approved.
+    for (let tick = 0; tick < 3; tick += 1) await reconciler.runOnce()
+    await ctx.service.approve(ctx.story.id, 'reel-worker-session')
+    armed = true
+
+    // 013: the text guard sends a shot back while the story is already in the
+    // video phase. This is the state production reached on 2026-10-24.
+    const story = (await ctx.repository.findById(ctx.story.id))!
+    const victim = story.shots[2]!
+
+    await ctx.repository.updateShot(
+      story.id,
+      victim.id,
+      {},
+      { status: 'KEYFRAME_QUEUED', keyframeUrl: null, keyframeRequestId: null },
+    )
+
+    const before = (await ctx.repository.findById(story.id))!
+    // One tick submits the rebuild, the next polls it.
+    await reconciler.runOnce()
+    await reconciler.runOnce()
+    const after = (await ctx.repository.findById(story.id))!
+    const shot = after.shots.find((item) => item.id === victim.id)!
+
+    // The shot leaves the parked state on its own: either it is regenerated or
+    // it fails honestly, but it never stays queued with no job.
+    expect(before.status).toBe('GENERATING_VIDEOS')
+    expect(shot.status).not.toBe('KEYFRAME_QUEUED')
+  })
+})
