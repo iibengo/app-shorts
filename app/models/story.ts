@@ -194,6 +194,11 @@ export interface StoryPlan {
   /** `null` solo en planes legacy sin normalizar. */
   readonly storyBible: StoryBible | null
   readonly scenes: readonly StoryNarrativeScene[]
+  /**
+   * Staging beats. Only plans written before 008 carry them: from 008 on, the
+   * staging lives in each `Shot`, and this is rebuilt from scenes on read.
+   */
+  readonly beats?: readonly StoryBeat[]
 }
 
 /**

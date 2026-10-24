@@ -257,3 +257,14 @@ Todos corregidos:
 **Tests:** 1921 passed / 12 skipped, build correcto. Se añadieron dos casos
 nuevos (estado incorrecto y tope agotado) y un test que impide que las dos
 constantes del tope divergan.
+
+### 22. Un error de tipos que era un fallo en ejecución
+
+**Qué:** `storyBeatForScene` hacía `plan?.beats.find(...)`. Si el plan venía sin
+`beats` —que es lo normal desde 008— reventaba en vez de usar el respaldo que
+tiene doce líneas más abajo. Ahora usa `plan?.beats?.find(...)` y el tipo declara
+`beats` como opcional.
+**Por qué:** el revisor advirtió que no era deuda de tipos, era una excepción en
+ejecución esperando a que llegara un plan sin `beats`.
+**Efecto:** 306 → 300 errores de typecheck. Tests en verde.
+**Coste:** 0.

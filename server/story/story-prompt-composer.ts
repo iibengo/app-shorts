@@ -793,7 +793,9 @@ export function storyBeatForScene(
   scene: { readonly order: number; readonly visualPrompt: string; readonly narration: string },
   total: number,
 ): StoryBeat {
-  const beat = plan?.beats.find((item) => item.order === scene.order)
+  // A plan without beats is a valid 008 plan: falling back to the synthesis
+  // below is the point, and `.find` on undefined threw instead.
+  const beat = plan?.beats?.find((item) => item.order === scene.order)
 
   if (beat) return beat
 
