@@ -6,6 +6,7 @@ Actualizado: 2026-10-24. Ordenado por prioridad real: primero lo que bloquea, de
 
 | # | Tarea | Coste | Por qué |
 |---|---|---|---|
+| 0 | **El vídeo inventa texto sobre pantallas** | 2-4 h | Los keyframes salen limpios y el motor de vídeo añade titulares y rótulos al animar monitores (visto en `bf1ffb3f`). Probar en el prompt de movimiento "las pantallas quedan como en el primer frame"; si no basta, elegir escenas sin pantallas o cambiar de motor. **Prioridad máxima: impide publicar.** |
 | 1 | **Terminar y ver la historia con hoja de personaje** | ~1,1 USD | Primera historia con identidad real. Sin verla, el resto es teoría. |
 | 3 | **Cerrar la spec 011** | 0 | Estado, `AGENTS.md`, contadores y notas de cierre. |
 
