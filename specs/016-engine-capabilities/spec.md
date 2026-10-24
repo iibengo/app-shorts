@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Approved (2026-10-24). Aprobada por el humano, que acepta la consecuencia: con un motor de mínimo 6 s, 15 s son 2 planos, no 4.
+**Status**: Implemented (2026-10-24). Aprobada por el humano, que acepta la consecuencia: con un motor de mínimo 6 s, 15 s son 2 planos, no 4. Implementadas las fichas, la elección de duración por ficha y el coste derivado. **No `Validated`:** la prueba con una historia real no se pudo completar porque el proveedor bloquea la cuenta sin saldo; queda pendiente de recarga.
 
 **Input**: User description: "En el futuro podremos poner diferentes modelos con diferentes formas de comunicarnos, incluso de prompts, ya que usan diferentes inputs: más fotos, vídeo, etc. Depende del modelo debería funcionar bien. Tenemos que tener la info de cada modelo para saber qué hacer; incluso el tipo de clip cambiará, y el precio. Todo eso debemos dejarlo atado."
 
