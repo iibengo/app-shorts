@@ -6,7 +6,9 @@ Actualizado: 2026-10-24. Ordenado por prioridad real: primero lo que bloquea, de
 
 | # | Tarea | Coste | Por qué |
 |---|---|---|---|
-| 0a | **`assembly-failed` con historias largas** | 2-3 h | Medido el 2026-10-24 en una historia de 30 s y 12 planos: el proveedor devuelve **5,875 s** por clip aunque se pidan 2 o 3, el montaje recorta bien y después la **verificación rechaza** por una tolerancia de 0,1 s. Con 4 planos de 5 s no aparecía. Los 12 vídeos eran válidos: se montaron a mano y salieron 30,0 s exactos. Consecuencia: ninguna historia de 30 s o más termina el montaje. **Prioridad máxima: bloquea cualquier historia real.** |
+| 0a | **`assembly-failed` con historias largas** — **diagnóstico parcial** | 2-3 h | Medido el 2026-10-24 en una historia de 30 s y 12 planos: el proveedor devuelve **5,875 s** por clip aunque se pidan 2 o 3, el montaje recorta bien y después la **verificación rechaza** por una tolerancia de 0,1 s. Con 4 planos de 5 s no aparecía. Los 12 vídeos eran válidos: se montaron a mano y salieron 30,0 s exactos. Consecuencia: ninguna historia de 30 s o más termina el montaje. **Prioridad máxima: bloquea cualquier historia real.**
+
+**Estado del diagnóstico (2026-10-24, tarde):** descartados duraciones (6×3 + 6×2 = 30 exacto), tamaño (9 MB de 1536), timeout (falla a los 30 s con 420 configurados), redirecciones y fallo de FFmpeg (la misma secuencia a mano produce 30,0 s). La tolerancia acumulada se arregló y **no era la causa**. Siguiente paso: reproducir el ensamblador con los clips reales en un script fuera de la suite y leer el error exacto. El código ya adjunta `detail` al fallo. |
 | 0 | ~~**El vídeo inventa texto sobre pantallas**~~ **HECHO (013)** | — | Resuelto con una frase en positivo en `VIDEO_STAGE_BLOCK`. Medido: sin la frase había titulares y rótulos; con la frase, cero texto y la pantalla queda idéntica. |
 | 1 | **Terminar y ver la historia con hoja de personaje** | ~1,1 USD | Primera historia con identidad real. Sin verla, el resto es teoría. |
 | 3 | **Cerrar la spec 011** | 0 | Estado, `AGENTS.md`, contadores y notas de cierre. |
