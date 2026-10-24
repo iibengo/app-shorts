@@ -25,11 +25,15 @@ export interface ShotAssemblyInput {
   readonly clips: readonly ShotAssemblyClip[]
   readonly plannedDurationSeconds: number
   readonly maxDurationSeconds: number
+  /** 015: the plan the overlays are derived from, when graphics are enabled. */
+  readonly graphicsPlan?: StoryPlan | null
   readonly signal?: AbortSignal
 }
 
 export interface ShotAssemblyResult {
   readonly fileUrl: string
+  /** 015: overlays actually painted, empty when none or when they failed. */
+  readonly graphics: readonly StoryGraphic[]
   readonly expiresAt: string
   readonly width: 720
   readonly height: 1280
@@ -40,12 +44,30 @@ export interface ShotAssembler {
   assemble(input: ShotAssemblyInput): Promise<ShotAssemblyResult>
 }
 
+/**
+ * 015: paints overlays on the assembled video before it is uploaded, so the
+ * whole overlay pass costs one encode and no extra download. Optional on
+ * purpose: without it the assembler behaves exactly as before.
+ */
+export interface GraphicsPainter {
+  paint(input: {
+    readonly inputPath: string
+    readonly outputPath: string
+    readonly totalDurationSeconds: number
+    readonly width: number
+    readonly height: number
+    readonly plan: StoryPlan | null | undefined
+  }): Promise<{ readonly painted: boolean; readonly graphics: readonly StoryGraphic[] }>
+}
+
 export interface ShotAssemblerOptions {
   readonly downloader: MediaDownloader
   readonly runner: FfmpegRunner
   readonly mediaStorage: MediaStorage
   readonly ffmpegPath?: string
   readonly ffprobePath?: string
+  /** 015: optional overlay pass on the final video. */
+  readonly graphics?: GraphicsPainter | null
 }
 
 export interface ShotAssemblerConfig {
@@ -231,15 +253,44 @@ export class NativeShotAssembler implements ShotAssembler {
         finalPath,
       ], directory, this.concatTimeoutMs, controller.signal)
 
-      const duration = await this.probeAndVerify(finalPath, expectedDuration, 0.3)
-      const finalStat = await stat(finalPath)
+      let outputPath = finalPath
+      let paintedGraphics: readonly StoryGraphic[] = []
+      let duration = await this.probeAndVerify(finalPath, expectedDuration, 0.3)
+
+      // 015: overlays are painted here, after concatenation and before upload.
+      // A failure of the overlay pass is not a failure of the video: the
+      // assembled file is still valid and still gets uploaded.
+      if (this.graphics !== null && this.graphics !== undefined) {
+        try {
+          const painted = await this.graphics.paint({
+            inputPath: finalPath,
+            outputPath: join(directory, 'story-final-graphics.mp4'),
+            totalDurationSeconds: duration,
+            width: 720,
+            height: 1280,
+            plan: input.graphicsPlan,
+          })
+
+          if (painted.painted) {
+            const paintedPath = join(directory, 'story-final-graphics.mp4')
+
+            duration = await this.probeAndVerify(paintedPath, expectedDuration, 0.3)
+            outputPath = paintedPath
+            paintedGraphics = painted.graphics
+          }
+        } catch {
+          // Declared degradation: the video ships without overlays.
+        }
+      }
+
+      const finalStat = await stat(outputPath)
 
       if (finalStat.size > this.maxOutputBytes) {
         throw new StoryError('assembly-failed')
       }
 
       const upload = await this.mediaStorage.uploadFile({
-        filePath: finalPath,
+        filePath: outputPath,
         fileName: `story-${sanitizeStoryId(input.storyId)}-${randomBytes(6).toString('hex')}.mp4`,
         contentType: 'video/mp4',
         lifecycleSeconds: LIFECYCLE_SECONDS,
@@ -247,6 +298,7 @@ export class NativeShotAssembler implements ShotAssembler {
 
       return {
         fileUrl: upload.fileUrl,
+        graphics: paintedGraphics,
         expiresAt: upload.expiresAt,
         width: 720,
         height: 1280,

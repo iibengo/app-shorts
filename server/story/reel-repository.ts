@@ -3,7 +3,7 @@ import { isStoryVisualStyle } from './visual-style'
 import { parseCharacterSheet } from './character-sheet'
 import { canonCharacters, parseCharacterRefs } from './character-refs'
 import type { StoredCharacterRefs } from './character-refs'
-import type { StoryCharacterSheet } from '~/models/story'
+import type { StoryCharacterSheet, StoryGraphic } from '~/models/story'
 import type {
   SceneStatus,
   StoryCostMode,
@@ -85,6 +85,8 @@ export interface ReelStoryRecord {
   readonly characterSheet: StoryCharacterSheet | null
   /** One identity image per character, canon order. */
   readonly characterRefs: StoredCharacterRefs
+  /** 015: overlays actually painted on the final video. */
+  readonly graphics: readonly StoryGraphic[]
   readonly mode: StoryMode
   readonly platform: StoryPlatform
   readonly costMode: StoryCostMode
@@ -131,6 +133,7 @@ export interface CreateReelStoryInput {
   readonly targetDurationSeconds: number
   readonly maxDurationSeconds: number
   readonly anchors?: Readonly<Record<string, string>>
+  readonly graphics?: readonly StoryGraphic[]
   readonly characterRefs?: StoredCharacterRefs
   readonly plan: StoryPlan
   readonly shotPlan: ShotPlan
@@ -249,6 +252,7 @@ export interface ReelStoryRepository {
     storyId: string,
     sheet: StoryCharacterSheet | null,
   ): Promise<boolean>
+  updateGraphics(storyId: string, graphics: readonly StoryGraphic[]): Promise<boolean>
   updateCharacterRefs(
     storyId: string,
     refs: StoredCharacterRefs,
@@ -415,6 +419,7 @@ function mapStory(row: NonNullable<StoryRow>): ReelStoryRecord {
     visualStyle: isStoryVisualStyle(row.visualStyle) ? row.visualStyle : 'cartoon3d',
     anchors: parseAnchors(row.anchorsJson),
     characterSheet: parseCharacterSheet(row.characterSheetJson),
+    graphics: parseGraphics(row.graphicsJson),
     characterRefs: parseCharacterRefs(
       row.characterRefsJson,
       canonCharacters(plan).map((character) => character.id),
@@ -905,6 +910,18 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
     return updated.count > 0
   }
 
+  async updateGraphics(
+    storyId: string,
+    graphics: readonly StoryGraphic[],
+  ): Promise<boolean> {
+    const updated = await this.client.story.updateMany({
+      where: { id: storyId },
+      data: { graphicsJson: graphics as unknown as never },
+    })
+
+    return updated.count > 0
+  }
+
   async updateStoryAnchors(
     storyId: string,
     anchors: Readonly<Record<string, string>>,
@@ -989,4 +1006,29 @@ export class PrismaReelStoryRepository implements ReelStoryRepository {
 
 export function createPrismaReelStoryRepository(): ReelStoryRepository {
   return new PrismaReelStoryRepository()
+}
+
+/** 015: only well-formed entries survive; a broken row means no overlays. */
+function parseGraphics(value: unknown): readonly StoryGraphic[] {
+  if (!Array.isArray(value)) return []
+
+  const graphics: StoryGraphic[] = []
+
+  for (const item of value) {
+    if (typeof item !== 'object' || item === null) continue
+
+    const record = item as Record<string, unknown>
+    const kind = record.kind
+    const text = record.text
+    const start = record.startSeconds
+    const end = record.endSeconds
+
+    if (kind !== 'title' && kind !== 'terminal' && kind !== 'badge') continue
+    if (!Array.isArray(text) || !text.every((line) => typeof line === 'string')) continue
+    if (typeof start !== 'number' || typeof end !== 'number') continue
+
+    graphics.push({ kind, text: text as string[], startSeconds: start, endSeconds: end })
+  }
+
+  return graphics
 }

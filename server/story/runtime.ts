@@ -17,6 +17,7 @@ import type { StoryAssembler } from './assembly-service'
 import { createMediaDownloader } from './media-downloader'
 import { createFfmpegRunner } from './ffmpeg-runner'
 import { FfmpegKeyframeLayoutInspector } from './keyframe-layout-inspector'
+import { createStoryGraphicsPainter } from './graphics-painter'
 import type { StoryCostConfig, StoryCostGuard } from './cost'
 import { createStoryCostGuard } from './cost'
 import { createBriefingNarrativeDirector } from './briefing-director'
@@ -82,6 +83,7 @@ interface RuntimeStoryConfig {
   readonly costVideoQualityUsd?: number
   readonly costVideoQualityShortUsd?: number
   readonly costCharacterRefUsd?: number
+  readonly graphicsEnabled?: boolean
   /** 012: a vision call per keyframe is paid, so it stays off unless asked. */
   readonly consistencyEnabled?: boolean
   readonly dailyBudgetUsd?: number
@@ -433,6 +435,8 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
   const ffmpegPath = process.env.FFMPEG_PATH?.trim() || 'ffmpeg'
   const ffprobePath = process.env.FFPROBE_PATH?.trim() || 'ffprobe'
   const hasFfmpeg = hasFfmpegBinary(ffmpegPath) && hasFfmpegBinary(ffprobePath)
+  // 015: local overlays cost nothing but fontconfig and drawtext. Enabled by default.
+  const graphicsEnabled = booleanValue(story.graphicsEnabled, true) && hasFfmpeg
   const assemblyTimeoutMs = numberValue(story.assemblyTimeoutMs, 420_000)
   const assembler = mediaStorage
     ? createStoryAssembler(
@@ -481,6 +485,11 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
           mediaStorage,
           ffmpegPath,
           ffprobePath,
+          // 015: overlays need a story plan, which only exists once the story
+          // is created, so the painter is built per assembly call below.
+          graphics: graphicsEnabled
+            ? createStoryGraphicsPainter({ runner: createFfmpegRunner(), ffmpegPath })
+            : null,
         },
         {
           totalTimeoutMs: numberValue(story.assemblyTimeoutMs, 420_000),

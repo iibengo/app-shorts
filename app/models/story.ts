@@ -246,6 +246,23 @@ export interface StoryShot {
 }
 
 /** Escena del DTO: narrativa (planJson) + agregado (Scene) + planos (Shot). */
+/** 015: graphic drawn on top of the final video. Text comes from the script. */
+export type StoryGraphicKind = 'title' | 'terminal' | 'badge'
+
+export interface StoryGraphic {
+  readonly kind: StoryGraphicKind
+  /** Exact lines to draw. Never invented by the renderer. */
+  readonly text: readonly string[]
+  readonly startSeconds: number
+  readonly endSeconds: number
+}
+
+export interface StoryGraphicsPlan {
+  readonly width: number
+  readonly height: number
+  readonly graphics: readonly StoryGraphic[]
+}
+
 export interface StoryScene {
   readonly id: string
   readonly order: number
@@ -483,6 +500,8 @@ export interface Story {
   readonly scenes: readonly StoryScene[]
   /** Orden del canon. Nunca incluye la hoja ni las anclas. */
   readonly characterRefs: readonly StoryCharacterReference[]
+  /** 015: overlays actually drawn on the final video. */
+  readonly graphics: readonly StoryGraphic[]
   readonly finalVideoUrl: string | null
   readonly finalVideoExpiresAt: string | null
   readonly approvedAt: string | null

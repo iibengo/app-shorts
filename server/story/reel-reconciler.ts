@@ -1485,7 +1485,13 @@ export class ReelStoryReconciler {
         clips,
         plannedDurationSeconds: assembling.plannedDurationSeconds,
         maxDurationSeconds: assembling.maxDurationSeconds,
+        // 015: the overlays come from the script, never from the video model.
+        graphicsPlan: assembling.plan,
       })
+
+      if (result.graphics.length > 0) {
+        await this.repository.updateGraphics(assembling.id, result.graphics)
+      }
       const safeUrl = assertFalMediaUrl(result.fileUrl)
 
       await this.repository.updateStory(

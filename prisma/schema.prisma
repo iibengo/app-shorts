@@ -64,6 +64,7 @@ model Story {
   anchorsJson         Json?
   characterSheetJson  Json?
   characterRefsJson   Json?
+  graphicsJson        Json?
   mode                StoryMode  @default(faithful)
   platform            StoryPlatform @default(tiktok)
   costMode            StoryCostMode @default(standard)

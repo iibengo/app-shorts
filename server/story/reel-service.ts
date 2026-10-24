@@ -418,6 +418,7 @@ export function toReelStoryDto(
       .sort((a, b) => a.order - b.order)
       .map(toSceneDto),
     characterRefs: toCharacterReferenceDtos(record),
+    graphics: record.graphics,
     finalVideoUrl: record.finalVideoUrl,
     finalVideoExpiresAt: record.finalVideoExpiresAt?.toISOString() ?? null,
     approvedAt: record.approvedAt?.toISOString() ?? null,
@@ -543,6 +544,7 @@ export class ReelStoryServiceImpl implements ReelStoryService {
         preset: input.request.preset,
         visualStyle: input.request.visualStyle ?? 'cartoon3d',
         anchors: seedAnchors,
+        graphics: [],
         characterRefs: initialCharacterRefs(
           reel.plan,
           input.request.referenceUrl,

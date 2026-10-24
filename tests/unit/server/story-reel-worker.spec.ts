@@ -120,6 +120,7 @@ class FakeAssembler implements ShotAssembler {
       width: 720 as const,
       height: 1280 as const,
       durationSeconds: input.plannedDurationSeconds,
+      graphics: [],
     }
   }
 }
