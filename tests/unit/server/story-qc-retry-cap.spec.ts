@@ -25,7 +25,8 @@ import {
   makeStoryRecord,
 } from '../../helpers/story'
 
-const CAP_USD = 2.15
+// 016: follows the measured fast-clip price (0.27), not the old 0.35 estimate.
+const CAP_USD = 1.75
 const OBSERVED: StoryQCObserved = {
   characters: ['clara'],
   wardrobeMismatch: [],
@@ -113,7 +114,7 @@ describe('QC retry cost cap', () => {
       status: 'WAITING_QC',
       qc: { status: 'NEEDS_REVIEW' },
     })
-    expect(costGuard.estimate(repository.find(story.id)!)).toBe(2.132)
+    expect(costGuard.estimate(repository.find(story.id)!)).toBe(1.732)
 
     const service = createStoryService({
       repository,
@@ -169,6 +170,6 @@ describe('QC retry cost cap', () => {
       },
     })
     expect(costGuard.estimate(waiting)).toBeLessThanOrEqual(CAP_USD)
-    expect(costGuard.estimate(waiting)).toBe(2.132)
+    expect(costGuard.estimate(waiting)).toBe(1.732)
   })
 })

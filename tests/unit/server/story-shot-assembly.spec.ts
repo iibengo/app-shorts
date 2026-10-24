@@ -174,3 +174,40 @@ describe('shot assembly', () => {
     })).rejects.toMatchObject({ code: 'assembly-failed' })
   })
 })
+
+describe('tolerance grows with the clip count', () => {
+  it('accepts twelve clips whose rounding adds up', async () => {
+    // Measured on a real 30 second story: twelve clips trimmed to 2 and 3
+    // seconds came out slightly off in total, and a fixed 0.1 s margin rejected
+    // a video that was perfectly valid.
+    const runner = new Runner()
+    const media = storage()
+    const clips = Array.from({ length: 12 }, (_value, index) => ({
+      order: index + 1,
+      url: `https://v3.fal.media/files/test/${index + 1}.mp4`,
+      durationSeconds: (index < 6 ? 3 : 2) as 2 | 3,
+    }))
+
+    // Each clip lands 0.04 s over, so the total is 0.48 s off: inside the margin
+    // this fix allows for twelve clips, far outside the old one.
+    runner.normalizedDurations = clips.map((clip) => clip.durationSeconds + 0.04)
+    runner.probeDuration = 30.48
+
+    const assembler = new NativeShotAssembler({
+      downloader: new Downloader(),
+      runner,
+      mediaStorage: media.storage,
+      ffmpegPath: 'ffmpeg',
+      ffprobePath: 'ffprobe',
+    })
+
+    const result = await assembler.assemble({
+      storyId: 'twelve-clips',
+      clips,
+      plannedDurationSeconds: 30,
+      maxDurationSeconds: 30,
+    })
+
+    expect(result.durationSeconds).toBeCloseTo(30.48, 2)
+  })
+})

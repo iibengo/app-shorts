@@ -59,7 +59,9 @@ export const DEFAULT_STORY_COST_CONFIG: StoryCostConfig = {
   directorRepairCostUsd: 0.01,
   keyframeCostUsd: 0.05,
   keyframeReferenceCostUsd: 0.08,
-  videoFastCostUsd: 0.35,
+  // 016: measured prices. Hailuo 02 at 768P is 0.045/s, so a 6 s clip is 0.27.
+  // It used to be recorded as 0.35, which overestimated every fast story.
+  videoFastCostUsd: 0.27,
   videoQualityCostUsd: 0.7,
   videoQualityShortCostUsd: 0.35,
   qcUnitCostUsd: 0.02,

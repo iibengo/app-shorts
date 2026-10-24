@@ -5,6 +5,8 @@ import type { VideoAdapter } from '../fal/adapters/types'
 import type { FalQueueService } from '../fal/queue-service'
 import type { ComposerEndpointId } from '../fal/types'
 import { StoryError, toStoryError } from './errors'
+import type { StoryVideoEngineId } from './engine-capabilities'
+import { durationFor, engineCapacity } from './engine-capabilities'
 import type { ReelSceneRecord, ReelShotRecord, ReelStoryRecord } from './reel-repository'
 import { storyBeatForShot } from './shot-keyframe-orchestrator'
 import {
@@ -18,8 +20,10 @@ const VIDEO_ENDPOINTS: Readonly<Record<StoryPreset, ComposerEndpointId>> = {
   quality: 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video',
 }
 
-function providerClipSeconds(preset: StoryPreset): 5 | 6 {
-  return preset === 'quality' ? 5 : 6
+/** 016: the preset picks the engine; the engine sheet decides everything else. */
+const ENGINE_BY_PRESET: Readonly<Record<StoryPreset, StoryVideoEngineId>> = {
+  fast: 'minimax-hailuo-02',
+  quality: 'kling-2.5-turbo-pro',
 }
 
 export interface ShotVideoProviderSubmission {
@@ -100,7 +104,13 @@ export class NativeShotVideoOrchestrator implements ShotVideoOrchestrator {
         adapter.buildInput({
           prompt,
           keyframeUrl: shot.keyframeUrl,
-          durationSeconds: providerClipSeconds(story.preset),
+          // 016: the duration comes from the engine sheet, never from a literal.
+          // Asking for a length the engine does not accept used to be silently
+          // rounded, and the assembly then trimmed a clip nobody had asked for.
+          durationSeconds: durationFor(
+            engineCapacity(ENGINE_BY_PRESET[story.preset]),
+            shot.durationSeconds ?? engineCapacity(ENGINE_BY_PRESET[story.preset]).defaultDurationSeconds,
+          ),
           ...(story.preset === 'quality' ? { negativePrompt } : {}),
         }),
       )

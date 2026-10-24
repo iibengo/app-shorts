@@ -44,7 +44,7 @@ describe('story cost estimates', () => {
       directorRepairCostUsd: 0.01,
       keyframeCostUsd: 0.05,
       keyframeReferenceCostUsd: 0.08,
-      videoFastCostUsd: 0.35,
+      videoFastCostUsd: 0.27,
       videoQualityCostUsd: 0.7,
       videoQualityShortCostUsd: 0.35,
       characterRefCostUsd: 0.04,
@@ -55,10 +55,12 @@ describe('story cost estimates', () => {
   })
 
   it.each([
-    ['fast', 4, false, 1.632],
-    ['fast', 5, false, 2.032],
-    ['fast', 6, false, 2.432],
-    ['fast', 6, true, 2.612],
+    // 016: the fast engine is billed at its measured 0.27 per clip, not the
+    // 0.35 it used to be estimated at.
+    ['fast', 4, false, 1.312],
+    ['fast', 5, false, 1.632],
+    ['fast', 6, false, 1.952],
+    ['fast', 6, true, 2.132],
     ['quality', 4, false, 3.032],
     ['quality', 5, false, 3.782],
     ['quality', 6, false, 4.532],
@@ -77,7 +79,7 @@ describe('story cost estimates', () => {
       videoAttempts: 2,
     })
 
-    expect(guard().estimate(story)).toBe(4.032)
+    expect(guard().estimate(story)).toBe(3.232)
   })
 
   it('uses the reference keyframe unit when a reference exists', () => {
@@ -88,7 +90,7 @@ describe('story cost estimates', () => {
       videoAttempts: 2,
     })
 
-    expect(guard().estimate(story)).toBe(4.332)
+    expect(guard().estimate(story)).toBe(3.532)
   })
 
   it('uses the quality video unit for quality stories', () => {
@@ -112,7 +114,7 @@ describe('story cost estimates', () => {
   it('adds one video unit for the next attempt', () => {
     const story = storyWith({ sceneCount: 5, keyframeAttempts: 1, videoAttempts: 0 })
 
-    expect(guard().estimateAfterVideoAttempt(story)).toBe(0.632)
+    expect(guard().estimateAfterVideoAttempt(story)).toBe(0.552)
   })
 
   it('projects the vision cost per scene for the QC', () => {
@@ -208,7 +210,7 @@ describe('story budget cap', () => {
 
     expect(() => custom.assertWithinBudget(5)).not.toThrow()
     expect(() => custom.assertWithinBudget(5.01)).toThrow(StoryError)
-    expect(custom.estimateNewStory('fast', 5, false)).toBe(2.032)
+    expect(custom.estimateNewStory('fast', 5, false)).toBe(1.632)
   })
 
   it('does not call the provider when the projected attempt exceeds the cap', () => {

@@ -224,6 +224,8 @@ export class NativeShotAssembler implements ShotAssembler {
           output,
         ], directory, this.normalizeTimeoutMs, controller.signal)
 
+        // Per clip the margin stays tight: a normalised clip must land on the
+        // duration this pipeline asked for.
         await this.probeAndVerify(output, duration, 0.1)
         await unlink(clip.path).catch(() => undefined)
         normalized.push(output)
@@ -255,7 +257,12 @@ export class NativeShotAssembler implements ShotAssembler {
 
       let outputPath = finalPath
       let paintedGraphics: readonly StoryGraphic[] = []
-      let duration = await this.probeAndVerify(finalPath, expectedDuration, 0.3)
+      // 016: the tolerance grows with the number of clips. A tenth of a second
+      // is right for one clip and absurd for twelve: per-clip rounding added up
+      // and a valid 30 second video was rejected. Capped so a real mismatch
+      // still fails.
+      const totalTolerance = Math.min(1, ordered.length * 0.05)
+      let duration = await this.probeAndVerify(finalPath, expectedDuration, totalTolerance)
 
       // 015: overlays are painted here, after concatenation and before upload.
       // A failure of the overlay pass is not a failure of the video: the
@@ -274,7 +281,7 @@ export class NativeShotAssembler implements ShotAssembler {
           if (painted.painted) {
             const paintedPath = join(directory, 'story-final-graphics.mp4')
 
-            duration = await this.probeAndVerify(paintedPath, expectedDuration, 0.3)
+            duration = await this.probeAndVerify(paintedPath, expectedDuration, totalTolerance)
             outputPath = paintedPath
             paintedGraphics = painted.graphics
           }

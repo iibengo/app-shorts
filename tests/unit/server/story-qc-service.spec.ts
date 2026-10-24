@@ -329,7 +329,7 @@ describe('StoryQCService: QC switch and cost accounting', () => {
 
   it('degrades a second QC round to qc-budget-skipped without exceeding the cap', async () => {
     const story = qcStory()
-    const costGuard = createStoryCostGuard({ maxStoryCostUsd: 2.15 })
+    const costGuard = createStoryCostGuard({ maxStoryCostUsd: 1.75 })
     const firstEvaluation = evaluator({
       kind: 'observed',
       observed: OBSERVED,
@@ -345,7 +345,7 @@ describe('StoryQCService: QC switch and cost accounting', () => {
 
     expect(first.qc.status).toBe('PASSED')
     expect(firstEvaluation.calls).toHaveLength(5)
-    expect(costGuard.estimate(story)).toBe(2.132)
+    expect(costGuard.estimate(story)).toBe(1.732)
 
     const retried = {
       ...story,
@@ -369,7 +369,7 @@ describe('StoryQCService: QC switch and cost accounting', () => {
     expect(second.qc.errorCode).toBe('qc-budget-skipped')
     expect(second.qc.evaluator).toBe('none')
     expect(secondEvaluation.calls).toHaveLength(0)
-    expect(costGuard.estimate(retried)).toBeLessThanOrEqual(2.15)
+    expect(costGuard.estimate(retried)).toBeLessThanOrEqual(1.75)
   })
 
   it('falls back to UNAVAILABLE with evaluator none when the QC switch is off', async () => {
