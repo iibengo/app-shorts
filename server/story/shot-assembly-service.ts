@@ -7,6 +7,7 @@ import { StoryError } from './errors'
 import { FfmpegBinaryMissingError, FfmpegTimeoutError } from './ffmpeg-runner'
 import type { FfmpegRunner } from './ffmpeg-runner'
 import type { MediaDownloader } from './media-downloader'
+import type { StoryGraphic, StoryPlan } from '~/models/story'
 
 const NORMALIZE_TIMEOUT_MS = 30_000
 const CONCAT_TIMEOUT_MS = 240_000
@@ -119,8 +120,11 @@ function parseProbePayload(value: unknown): ProbePayload {
 
 function parseFrameRate(value: string | undefined): number {
   if (!value) return 0
+
   const [numerator, denominator] = value.split('/').map(Number)
-  if (!denominator) return Number(value)
+
+  if (!denominator || numerator === undefined) return Number(value)
+
   return numerator / denominator
 }
 
@@ -415,9 +419,7 @@ export class NativeShotAssembler implements ShotAssembler {
     })
 
     if (result.code !== 0) {
-      throw new StoryError('assembly-failed', {
-        detail: `${binary}-code-${result.code}`.replace(/\s+/g, '-').slice(0, 80),
-      })
+      throw new StoryError('assembly-failed', { detail: `probe-${result.code}` })
     }
 
     let payload: unknown

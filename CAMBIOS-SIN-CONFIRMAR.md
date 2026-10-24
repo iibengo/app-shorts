@@ -57,3 +57,15 @@ y **pasa** con ella. Es el test que habría cazado el bug de ayer.
 última migración en `AGENTS.md`.
 **Por qué:** eran datos desfasados que confunden a quien lea el repositorio.
 **Coste:** 0.
+
+---
+
+### 5. Errores de tipos en el ensamblador
+
+**Qué:** importar los tipos que faltaban, corregir una variable inexistente y
+proteger un valor que podía ser `undefined` en el ensamblador.
+**Por qué:** eran errores introducidos por los cambios de esta sesión. El
+`typecheck` global no está en el gate, así que nadie los habría visto hasta que
+se decidiera arreglarlo entero.
+**Efecto:** el total baja de 326 a 312 errores; ese archivo queda limpio.
+**Coste:** 0.
