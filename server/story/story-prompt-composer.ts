@@ -79,12 +79,24 @@ export const KEYFRAME_PROMPT_MAX_CHARS = 900
 export const KLING_LEGACY_NEGATIVE_PROMPT =
   'blur, distortion, flicker, text, watermark, logo, low quality, deformed hands'
 
+/**
+ * 013: Nano Banana has no negative channel and Google's guide says "describe
+ * what you want, not what you don't". Banned words such as "no text" name the
+ * very thing they forbid, so this block describes the frame instead: one frozen
+ * instant with clean surfaces.
+ */
 export const KEYFRAME_STAGE_BLOCK_EN =
-  'Static vertical 9:16 keyframe, single instant, no motion, no text, no subtitles, no logo, no watermark.'
+  'A single frozen instant in vertical 9:16, clean surfaces and unmarked areas.'
 
+/**
+ * 013: eight providers say the same thing about image-to-video: the first frame
+ * already carries the subject, the scene and the style, so the prompt describes
+ * motion only. Repeating the scene makes the model re-decide it, and a list of
+ * prohibitions names what it should avoid.
+ */
 export const VIDEO_STAGE_BLOCK =
-  'Animate this keyframe only. Preserve character identity, exact clothing, the signature prop, the background, the location, the weather and the time of day described for this scene. '
-  + 'Do not add characters. Do not change the location, the action or the props. Do not cut away. Vertical 9:16, smooth natural motion, no text, no subtitles, no watermark, no logo.'
+  'The first frame already shows the subject, the place and the look: animate only what happens next. '
+  + 'One clear action, one camera move, smooth natural motion, the same person and the same palette throughout, vertical 9:16.'
 
 const BASE_NEGATIVE: readonly string[] = [
   'extra characters',
@@ -296,6 +308,24 @@ export function composeGlobalBlock(bible: StoryBible): string {
 }
 
 /** Scene block with the scene's own location, time, weather and action. */
+/**
+ * 013: the video counterpart of `composeSceneBlock`. Only what moves: the
+ * action, the camera move and the continuity of the frame. No location, no
+ * time, no weather, no wardrobe list.
+ */
+export function composeVideoMotionBlock(
+  bible: StoryBible,
+  beat: StoryBeat,
+): string {
+  const action = beat.action.trim()
+  const camera = storyCameraLabel(beat.camera)
+  const continuity = beat.continuityFromPrevious
+    ? 'The same framing and lighting continue from the first frame. '
+    : ''
+
+  return `${action} ${continuity}Camera: ${camera}.`.trim()
+}
+
 export function composeSceneBlock(
   bible: StoryBible,
   beat: StoryBeat,
@@ -445,11 +475,11 @@ export function composeNegative(bible: StoryBible, beat: StoryBeat): string {
 }
 
 export function storyKeyframeFluxPrompt(visualPrompt: string): string {
-  return `Cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Single clear subject, natural lighting, photorealistic, no text, no watermark, no logo.`
+  return `Vertical 9:16 keyframe for a short film. ${visualPrompt}. A single clear subject, natural lighting, plain unmarked surfaces.`
 }
 
 export function storyKeyframeKontextPrompt(visualPrompt: string): string {
-  return `Using the reference image as the visual anchor, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Preserve subject identity, clothing and color palette. No text, no watermark, no logo.`
+  return `Using the reference image as the visual anchor, create a vertical 9:16 keyframe for a short film. ${visualPrompt}. The same subject, clothing and palette, in a clean frame with plain unmarked surfaces.`
 }
 
 /**
@@ -459,7 +489,7 @@ export function storyKeyframeKontextPrompt(visualPrompt: string): string {
  * model render a real person instead of preserving the uploaded style.
  */
 export function storyKeyframeReferencePrompt(visualPrompt: string): string {
-  return `Using the reference image as the visual anchor, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Preserve subject identity, the visual style of the reference, clothing and color palette. No text, no watermark, no logo.`
+  return `Using the reference image as the visual anchor, create a vertical 9:16 keyframe for a short film. ${visualPrompt}. The same person, the same clothing and the same palette as the reference, rendered in a clean frame with plain unmarked surfaces.`
 }
 
 /**
@@ -468,11 +498,11 @@ export function storyKeyframeReferencePrompt(visualPrompt: string): string {
  * into an empty frame.
  */
 export function storyKeyframeStyleReferencePrompt(visualPrompt: string): string {
-  return `Using the reference image only for its visual style and palette, create a cinematic vertical 9:16 keyframe for a short film. ${visualPrompt}. Do not add the person from the reference to this frame. No text, no watermark, no logo.`
+  return `Using the reference image only for its visual style and palette, create a vertical 9:16 keyframe for a short film. ${visualPrompt}. An empty frame of this world, with plain unmarked surfaces and nobody from the reference present.`
 }
 
 export function storyVideoLegacyPrompt(visualPrompt: string): string {
-  return `${visualPrompt}. Vertical 9:16 short film scene, smooth natural motion, consistent subject, no text, no watermark, no logo.`
+  return `${visualPrompt}. Smooth natural motion, one clear action, the same subject throughout, vertical 9:16.`
 }
 
 /**
@@ -721,11 +751,12 @@ export function composeVideo(input: VideoPromptInput): ComposedVideoPrompt {
     : `${composeNegative(input.bible, input.beat)}, ${styleNegativeFor(input.visualStyle)}`
   const globalBlock = composeVideoGlobalBlock(input.bible, input.beat)
   const minimalGlobal = composeVideoGlobalBlock(input.bible, input.beat, { minimal: true })
-  const fullScene = composeSceneBlock(input.bible, input.beat)
-  const sceneWithoutContinuity = composeSceneBlock(input.bible, input.beat, {
-    includeContinuity: false,
-  })
-  const stageBlock = `${VIDEO_STAGE_BLOCK} Localización: ${sceneLocation(input.bible, input.beat).name}. Hora: ${storyTimeOfDayLabel(input.beat.timeOfDay)}. Clima: ${storyWeatherLabel(input.beat.weather)}.`
+  const fullScene = composeVideoMotionBlock(input.bible, input.beat)
+  const sceneWithoutContinuity = composeVideoMotionBlock(input.bible, input.beat)
+  // 013: no location, time or weather in the video prompt. The first frame
+  // already shows them, and eight providers agree that repeating the scene
+  // makes the model re-decide it instead of animating it.
+  const stageBlock = VIDEO_STAGE_BLOCK
   const candidates = [
     joinVideoPrompt(globalBlock, fullScene, stageBlock),
     joinVideoPrompt(globalBlock, sceneWithoutContinuity, stageBlock),

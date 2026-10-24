@@ -211,7 +211,7 @@ describe('visual director', () => {
     expect(calls).toHaveLength(2)
   })
 
-  it('rejects an oversized canon through the video prompt, not the keyframe one', async () => {
+  it('accepts an oversized canon now that the video prompt only describes motion', async () => {
     const oversized = structuredClone(narrative) as typeof narrative
     const pad = (length: number, char: string): string => char.repeat(length)
 
@@ -261,17 +261,16 @@ describe('visual director', () => {
       onEvent: (event) => events.push(event),
     })
 
-    const error = await director.createStoryboard({
+    // 013: the video prompt no longer repeats location, time, weather, wardrobe
+    // or props, so this canon composes fine instead of failing the storyboard.
+    const plan = await director.createStoryboard({
       premise: 'Una premisa suficientemente larga.',
       mode: 'creative',
       narrative: oversized,
-    }).catch((caught: unknown) => caught)
+    })
 
-    expect(error).toBeInstanceOf(StoryError)
-    expect((error as StoryError).code).toBe('director-invalid-output')
-    expect((error as StoryError).status).toBe(502)
-    expect(calls).toHaveLength(2)
-    expect(events.at(-1)?.event).toBe('story.visual.failed')
-    expect(events.at(-1)?.reason).toContain('prompt de vídeo demasiado largo')
+    expect(plan.beats.length).toBeGreaterThan(0)
+    expect(events.at(-1)?.event).not.toBe('story.visual.failed')
+    void calls
   })
 })

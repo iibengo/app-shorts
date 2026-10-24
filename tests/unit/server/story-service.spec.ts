@@ -634,35 +634,28 @@ describe('StoryService.updateBeatAndRegenerate', () => {
     expect(repository.calls).toContain('updateScene')
   })
 
-  it('rejects an edit whose video prompt exceeds 2000 without writing', async () => {
+  it('accepts a long visual prompt now that the video prompt only describes motion', async () => {
+    // 013: the video prompt no longer repeats the still scene, so a long
+    // visualPrompt does not overflow it. The keyframe keeps its own budget.
     const story = waitingStory({ plan: longVideoPlan() })
-    const { service, repository } = setup({ seed: [story] })
+    const { service } = setup({ seed: [story] })
     const longPrompt = 'Composición visual '.repeat(30).slice(0, 600)
-
     const beat = story.plan!.beats[1]!
-    const keyframe = composeKeyframe({
-      bible: story.plan!.storyBible,
-      beat: { ...beat, visualPrompt: longPrompt },
-      hasReference: false,
-    })
-    expect(keyframe.prompt.length).toBeLessThan(4_000)
+
     expect(() => composeVideo({
       bible: story.plan!.storyBible,
       beat: { ...beat, visualPrompt: longPrompt },
       preset: 'fast',
-    })).toThrowError(StoryError)
+    })).not.toThrow()
 
-    const error = await captureError(() => service.updateBeatAndRegenerate({
+    const updated = await service.updateBeatAndRegenerate({
       storyId: story.id,
       sessionId: SESSION_ID,
       sceneId: story.scenes[1]!.id,
       update: { visualPrompt: longPrompt, regenerate: true },
-    }))
+    })
 
-    expect(error.code).toBe('invalid-visual-prompt')
-    expect(error.status).toBe(400)
-    expect(repository.calls).not.toContain('updateStory')
-    expect(repository.calls).not.toContain('updateScene')
+    expect(updated.id).toBe(story.id)
   })
 
   it('rejects an edit that copies the narration literally', async () => {

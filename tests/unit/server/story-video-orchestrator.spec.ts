@@ -54,7 +54,7 @@ function pendingScene(overrides: Partial<Parameters<typeof makeSceneRecord>[0]> 
 describe('storyVideoPrompt', () => {
   it('composes the normative template without narration', () => {
     expect(storyVideoPrompt(VISUAL_PROMPT)).toBe(
-      `${VISUAL_PROMPT}. Vertical 9:16 short film scene, smooth natural motion, consistent subject, no text, no watermark, no logo.`,
+      `${VISUAL_PROMPT}. Smooth natural motion, one clear action, the same subject throughout, vertical 9:16.`,
     )
   })
 })

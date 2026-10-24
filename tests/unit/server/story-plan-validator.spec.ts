@@ -60,23 +60,13 @@ describe('story plan validator', () => {
     expect(validateStoryPlan(value, { sceneCount: 5, mode: 'faithful' }).ok).toBe(false)
   })
 
-  it('bounds the keyframe prompt so only the video limit rejects an oversized canon', () => {
+  it('accepts an oversized canon now that the video prompt only describes motion', () => {
+    // 013: the video prompt no longer repeats location, time, weather, wardrobe
+    // or props, so a huge canon no longer overflows it. The keyframe keeps its
+    // own budget and still bounds itself.
     const validation = validateStoryPlan(longGlobalPlan(), { sceneCount: 5, mode: 'faithful' })
 
-    expect(validation.ok).toBe(false)
-    if (validation.ok) return
-    expect(validation.reason).toContain('prompt de vídeo demasiado largo')
-    expect(validation.reason).not.toContain('prompt final demasiado largo')
-  })
-
-  it.each<[string, ReturnType<typeof longVideoPlan>, string]>([
-    ['video', longVideoPlan(), 'prompt de vídeo demasiado largo'],
-  ])('rejects a plan that composes an oversized %s prompt', (_label, plan, reason) => {
-    const result = validateStoryPlan(plan, { sceneCount: 5, mode: 'faithful' })
-
-    expect(result.ok).toBe(false)
-    if (result.ok) return
-    expect(result.reason).toContain(reason)
+    expect(validation.ok, validation.ok ? '' : validation.reason).toBe(true)
   })
 
   it('rejects a plan with an invented source in faithful mode', () => {

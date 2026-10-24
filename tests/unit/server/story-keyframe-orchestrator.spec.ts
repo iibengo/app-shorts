@@ -40,16 +40,20 @@ function scene(overrides: Parameters<typeof makeSceneRecord>[0]) {
 }
 
 describe('keyframe prompt templates', () => {
-  it('composes the normative FLUX dev template', () => {
+  it('composes the positive FLUX dev template', () => {
+    // 013: no "no text" list. Nano Banana has no negative channel and Google's
+    // guide says to describe what you want, not what you do not.
     expect(storyKeyframeFluxPrompt(VISUAL_PROMPT)).toBe(
-      `Cinematic vertical 9:16 keyframe for a short film. ${VISUAL_PROMPT}. Single clear subject, natural lighting, photorealistic, no text, no watermark, no logo.`,
+      `Vertical 9:16 keyframe for a short film. ${VISUAL_PROMPT}. A single clear subject, natural lighting, plain unmarked surfaces.`,
     )
   })
 
-  it('composes the normative Kontext template', () => {
-    expect(storyKeyframeKontextPrompt(VISUAL_PROMPT)).toBe(
-      `Using the reference image as the visual anchor, create a cinematic vertical 9:16 keyframe for a short film. ${VISUAL_PROMPT}. Preserve subject identity, clothing and color palette. No text, no watermark, no logo.`,
-    )
+  it('composes the positive Kontext template', () => {
+    const prompt = storyKeyframeKontextPrompt(VISUAL_PROMPT)
+
+    expect(prompt).toContain('The same subject, clothing and palette')
+    expect(prompt).toContain('plain unmarked surfaces')
+    expect(prompt).not.toMatch(/no text|no watermark|no logo/i)
   })
 })
 

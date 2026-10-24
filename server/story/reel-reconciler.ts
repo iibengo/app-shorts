@@ -30,6 +30,7 @@ import {
 import type { StoredCharacterRef, StoredCharacterRefs } from './character-refs'
 import type { ConsistencyChecker } from './consistency-check'
 import type { KeyframeLayoutInspector } from './keyframe-layout-inspector'
+import type { KeyframeTextInspector } from './keyframe-text-inspector'
 import type { ShotQCService } from './shot-qc-service'
 import type { ShotVideoOrchestrator } from './shot-video-orchestrator'
 
@@ -100,6 +101,8 @@ export interface ReelReconcilerOptions {
   readonly characterReferences?: CharacterReferenceOrchestrator | null
   /** Rejects stacked-panel keyframes before the video stage pays for them. */
   readonly layoutInspector?: KeyframeLayoutInspector | null
+  /** 013: rejects a keyframe with burned-in text before the video is paid. */
+  readonly textInspector?: KeyframeTextInspector | null
   readonly consistency?: ConsistencyChecker | null
   readonly videos: ShotVideoOrchestrator
   readonly assembler: ShotAssembler
@@ -129,6 +132,7 @@ export class ReelStoryReconciler {
   private readonly characterSheet: CharacterSheetOrchestrator | null
   private readonly characterReferences: CharacterReferenceOrchestrator | null
   private readonly layoutInspector: KeyframeLayoutInspector | null
+  private readonly textInspector: KeyframeTextInspector | null
   private readonly consistency: ConsistencyChecker | null
   private readonly videos: ShotVideoOrchestrator
   private readonly assembler: ShotAssembler
@@ -155,6 +159,7 @@ export class ReelStoryReconciler {
     this.characterSheet = options.characterSheet ?? null
     this.characterReferences = options.characterReferences ?? null
     this.layoutInspector = options.layoutInspector ?? null
+    this.textInspector = options.textInspector ?? null
     this.consistency = options.consistency ?? null
     this.videos = options.videos
     this.assembler = options.assembler
@@ -934,6 +939,25 @@ export class ReelStoryReconciler {
     await this.finalizeVideos(story.id)
   }
 
+  /**
+   * 013: two reasons to rebuild a keyframe before paying for the video. Both
+   * fail open, and both name themselves in the event so a regeneration is
+   * explainable instead of mysterious.
+   */
+  private async keyframeUnusableReason(
+    keyframeUrl: string,
+  ): Promise<'split' | 'text' | null> {
+    if (this.layoutInspector !== null && await this.layoutInspector.isSplitFrame(keyframeUrl)) {
+      return 'split'
+    }
+
+    if (this.textInspector !== null && await this.textInspector.hasText(keyframeUrl)) {
+      return 'text'
+    }
+
+    return null
+  }
+
   private async processVideoShot(
     story: ReelStoryRecord,
     shot: ReelShotRecord,
@@ -948,12 +972,13 @@ export class ReelStoryReconciler {
     if (shot.videoAttempts >= 2 || !shot.keyframeUrl) return
 
     // A keyframe with several stacked panels would be animated as a split
-    // screen. Regenerating the image is cheaper than delivering a broken video.
-    if (
-      shot.status === 'KEYFRAME_READY'
-      && this.layoutInspector !== null
-      && await this.layoutInspector.isSplitFrame(shot.keyframeUrl)
-    ) {
+    // screen, and one with a caption would deliver invented on-screen text.
+    // Regenerating the image is cheaper than delivering a broken video.
+    const unusable = shot.status === 'KEYFRAME_READY'
+      ? await this.keyframeUnusableReason(shot.keyframeUrl)
+      : null
+
+    if (unusable !== null) {
       await this.repository.updateShot(
         story.id,
         shot.id,
@@ -976,7 +1001,7 @@ export class ReelStoryReconciler {
       )
 
       this.onEvent?.({
-        event: 'reel.keyframe.split-frame',
+        event: unusable === 'text' ? 'reel.keyframe.text-detected' : 'reel.keyframe.split-frame',
         storyId: story.id,
         shotId: shot.id,
         order: shot.order,

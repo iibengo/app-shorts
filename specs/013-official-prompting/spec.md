@@ -1,0 +1,196 @@
+# Feature Specification: Prompts según la documentación oficial de los modelos
+
+**Feature Branch**: `013-official-prompting`
+
+**Created**: 2026-10-24
+
+**Status**: Approved (2026-10-24). Aprobada por el humano tras la revisión de los repos de referencia.
+
+**Input**: User description: "¿Por qué crea texto que no hemos pedido? ¿En qué estamos fallando? ¿Podemos arreglarlo o tenemos que cambiar de modelo?"
+
+> Esta spec nace de una pregunta del humano y se responde con **documentación oficial de los proveedores**, no con intuición. La evidencia está abajo, con enlaces.
+
+## Diagnóstico
+
+El keyframe de la historia `ebddcea6` (plano 1, `establishing`, estilo `papercraft`) salió con:
+
+- Texto inventado en la pantalla del portátil: `WHO STOLE MY ARTICLE?`.
+- Dos bocadillos con `AUTHORSHIP GONE!` y `LOST CONTROL!`.
+- Un primer plano a la cara donde el plan pedía un plano general.
+
+El prompt enviado **sí decía** `no text, no subtitles, no logo, no watermark`. Y aun así el texto apareció. La causa está documentada por Google, dueño del modelo.
+
+## Evidencia oficial
+
+### E1 — Nano Banana no acepta prompt negativo
+
+Esquema del endpoint `fal-ai/nano-banana/edit` (OpenAPI de Fal, consultado el 2026-10-24):
+
+```text
+seed, safety_tolerance, aspect_ratio, num_images,
+limit_generations, output_format, image_urls, prompt, sync_mode
+```
+
+**No existe `negative_prompt`.** Las prohibiciones solo pueden ir dentro del prompt positivo.
+
+### E2 — Google pide describir lo que se quiere, no lo que no
+
+Guía oficial de Gemini Image (Nano Banana), citada por el equipo de ArcReel en su research de proveedores:
+
+> *"Describe what you want, not what you don't."*
+> Ejemplo oficial: `"no cars"` se escribe como `"an empty, deserted street with no signs of traffic"`.
+
+Nuestro prompt encadena cuatro prohibiciones (`no text, no subtitles, no logo, no watermark`). Según la guía, **cada una nombra el concepto que se quiere evitar**.
+
+### E3 — La referencia contamina la escena
+
+La referencia enviada es el avatar del usuario: una foto de escritorio con portátil, taza y pantalla. El modelo **ve** una pantalla y deduce que la escena lleva texto. El `referenceUrl` está sembrando el contenido que luego intentamos prohibir.
+
+### E4 — En imagen a vídeo, el prompt debe describir solo movimiento
+
+Es la conclusión más unánime del research: ocho proveedores coinciden.
+
+| Proveedor | Cita oficial |
+|---|---|
+| Google | `Prompt for motion only. Your source image already provides the subject, scene, and style.` |
+| Alibaba (Wan) | `图像已经确定了主体、场景与风格，因此提示词主要描述动态过程及运镜需求` |
+| MiniMax | `prompt describes how the scene evolves from this static image into motion` |
+| OpenAI (Sora) | `The model uses the image as an anchor for the first frame, while your text prompt defines what happens next` |
+| Volcengine (Seedance) | `主体 + 主体从首帧到尾帧的详细动作变化描述 + 运镜` |
+| Kling | El ejemplo oficial es "la cámara se aleja, la chica sonríe" |
+| Vidu | `subject motion + camera movement + scene change + style` |
+| xAI | `Give it a starting image, describe the motion` |
+
+Nuestro prompt de vídeo **repite toda la escena** (localización, hora, clima, props, personajes) y añade un bloque de prohibiciones. Va contra lo que piden los ocho.
+
+### E5 — Qué modelo usa la referencia del sector
+
+ArcReel, el proyecto de 5.700 estrellas, usa **Nano Banana para los keyframes**: el mismo que nosotros. No es un problema de modelo.
+
+## Alcance
+
+Cuatro cambios, todos en la capa de prompts y en lo que se envía como referencia. **Ningún cambio de motor, de modelo ni de coste unitario.**
+
+1. **Keyframe: prompt en positivo y narrativo.** Sustituir las prohibiciones por descripciones de lo que sí se quiere.
+2. **Referencia limpia para el protagonista.** Dejar de enviar el avatar con escritorio cuando existe una referencia propia del personaje.
+3. **Vídeo: prompt de movimiento.** El vídeo describe qué pasa, no cómo es la escena.
+4. **Guardia de texto en el keyframe.** Si la imagen trae texto, se regenera antes de pagar el vídeo. Reutiliza el patrón del inspector de dípticos de 011.
+
+## Requisitos funcionales
+
+| ID | Requisito |
+|---|---|
+| FR-001 | `storyKeyframeReferencePrompt` MUST NOT contener `no text`, `no watermark`, `no logo` ni `no subtitles`. Debe describir ausencias en positivo: `clean surfaces, an unmarked screen, a plain wall`. |
+| FR-002 | `KEYFRAME_STAGE_BLOCK_EN` MUST NOT enumerar prohibiciones. Su función (un solo instante, sin movimiento) se expresa de forma positiva. |
+| FR-003 | El compositor MUST anteponer al cuerpo del plano una línea de **sujeto + entorno + cámara**, siguiendo el orden oficial (sujeto → entorno → luz → cámara → estilo). |
+| FR-004 | Con referencia propia de personaje disponible, el orquestador MUST enviar **esa** referencia, no el `referenceUrl` del usuario. El avatar queda solo para el personaje del que es dueño. |
+| FR-005 | `VIDEO_STAGE_BLOCK` MUST describir **solo movimiento y cámara**. MUST NOT repetir localización, hora, clima, props ni ropa: el primer frame ya los contiene. |
+| FR-006 | `composeVideo` MUST NOT añadir la localización, la hora ni el clima al prompt de vídeo. |
+| FR-007 | El prompt de vídeo MUST NOT contener prohibiciones; el movimiento y la continuidad se piden en positivo (`the subject stays in the same seat`, `the camera holds`) |
+| FR-008 | MUST existir `server/story/text-in-frame.ts`, heurística pura, y `keyframe-text-inspector.ts` con muestreo FFmpeg, con el mismo contrato que `keyframe-layout-inspector.ts`. |
+| FR-009 | Antes del vídeo, un keyframe con texto detectado MUST volver a `KEYFRAME_QUEUED` con evento `reel.keyframe.text-detected`, igual que el díptico. |
+| FR-010 | El inspector de texto MUST fallar abierto: si no puede decodificar o ffmpeg no está, acepta la imagen. |
+| FR-011 | Los prompts MUST seguir siendo deterministas y puros: mismas entradas, mismo texto. |
+| FR-012 | El presupuesto de caracteres se mantiene: 900 del keyframe y 2.000 del vídeo, con la escalera de degradación existente. |
+
+## Contrato de prompt (nuevo)
+
+### Keyframe
+
+```text
+{estilo positivo}. {identidad si hay referencia}. {un solo instante}.
+{SUJETO} in {ENTORNO}. {LUZ}. {CÁMARA: plano, encuadre}. {FOCO si aplica}.
+{entidades presentes}. {superficies limpias, pantalla en blanco}.
+```
+
+| Regla | Contrato |
+|---|---|
+| Orden | estilo → identidad → sujeto → entorno → luz → cámara → foco → entidades → limpieza |
+| Prohibiciones | **Ninguna** en el keyframe: ni `no text` ni `without logos`. Solo descripciones de lo que se ve |
+| Pantallas | Cuando la escena tiene portátil, móvil o monitor, el prompt MUST describir la pantalla por su contenido visual (`a dark terminal with green text` solo si el guion lo pide; si no, `a blank dark screen`) |
+| Estilo | El bloque de estilo positivo abre el prompt; el negativo sigue existiendo solo para modelos que lo aceptan |
+
+### Vídeo
+
+```text
+{acción concreta y única}. {movimiento de cámara}. {continuidad en positivo}.
+```
+
+| Regla | Contrato |
+|---|---|
+| Solo movimiento | Prohibido repetir localización, hora, clima, ropa o props |
+| Un movimiento de cámara | Una sola indicación por plano (`slow push in`, `the camera holds still`) |
+| Continuidad | En positivo: `the subject remains seated`, `the same lighting continues` |
+| Duración | La duración la fija el proveedor con su parámetro, nunca el texto |
+
+## Detección de texto (nueva)
+
+Heurística pura sobre el muestreo en escala de grises que ya produce el inspector de dípticos.
+
+| Señal | Regla |
+|---|---|
+| Bordes verticales densos | Una banda con muchas transiciones horizontales de alto contraste entre filas de texto |
+| Fila de texto | Entre 8 y 40 cambios de luminancia en un rango estrecho de filas |
+| Falso positivo aceptable | Una escena con muchas líneas verticales (persianas, código) puede marcarse: se regenera, cuesta una imagen y no rompe nada |
+
+| Constante | Valor |
+|---|---|
+| Muestreo | 32×96 en escala de grises (el mismo del inspector de dípticos) |
+| Cambio que cuenta | Salto de luma ≥ 45 entre píxeles vecinos |
+| Fila de texto | ≥ 6 cambios en una fila |
+| Banda de texto | ≥ 3 filas consecutivas con esa densidad |
+| Zona | Todo el frame, sin excluir bordes |
+
+## Coste
+
+**Sin cambios.** El guardia de texto gasta una imagen extra por rechazo (0,04), igual que ya hace el de dípticos, y se contabiliza con `keyframeAttempts`.
+
+| Caso | Coste |
+|---|---|
+| Historia 15 s con 1 secundario | 0,04 + keyframes + vídeo, igual que 012 |
+| Un keyframe rechazado por texto | +0,04 |
+
+## Archivos
+
+```text
+server/story/story-prompt-composer.ts   prompts positivos, keyframe y vídeo
+server/story/shot-keyframe-orchestrator.ts  referencia propia por personaje
+server/story/text-in-frame.ts           heurística pura (nuevo)
+server/story/keyframe-text-inspector.ts muestreo FFmpeg (nuevo)
+server/story/reel-reconciler.ts         guardia antes del vídeo
+server/story/runtime.ts                 cableado del inspector
+```
+
+## Test plan
+
+| Archivo | Casos |
+|---|---|
+| `story-prompt-composer.spec.ts` | Ninguna prohibición en keyframe ni vídeo; orden sujeto→entorno→cámara; pantalla descrita en positivo |
+| `story-video-prompt.spec.ts` | Solo movimiento; sin localización, hora ni clima; un solo movimiento de cámara |
+| `text-in-frame.spec.ts` | Fila de texto detectada; escena limpia aceptada; muestra pequeña ignorada; persianas aceptadas como falso positivo conocido |
+| `story-reel-worker.spec.ts` | Keyframe con texto vuelve a `KEYFRAME_QUEUED`; el vídeo no se envía; el contador de intentos sube |
+| Regresión 004–012 | Sin cambios de contrato en 004, 008 ni 012 |
+
+## Fuera de alcance
+
+- Cambiar de modelo o de proveedor de imagen.
+- Añadir `negative_prompt` donde el proveedor no lo tiene.
+- OCR real con dependencia nueva: la heurística es suficiente y no añade binarios.
+- Reescritura del director de planos.
+
+## Riesgos
+
+| Riesgo | Mitigación |
+|---|---|
+| Los prompts positivos son más largos y no caben en 900 | Escalera de degradación existente; el bloque de foco nunca se recorta |
+| La heurística de texto da falsos positivos con código en pantalla | Se regenera una imagen (0,04); el evento queda registrado para medirlo |
+| Quitar la localización del prompt de vídeo puede relajar la continuidad | Se sustituye por frases de continuidad positivas; se mide en el smoke |
+
+## Fases
+
+1. `text-in-frame.ts` + inspector + tests.
+2. Guardia en el reconciliador + tests.
+3. Prompts de keyframe en positivo + tests.
+4. Prompts de vídeo de movimiento + tests.
+5. Referencia propia por personaje en el orquestador + test.
+6. Gate completo y una historia real de 15 s (0,36 USD) para comparar con `ebddcea6`.

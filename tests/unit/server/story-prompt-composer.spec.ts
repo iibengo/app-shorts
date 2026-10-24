@@ -72,7 +72,9 @@ describe('story-prompt-composer: global canon', () => {
       if (beat.gag) expect(keyframe.prompt).not.toContain(beat.gag)
       expect(video.prompt.length).toBeLessThanOrEqual(STORY_VIDEO_PROMPT_MAX_LENGTH)
       expect(video.prompt).toContain(VIDEO_STAGE_BLOCK)
-      expect(video.prompt).toContain(beat.visualPrompt)
+      // 013: the video prompt describes motion only. The first frame already
+      // carries the scene, so repeating the still would re-decide it.
+      expect(video.prompt).toContain(beat.action)
       expect(video.prompt).not.toContain(beat.narration)
       if (beat.gag) expect(video.prompt).not.toContain(beat.gag)
     }
@@ -188,7 +190,7 @@ describe('story-prompt-composer: keyframe layout', () => {
     expect(prompt.startsWith('Close-up of Clara batiendo merengue: Clara bate el merengue')).toBe(true)
     expect(prompt.indexOf('Characters:')).toBeLessThan(prompt.indexOf('Location:'))
     expect(prompt.indexOf('Location:')).toBeLessThan(prompt.indexOf('Style:'))
-    expect(prompt.indexOf('Style:')).toBeLessThan(prompt.indexOf('Static vertical 9:16'))
+    expect(prompt.indexOf('Style:')).toBeLessThan(prompt.indexOf('A single frozen instant'))
   })
 
   it('includes only the entities present in the shot', () => {
@@ -231,7 +233,7 @@ describe('story-prompt-composer: keyframe layout', () => {
     expect(prompt.length).toBeLessThanOrEqual(KEYFRAME_PROMPT_MAX_CHARS)
     expect(prompt.startsWith('Medium shot of palabra palabra')).toBe(true)
     expect(prompt).toContain('Location: Obrador.')
-    expect(prompt).toContain('Static vertical 9:16')
+    expect(prompt).toContain('A single frozen instant in vertical 9:16')
   })
 
   it('falls back to the camera when the shot has no framing', () => {

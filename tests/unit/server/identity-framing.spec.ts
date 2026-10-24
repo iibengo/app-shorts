@@ -138,7 +138,9 @@ describe('focus size reaches the keyframe prompt', () => {
     }).prompt
 
     expect(prompt).toContain('only for its visual style and palette')
-    expect(prompt).toContain('Do not add the person from the reference')
+    // 013: the absence is described, not forbidden, because the model has no
+    // negative channel and a "do not" line names what it should avoid.
+    expect(prompt).toContain('nobody from the reference present')
   })
 })
 
