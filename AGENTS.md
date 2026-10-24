@@ -83,7 +83,7 @@ specs/                    specs 001–008
 - **Spec 007 — Modos/canon:** `Implemented`.
 - **Spec 008 — TikTok Reel Engine:** `Implemented` (commit `dff2764` + enmiendas 2026-10-23). No `Validated`: smoke real y QA manual pendientes.
 - **Spec 013 — Prompts oficiales:** `Implemented` (2026-10-24). Prompts en positivo (Nano Banana no tiene canal negativo y Google pide describir lo que se quiere), prompt de vídeo solo de movimiento, y guardia de texto en el keyframe. Tres bugs de estado encontrados en la prueba real y cerrados con test verificado en ambos sentidos.
-- **Spec 012 — Referencias por personaje:** `Implemented` (2026-10-24). Kling v3 con `elements` se probó y se **descartó por coste** (0,56 vs 0,35 por plano, ~7 min por plano); queda como evidencia en `BACKLOG.md`. Audio pasa a 013 y gráficos a 014.
+- **Spec 012 — Referencias por personaje:** `Implemented` (2026-10-24). Kling v3 con `elements` se probó y se **descartó por coste** (0,56 vs 0,35 por plano, ~7 min por plano); queda como evidencia en `BACKLOG.md`. Audio pasa a 014 y gráficos a 015.
 - **Ninguna spec está `Validated`:** no se ha ejecutado ningún smoke real hasta la fecha.
   - Escenas narrativas + `Shot` como unidad de generación.
   - Duraciones 15/30/45/60/90 s y perfiles budget/standard/production.
