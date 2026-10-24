@@ -44,7 +44,7 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 | 11 | QA de navegador y accesibilidad | 3-5 h |
 | 12 | Retirar el motor `legacy` 005-007 | 4-6 h |
 | 13 | CI (no existe) | 3-5 h |
-| 14 | Trocear la suite (rápidos / lentos) | 2 h |
+| 14 | ~~Trocear la suite~~ **NO HACE FALTA** | 0 | Medido el 2026-10-24: la suite completa tarda **27 s** con 4 workers. Trocearla añadiría complejidad sin ganar tiempo. |
 | 15 | Transaccionalidad de escrituras batch historia→shots | 2-3 h |
 | 16 | Reforzar el fallback de `qc-frames` con `filePath === null` | 2 h |
 | 17 | ~~Director: evitar tres planos seguidos con el mismo encuadre~~ **HECHO (013)** | — | El prompt del director lo prohíbe y `detectRepeatedFraming` lo registra. |
