@@ -36,3 +36,24 @@ cruza el límite.
 **Comprobación:** el test falla si se quita el guardado y pasa con él.
 **Coste:** 0.
 **Tests:** 1909 passed / 12 skipped, build correcto.
+
+---
+
+### 3. Test de montaje con FFmpeg real
+
+**Qué:** nuevo `tests/acceptance/story-assembly-real.spec.ts`. Codifica clips de
+verdad con FFmpeg local, los monta con el ensamblador real, pinta los gráficos y
+comprueba que se devuelven.
+**Por qué:** el test de flujo usaba un montaje falso que nunca devolvía gráficos.
+Ese hueco dejó pasar un pintor declarado y nunca asignado durante toda una spec.
+**Comprobación:** se verificó que **falla** si se quita la asignación del pintor
+y **pasa** con ella. Es el test que habría cazado el bug de ayer.
+**Sin coste:** solo FFmpeg local, sin red ni proveedor. Se salta si no hay FFmpeg.
+**Coste:** 0.
+
+### 4. Documentación sincronizada
+
+**Qué:** estado de la 016 a `Implemented`, recuento de tests y nombre de la
+última migración en `AGENTS.md`.
+**Por qué:** eran datos desfasados que confunden a quien lea el repositorio.
+**Coste:** 0.
