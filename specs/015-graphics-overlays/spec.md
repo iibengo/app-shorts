@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Draft (Checkpoint 1 pendiente). No se escribe código hasta la aprobación humana.
+**Status**: Approved (2026-10-24). Aprobada por el humano. Decisiones cerradas: **un título al principio y otro al final, nunca uno por escena**; **la terminal es opcional y solo aparece si el guion pide una pantalla con contenido**.
 
 **Input**: User description: "El texto legible debe vivir en una capa de gráficos, no en el modelo. El modelo inventa titulares porque le pedimos que dibuje pantallas."
 
@@ -90,7 +90,7 @@ Migración `20261024190000_story_graphics`. `null` se lee como sin gráficos.
 
 | Pieza | Posición | Tipografía | Duración |
 |---|---|---|---|
-| `title` | Tercio superior, centrado | 64 px, negrita | 2,5 s desde el inicio de su escena |
+| `title` | Tercio superior, centrado | 64 px, negrita | 2,5 s desde el inicio, y otro 2,5 s al final |
 | `terminal` | Centro-izquierda, sobre el 70 % del ancho | 34 px, monoespaciada | Toda la escena |
 | `badge` | Inferior centrado, sobre la zona segura | 30 px | 3 s |
 
@@ -98,7 +98,7 @@ Migración `20261024190000_story_graphics`. `null` se lee como sin gráficos.
 |---|---|
 | Legibilidad | Todo texto MUST llevar caja o sombra de contraste; nunca texto sobre fondo dudoso sin protección |
 | Zona segura | Ningún texto a menos del 12 % del borde superior o inferior |
-| Máximo | Un `title` por escena, un `terminal` por escena con pantalla, un `badge` por historia |
+| Máximo | **Dos `title` por historia** (inicio y cierre), un `terminal` opcional por escena con pantalla, un `badge` por historia |
 | Idioma | El texto va en el idioma del guion (español). No se traduce |
 | Sin emojis | `drawtext` no los dibuja de forma fiable |
 
