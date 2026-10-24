@@ -11,7 +11,7 @@ Actualizado: 2026-10-24. Ordenado por prioridad real: primero lo que bloquea, de
 **Causa raíz (2026-10-24, tarde):** el ensamblador real monta 30,0 s con los clips reales. El fallo era **la subida final**: el proveedor responde 403 con `User is locked. Reason: Exhausted balance` porque la cuenta no tiene saldo. Nuestro código traducía ese 403 a **"servicio no disponible"**, así que parecía un fallo del montaje. Corregido: un 403 que menciona el saldo se reconoce como `provider-balance-exhausted`, no como caída del servicio. Pendiente: recargar saldo y comprobar una historia completa de principio a fin. descartados duraciones (6×3 + 6×2 = 30 exacto), tamaño (9 MB de 1536), timeout (falla a los 30 s con 420 configurados), redirecciones y fallo de FFmpeg (la misma secuencia a mano produce 30,0 s). La tolerancia acumulada se arregló y **no era la causa**. Siguiente paso: reproducir el ensamblador con los clips reales en un script fuera de la suite y leer el error exacto. El código ya adjunta `detail` al fallo. |
 | 0 | ~~**El vídeo inventa texto sobre pantallas**~~ **HECHO (013)** | — | Resuelto con una frase en positivo en `VIDEO_STAGE_BLOCK`. Medido: sin la frase había titulares y rótulos; con la frase, cero texto y la pantalla queda idéntica. |
 | 1 | **Terminar y ver la historia con hoja de personaje** | ~1,1 USD | Primera historia con identidad real. Sin verla, el resto es teoría. |
-| 3 | **Cerrar la spec 011** | 0 | Estado, `AGENTS.md`, contadores y notas de cierre. |
+| 3 | ~~**Cerrar la spec 011**~~ **HECHO** | 0 | Cerrada con sus enmiendas. |
 
 ### Descartado: cupo de concurrencia y cancelación
 
@@ -23,11 +23,11 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 
 | # | Tarea | Coste | Por qué |
 |---|---|---|---|
-| 4 | **Estilo `voxel`** | 10 min | Una entrada en el registro de estilos. Es el look del vídeo 4 y el más fácil de mantener consistente. |
-| 5 | **Voz, música y subtítulos** (spec 013) | 15-25 h | Sin audio ni subtítulos el vídeo no se parece a las referencias. Bloquea la publicación real. |
-| 6 | **Gráficos y overlays** (spec 014) | 10-15 h | Terminal, UI y cifras reales compuestas sobre el vídeo. Sin esto no hay vídeo "de programación". |
+| 4 | ~~**Estilo `voxel`**~~ **HECHO (013)** | — | Una entrada en el registro de estilos. Es el look del vídeo 4 y el más fácil de mantener consistente. |
+| 5 | **Voz, música y subtítulos** (spec 014) | 15-25 h | Sin audio ni subtítulos el vídeo no se parece a las referencias. Bloquea la publicación real. |
+| 6 | ~~**Gráficos y overlays**~~ **HECHO (015)** | — | Título, terminal y badge pintados con FFmpeg sobre el MP4 montado. |
 | 7 | **Notas del director** | 2-4 h | Campo opcional para dar contexto técnico sin dictar los planos. |
-| 8 | **Estilo `explainer`** | 5-8 h | Estilo del vídeo 3; depende de la 013. |
+| 8 | **Estilo `explainer`** | 5-8 h | Estilo del vídeo 3; depende de la 015. |
 | 9 | **Rúbrica de calidad + juez** | 4-6 h | Medir si las historias son buenas, no solo válidas. |
 | 9a | **Pantalla de personajes** | 4-6 h | Ver cada personaje con su imagen generada, regenerarla y asignarle una foto. Mismo patrón que la regeneración por escena, que ya existe. Aparcado al aprobar 012. |
 | 9b | **Varias fotos del usuario, una por personaje** | 6-10 h | Subir varias fotos y, si la premisa tiene varios personajes, detectar con DeepSeek Vision qué foto es de quién, asignarla y mencionarla en la historia. Cambia el contrato del formulario (`STORY_MAX_REFERENCES = 1` hoy). Aparcado al aprobar 012. |
@@ -40,7 +40,7 @@ Los 6 jobs huérfanos que bloquearon una prueba se debieron a cancelaciones hech
 
 | # | Tarea | Coste |
 |---|---|---|
-| 10 | `typecheck`: 268 errores | 8-15 h |
+| 10 | `typecheck`: 306 errores | 8-15 h |
 | 11 | QA de navegador y accesibilidad | 3-5 h |
 | 12 | Retirar el motor `legacy` 005-007 | 4-6 h |
 | 13 | CI (no existe) | 3-5 h |
