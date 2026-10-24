@@ -144,6 +144,14 @@ export class NativeShotAssembler implements ShotAssembler {
   private readonly concatTimeoutMs: number
   private readonly totalTimeoutMs: number
   private readonly maxOutputBytes: number
+  /**
+   * 015: declared as an option but never assigned, so overlays were silently
+   * skipped on every story. The field existed, the code that used it existed,
+   * and the painter was never reached.
+   */
+  private readonly graphics: GraphicsPainter | null
+  /** Which step is running, so a failure can name it. */
+  private stage: string = 'start'
 
   constructor(options: ShotAssemblerOptions, config: ShotAssemblerConfig = {}) {
     this.downloader = options.downloader
@@ -155,6 +163,7 @@ export class NativeShotAssembler implements ShotAssembler {
     this.concatTimeoutMs = config.concatTimeoutMs ?? CONCAT_TIMEOUT_MS
     this.totalTimeoutMs = config.totalTimeoutMs ?? TOTAL_TIMEOUT_MS
     this.maxOutputBytes = config.maxOutputBytes ?? MAX_OUTPUT_BYTES
+    this.graphics = options.graphics ?? null
   }
 
   async assemble(input: ShotAssemblyInput): Promise<ShotAssemblyResult> {
@@ -197,11 +206,13 @@ export class NativeShotAssembler implements ShotAssembler {
 
     try {
       directory = await mkdtemp(join(tmpdir(), 'ai-shorts-shot-'))
+      this.stage = 'download'
       const downloaded = await this.downloader.download(
         ordered.map((clip) => ({ order: clip.order, url: clip.url })),
         directory,
         controller.signal,
       )
+      this.stage = 'normalize'
       const normalized: string[] = []
 
       for (const clip of downloaded) {
@@ -240,6 +251,7 @@ export class NativeShotAssembler implements ShotAssembler {
         normalized.push(output)
       }
 
+      this.stage = 'concat'
       const listPath = join(directory, 'list.txt')
       await writeFile(
         listPath,
@@ -264,6 +276,7 @@ export class NativeShotAssembler implements ShotAssembler {
         finalPath,
       ], directory, this.concatTimeoutMs, controller.signal)
 
+      this.stage = 'verify'
       let outputPath = finalPath
       let paintedGraphics: readonly StoryGraphic[] = []
       // 016: the tolerance grows with the number of clips. A tenth of a second
@@ -287,6 +300,10 @@ export class NativeShotAssembler implements ShotAssembler {
             plan: input.graphicsPlan,
           })
 
+          // Server-only trace: without it, a painter that silently declines is
+          // indistinguishable from one that never runs.
+          this.stage = painted.painted ? 'painted' : 'paint-declined'
+
           if (painted.painted) {
             const paintedPath = join(directory, 'story-final-graphics.mp4')
 
@@ -294,8 +311,9 @@ export class NativeShotAssembler implements ShotAssembler {
             outputPath = paintedPath
             paintedGraphics = painted.graphics
           }
-        } catch {
+        } catch (error) {
           // Declared degradation: the video ships without overlays.
+          this.stage = `paint-failed:${error instanceof Error ? error.message.slice(0, 60) : 'unknown'}`
         }
       }
 
@@ -330,13 +348,15 @@ export class NativeShotAssembler implements ShotAssembler {
       }
 
       throw new StoryError('assembly-failed', {
-        detail: error instanceof Error ? error.message.slice(0, 120) : 'unknown',
+        detail: `stage=${this.stage} ${error instanceof Error ? error.message.slice(0, 100) : 'unknown'}`.replace(/\s+/g, ' '),
       })
     } finally {
       clearTimeout(timer)
       input.signal?.removeEventListener('abort', onAbort)
 
-      if (directory) {
+      // Set SHOT_ASSEMBLY_KEEP_DIR=1 to keep the work directory for a manual
+      // inspection: the uploaded file is the only thing that survives.
+      if (directory && process.env.SHOT_ASSEMBLY_KEEP_DIR !== '1') {
         await rm(directory, { recursive: true, force: true }).catch(() => undefined)
       }
     }
@@ -405,7 +425,9 @@ export class NativeShotAssembler implements ShotAssembler {
     const extra = streams.filter((stream) => stream.codec_type !== 'video')
 
     if (video.length !== 1 || extra.length > 0) {
-      throw new StoryError('assembly-failed')
+      throw new StoryError('assembly-failed', {
+        detail: `streams-video-${video.length}-extra-${extra.length}${extra.map((stream) => `-${stream.codec_type}`).join('')}`,
+      })
     }
 
     const stream = video[0]!
@@ -417,7 +439,9 @@ export class NativeShotAssembler implements ShotAssembler {
       || stream.pix_fmt !== 'yuv420p'
       || Math.abs(parseFrameRate(stream.avg_frame_rate) - 30) > 0.01
     ) {
-      throw new StoryError('assembly-failed')
+      throw new StoryError('assembly-failed', {
+        detail: `format-${stream.codec_name}-${stream.width}x${stream.height}-${stream.pix_fmt}-${stream.avg_frame_rate}`,
+      })
     }
 
     const duration = Number(probe.format?.duration)
@@ -426,7 +450,9 @@ export class NativeShotAssembler implements ShotAssembler {
       !Number.isFinite(duration)
       || Math.abs(duration - expectedDuration) > toleranceSeconds
     ) {
-      throw new StoryError('assembly-failed')
+      throw new StoryError('assembly-failed', {
+        detail: `duration-${duration}-expected-${expectedDuration}-tol-${toleranceSeconds}`,
+      })
     }
 
     return duration

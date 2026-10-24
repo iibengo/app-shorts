@@ -211,3 +211,41 @@ describe('tolerance grows with the clip count', () => {
     expect(result.durationSeconds).toBeCloseTo(30.48, 2)
   })
 })
+
+describe('graphics painter wiring', () => {
+  it('calls the painter when one is configured', async () => {
+    // 015 shipped a painter option that the constructor never assigned, so
+    // overlays were silently skipped on every story and nothing failed. This
+    // asserts the call happens at all.
+    const media = storage()
+    const calls: string[] = []
+    const assembler = new NativeShotAssembler({
+      downloader: new Downloader(),
+      runner: new Runner(),
+      mediaStorage: media.storage,
+      ffmpegPath: 'ffmpeg',
+      ffprobePath: 'ffprobe',
+      graphics: {
+        async paint() {
+          calls.push('paint')
+          return { painted: false, graphics: [] }
+        },
+      },
+    })
+
+    await assembler.assemble({
+      storyId: 'graphics-wired',
+      clips: [
+        { order: 1, url: 'https://v3.fal.media/files/test/1.mp4', durationSeconds: 3 },
+        { order: 2, url: 'https://v3.fal.media/files/test/2.mp4', durationSeconds: 2 },
+        { order: 3, url: 'https://v3.fal.media/files/test/3.mp4', durationSeconds: 4 },
+        { order: 4, url: 'https://v3.fal.media/files/test/4.mp4', durationSeconds: 6 },
+      ],
+      plannedDurationSeconds: 15,
+      maxDurationSeconds: 15,
+      graphicsPlan: null,
+    })
+
+    expect(calls).toEqual(['paint'])
+  })
+})
