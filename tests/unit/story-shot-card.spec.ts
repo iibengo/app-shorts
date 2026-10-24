@@ -65,3 +65,24 @@ describe('StoryShotCard focus line', () => {
     expect(wrapper.get('[data-testid="story-shot-focus"]').text()).toContain('Ionias')
   })
 })
+
+describe('focus label', () => {
+  it('shows the canon name, not the internal id', async () => {
+    // Production ids are lowercase, so the card used to read "En foco: pixel".
+    // The earlier tests hid it by using already-capitalised ids.
+    const wrapper = await mountSuspended(StoryShotCard, {
+      props: {
+        shot: shot({ subject: 'pixel teclea rápido' }),
+        total: 4,
+        scene: { id: 'scene-1', order: 1, characters: ['pixel'], props: [], locationId: 'desk' } as never,
+        characterNames: { pixel: 'Pixel' },
+      },
+    })
+
+    const text = wrapper.get('[data-testid="story-shot-focus"]').text()
+
+    expect(text).toContain('Pixel')
+    // Sólo aparece el id en minúsculas si no se resolvió el nombre.
+    expect(text.toLowerCase().replace('pixel', '')).not.toContain('pixel')
+  })
+})
