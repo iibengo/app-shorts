@@ -28,6 +28,8 @@ Los skills de `.cursor/skills` son de Cursor y no se descubren desde OpenCode. C
 ## No negociables
 
 - **SDD con checkpoints:** no se escribe código sin spec aprobada; no se pasa al tester sin aprobar la implementación.
+- **"No me preguntes" no desactiva el checkpoint.** Autoriza a avanzar sin esperar respuesta, nunca a dejar el registro para después. Un cambio que nace de un fallo real en producción se documenta como **enmienda** en la spec afectada, en el mismo pase y antes de cerrar el commit. Aprendido el 2026-10-24: cinco arreglos válidos quedaron fuera del método porque el humano dijo "sigue sin preguntar" y el agente lo interpretó como "sin checkpoints".
+- **Un arreglo sin spec es deuda, aunque el test esté en verde.** Si el código y la spec se contradicen, la spec manda: se corrige una de las dos antes de seguir.
 - **1 a 3 clics:** el camino por defecto no obliga a configurar modelo, duración ni parámetros. Lo avanzado es opcional y colapsable.
 - **Secretos solo en servidor:** `NUXT_FAL_KEY` vive en `runtimeConfig.falKey`; nunca en `app/`, HTML, logs, respuestas o tokens.
 - **Proveedor solo desde servidor:** las rutas y servicios hablan con Fal; el cliente solo hace el `PUT` firmado de subida.
