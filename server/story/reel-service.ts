@@ -85,6 +85,16 @@ export interface ReelStoryService {
     sessionId: string,
     sceneId: string,
   ): Promise<ReelStoryRecord>
+  /**
+   * 015: puts a failed character reference back in the queue. Allowed only for
+   * a reference that is not ready: regenerating a good image would pay for
+   * something the user already has.
+   */
+  retryCharacterReference(
+    id: string,
+    sessionId: string,
+    characterId: string,
+  ): Promise<ReelStoryRecord>
 }
 
 export interface ReelStoryServiceOptions {
@@ -1195,6 +1205,35 @@ export class ReelStoryServiceImpl implements ReelStoryService {
             },
       )
     }
+
+    return this.reload(id)
+  }
+
+  async retryCharacterReference(
+    id: string,
+    sessionId: string,
+    characterId: string,
+  ): Promise<ReelStoryRecord> {
+    const story = await this.findOwned(id, sessionId)
+    const ref = story.characterRefs[characterId]
+
+    if (ref === undefined) throw new StoryError('beat-not-found')
+    // A user-owned reference is the uploaded photo: there is nothing to redraw.
+    if (ref.source === 'user') throw new StoryError('scene-not-ready')
+    if (ref.status === 'ready') throw new StoryError('scene-not-ready')
+
+    const allowed = story.status === 'GENERATING_KEYFRAMES'
+      || story.status === 'WAITING_APPROVAL'
+      || story.status === 'GENERATING_VIDEOS'
+    if (!allowed) throw new StoryError('story-not-ready')
+
+    const next = {
+      ...story.characterRefs,
+      [characterId]: { ...ref, status: 'pending' as const, attempts: 0, errorCode: undefined },
+    }
+
+    const stored = await this.repository.updateCharacterRefs(story.id, next)
+    if (!stored) throw new StoryError('story-not-ready')
 
     return this.reload(id)
   }

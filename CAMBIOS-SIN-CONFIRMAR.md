@@ -209,3 +209,18 @@ saber si era su foto, el proveedor o el dinero.
 el mensaje crudo del proveedor.
 **Coste:** 0.
 **Tests:** 1914 + 2 nuevos, build correcto.
+
+### 19. Regenerar una referencia de personaje
+
+**Qué:** ruta nueva para volver a encolar la referencia de un personaje que
+falló. Se niega en tres casos: si ya está lista (pagar por repetir algo que ya se
+tiene), si es la foto subida por el usuario (no hay nada que redibujar) y si la
+historia no está en un estado que lo permita.
+**Por qué:** sin esto, un personaje que falla no se puede recuperar nunca; la
+historia queda con un secundario sin imagen para siempre. Es la mitad de la
+pantalla de personajes del backlog (punto 9a).
+**Seguridad:** misma sesión, mismo origen, misma guarda que el resto de comandos.
+**Coste:** 0 hasta que alguien la use; entonces cuesta una imagen por personaje.
+**Tests:** 6 de aceptación con los cinco casos, más la suite completa
+(1916 passed / 12 skipped) y build correcto.
+**Pendiente:** el botón en la interfaz. Sin él, la ruta existe pero nadie la usa.
