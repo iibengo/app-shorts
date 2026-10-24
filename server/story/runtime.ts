@@ -17,7 +17,6 @@ import type { StoryAssembler } from './assembly-service'
 import { createMediaDownloader } from './media-downloader'
 import { createFfmpegRunner } from './ffmpeg-runner'
 import { FfmpegKeyframeLayoutInspector } from './keyframe-layout-inspector'
-import { FfmpegKeyframeTextInspector } from './keyframe-text-inspector'
 import type { StoryCostConfig, StoryCostGuard } from './cost'
 import { createStoryCostGuard } from './cost'
 import { createBriefingNarrativeDirector } from './briefing-director'
@@ -582,9 +581,6 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
   const reelLayoutInspector = hasFfmpeg
     ? new FfmpegKeyframeLayoutInspector(createFfmpegRunner(), ffmpegPath, tmpdir())
     : null
-  const reelTextInspector = hasFfmpeg
-    ? new FfmpegKeyframeTextInspector(createFfmpegRunner(), ffmpegPath)
-    : null
   const reelReconciler = reelRepository && reelKeyframes && reelVideos && reelAssembler
     ? createReelStoryReconciler({
         repository: reelRepository,
@@ -592,7 +588,6 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         characterSheet: reelCharacterSheet,
         characterReferences: reelCharacterRefs,
         layoutInspector: reelLayoutInspector,
-        textInspector: reelTextInspector,
         // Off by default: every keyframe would cost a vision call that no
         // profile budgets for. Turn on only with a measured smoke.
         consistency:

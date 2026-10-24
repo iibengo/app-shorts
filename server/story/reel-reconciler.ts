@@ -30,7 +30,6 @@ import {
 import type { StoredCharacterRef, StoredCharacterRefs } from './character-refs'
 import type { ConsistencyChecker } from './consistency-check'
 import type { KeyframeLayoutInspector } from './keyframe-layout-inspector'
-import type { KeyframeTextInspector } from './keyframe-text-inspector'
 
 /**
  * 013: the automatic guards consume an attempt each time they reject an image,
@@ -110,8 +109,6 @@ export interface ReelReconcilerOptions {
   readonly characterReferences?: CharacterReferenceOrchestrator | null
   /** Rejects stacked-panel keyframes before the video stage pays for them. */
   readonly layoutInspector?: KeyframeLayoutInspector | null
-  /** 013: rejects a keyframe with burned-in text before the video is paid. */
-  readonly textInspector?: KeyframeTextInspector | null
   readonly consistency?: ConsistencyChecker | null
   readonly videos: ShotVideoOrchestrator
   readonly assembler: ShotAssembler
@@ -141,7 +138,6 @@ export class ReelStoryReconciler {
   private readonly characterSheet: CharacterSheetOrchestrator | null
   private readonly characterReferences: CharacterReferenceOrchestrator | null
   private readonly layoutInspector: KeyframeLayoutInspector | null
-  private readonly textInspector: KeyframeTextInspector | null
   private readonly consistency: ConsistencyChecker | null
   private readonly videos: ShotVideoOrchestrator
   private readonly assembler: ShotAssembler
@@ -168,7 +164,6 @@ export class ReelStoryReconciler {
     this.characterSheet = options.characterSheet ?? null
     this.characterReferences = options.characterReferences ?? null
     this.layoutInspector = options.layoutInspector ?? null
-    this.textInspector = options.textInspector ?? null
     this.consistency = options.consistency ?? null
     this.videos = options.videos
     this.assembler = options.assembler
@@ -892,9 +887,7 @@ export class ReelStoryReconciler {
           )
 
           this.onEvent?.({
-            event: unusable === 'text'
-              ? 'reel.keyframe.text-detected'
-              : 'reel.keyframe.split-frame',
+            event: 'reel.keyframe.split-frame',
             storyId: story.id,
             shotId: shot.id,
             order: shot.order,
@@ -920,9 +913,7 @@ export class ReelStoryReconciler {
           )
 
           this.onEvent?.({
-            event: unusable === 'text'
-              ? 'reel.keyframe.text-detected'
-              : 'reel.keyframe.split-frame',
+            event: 'reel.keyframe.split-frame',
             storyId: story.id,
             shotId: shot.id,
             order: shot.order,
@@ -1092,13 +1083,9 @@ export class ReelStoryReconciler {
    */
   private async keyframeUnusableReason(
     keyframeUrl: string,
-  ): Promise<'split' | 'text' | null> {
+  ): Promise<'split' | null> {
     if (this.layoutInspector !== null && await this.layoutInspector.isSplitFrame(keyframeUrl)) {
       return 'split'
-    }
-
-    if (this.textInspector !== null && await this.textInspector.hasText(keyframeUrl)) {
-      return 'text'
     }
 
     return null
@@ -1147,7 +1134,7 @@ export class ReelStoryReconciler {
       )
 
       this.onEvent?.({
-        event: unusable === 'text' ? 'reel.keyframe.text-detected' : 'reel.keyframe.split-frame',
+        event: 'reel.keyframe.split-frame',
         storyId: story.id,
         shotId: shot.id,
         order: shot.order,

@@ -231,3 +231,27 @@ La prueba end-to-end con vídeo destapó dos fallos de estado que la suite no cu
 | Presupuesto de intentos | El tope MUST contar tanto los fallos del proveedor como los rechazos de los guardias |
 
 Cada arreglo tiene un test que se verificó **en ambos sentidos**: falla sin el arreglo y pasa con él. Se comprobó revirtiendo temporalmente el cambio.
+
+## Enmienda — el guardia de texto se retira (2026-10-24)
+
+La heurística de texto **no se implanta**. Se midió dos veces sobre la misma familia de imágenes y no separa los casos:
+
+| Muestra | Contenido real | 128×384 | 160×480 | 192×576 |
+|---|---|---|---|---|
+| Plano general con monitor de neón | **Sin texto** | 17 filas | 0 | 0 |
+| Plano general limpio | Sin texto | 0 | 0 | 0 |
+| Plano con titular inventado | **Con texto** | 4 filas | 0 | 0 |
+| Escena low-poly limpia | Sin texto | 0 | 0 | 0 |
+
+No existe umbral que acepte el monitor de neón y rechace el titular: **la geometría de neón y las líneas de texto producen la misma señal** en escala de grises a cualquier resolución.
+
+| Decisión | Contrato |
+|---|---|
+| Retirada | `text-in-frame.ts`, `keyframe-text-inspector.ts` y su test MUST eliminarse. El reconciliador MUST NOT inspeccionar texto |
+| Lo que queda | El guardia de **dípticos** sigue activo: se validó con datos reales y nunca dio un falso positivo |
+| Coste | Una historia de 15 s vuelve a costar ~0,16 USD de keyframes en vez de 0,36 |
+| Alternativa futura | OCR real (tesseract) o un modelo de visión. Ninguno entra sin spec propia y presupuesto |
+
+**Por qué se retira en vez de aflojarse:** un guardia que no distingue texto de decoración gasta dinero en regeneraciones correctas y no protege de nada. La medida de que costaba el doble (9 imágenes para 4 planos) es la prueba.
+
+Lo que **sí** resolvió el problema real sigue en pie: los prompts en positivo. El texto inventado pasó de 4 de 4 planos a 0 de 4 en las imágenes finales.
