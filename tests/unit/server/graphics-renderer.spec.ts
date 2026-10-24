@@ -5,6 +5,7 @@ import {
   buildGraphicsArgs,
   escapeDrawText,
   geometryFor,
+  titleSizeFor,
 } from '../../../server/story/graphics-renderer'
 
 const PLAN: StoryGraphicsPlan = {
@@ -66,8 +67,22 @@ describe('geometry', () => {
     expect(bottom.y).toContain('1126')
   })
 
-  it('centres the title horizontally', () => {
-    expect(geometryFor('title', 720, 1280).x).toBe('360-text_w/2')
+  it('centres the title with the expression that works on multi-line text', () => {
+    // 360-text_w/2 was off by half the longest line, and pushed the title out
+    // of frame on the left. (w-text_w)/2 is the only reliable centring.
+    expect(geometryFor('title', 720, 1280).x).toBe('(w-text_w)/2')
+    expect(geometryFor('badge', 720, 1280).x).toBe('(w-text_w)/2')
+  })
+
+  it('keeps the terminal below the character, in the lower half', () => {
+    expect(Number(geometryFor('terminal', 720, 1280).y)).toBeGreaterThan(1280 * 0.5)
+  })
+
+  it('gives every graphic a contrast box', () => {
+    const built = args()!
+    const filter = built[built.indexOf('-vf') + 1]!
+
+    expect(filter.split('box=1:').length - 1).toBe(3)
   })
 })
 
@@ -107,5 +122,24 @@ describe('buildGraphicsArgs', () => {
 
   it('is deterministic', () => {
     expect(args()).toEqual(args())
+  })
+})
+
+describe('title size', () => {
+  it('shrinks a long title so it fits the 720 px frame', () => {
+    // 20 characters at 64 px is wider than the frame: it overflowed both edges
+    // on real output.
+    const size = titleSizeFor(20, 1280)
+
+    expect(size).toBeLessThan(64)
+    expect(size).toBeGreaterThanOrEqual(28)
+  })
+
+  it('keeps the preferred size for a short title', () => {
+    expect(titleSizeFor(8, 1280)).toBe(64)
+  })
+
+  it('never goes below a readable minimum', () => {
+    expect(titleSizeFor(80, 1280)).toBe(28)
   })
 })

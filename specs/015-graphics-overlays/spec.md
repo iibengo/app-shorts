@@ -163,3 +163,25 @@ Migración `20261024190000_story_graphics`. `null` se lee como sin gráficos.
 4. Persistencia y DTO.
 5. UI y copy.
 6. Gate completo y una historia real: comparar con y sin gráficos.
+
+## Validación real (2026-10-24)
+
+Pintado con FFmpeg sobre el MP4 de 15 s (`final2`), coste **0 USD**, un solo pase, `-crf 18`.
+
+Tres defectos salieron en la primera pasada y se corrigieron en código, no en el comando:
+
+| Defecto | Síntoma | Causa | Arreglo |
+|---|---|---|---|
+| Título descentrado | Se salía por la izquierda | `360-text_w/2`: en texto multilínea `text_w` es la línea más larga, no el bloque | `(w-text_w)/2` |
+| Título más ancho que el vídeo | Cortado por ambos lados con 20 caracteres | 64 px fijos no caben en 720 px | `titleSizeFor` reduce el tamaño según la línea más larga (mínimo 28 px) |
+| Terminal ilegible y encima del personaje | Texto blanco sobre pared clara | Solo sombra, sin caja | Caja translúcida en **todos** los gráficos; la terminal baja a la mitad inferior |
+| Terminal de 10 s | Tapaba media historia | Duraba hasta el título final | `TERMINAL_SECONDS = 4` |
+
+| Regla | Contrato |
+|---|---|
+| Caber antes que centrar | Ningún gráfico MUST ser más ancho que el 84 % del frame; el título reduce su tamaño |
+| Contraste | Todo texto MUST llevar caja; la sombra sola no basta sobre fondo claro |
+| Duración | La terminal MUST durar como máximo 4 s |
+| Un solo pase | Los gráficos se pintan sobre el vídeo ya montado, nunca por plano |
+
+**Estado:** `Implemented`. Falta verlo en una historia generada por el pipeline completo (aquí se pintó sobre un MP4 ya existente) y un QA visual del resto de plantillas.

@@ -46,6 +46,19 @@ interface Geometry {
 }
 
 /**
+ * A 64 px title is wider than a 720 px frame once it passes ~18 characters, and
+ * centring cannot fix a block that does not fit. The size shrinks with the
+ * longest line instead: measured on real output, "El artículo fantasma" at
+ * 64 px overflowed both edges.
+ */
+export function titleSizeFor(longestLine: number, height: number): number {
+  const preferred = Math.round(height * 0.05)
+  const maxByWidth = Math.floor((720 * 0.84) / Math.max(1, longestLine) * 1.85)
+
+  return Math.max(28, Math.min(preferred, maxByWidth))
+}
+
+/**
  * Positions sit inside the vertical safe area: on a phone, a title under the
  * status bar is a title nobody reads.
  */
@@ -60,15 +73,17 @@ export function geometryFor(
 
   switch (kind) {
     case 'title':
+      // `(w-text_w)/2` is the only expression that centres reliably: `text_w`
+      // on a multi-line text is the longest line, not the block.
       return {
-        x: `${Math.round(width / 2)}-text_w/2`,
+        x: '(w-text_w)/2',
         y: String(top),
         size: Math.round(height * 0.05),
       }
     case 'terminal':
-      return { x: String(side), y: String(Math.round(height * 0.34)), size: Math.round(height * 0.027) }
+      return { x: String(side), y: String(Math.round(height * 0.62)), size: Math.round(height * 0.026) }
     default:
-      return { x: `${Math.round(width / 2)}-text_w/2`, y: `${bottom}-text_h`, size: Math.round(height * 0.024) }
+      return { x: '(w-text_w)/2', y: `${bottom}-text_h`, size: Math.round(height * 0.024) }
   }
 }
 
@@ -78,23 +93,32 @@ function textFilter(
   fontFile: string,
 ): string {
   const geometry = geometryFor(graphic.kind, plan.width, plan.height)
+  const longest = graphic.text.reduce((max, line) => Math.max(max, line.length), 1)
+  // Titles shrink to fit the frame; the terminal and the badge are short by
+  // construction, so they keep their size.
+  const size = graphic.kind === 'title'
+    ? titleSizeFor(longest, plan.height)
+    : geometry.size
   const body = graphic.text.map(escapeDrawText).join('\\n')
   const enable = `between(t,${graphic.startSeconds.toFixed(2)},${graphic.endSeconds.toFixed(2)})`
-  // A shadow, not a box: it keeps the frame readable over any background
-  // without hiding the picture behind a plate.
-  const shadow = graphic.kind === 'terminal' ? 0 : 2
+  // Measured on real output: a shadow alone disappears on a bright wall, and
+  // the terminal text was unreadable over the character. Every graphic gets a
+  // translucent box; the title keeps a shadow for depth.
+  const box = `box=1:boxcolor=black@${graphic.kind === 'terminal' ? '0.62' : '0.35'}:boxborderw=18`
+  const shadow = graphic.kind === 'title' ? 3 : 0
 
   return [
     `drawtext=fontfile='${fontFile}'`,
     `text='${body}'`,
-    `fontsize=${geometry.size}`,
+    `fontsize=${size}`,
     'fontcolor=white',
     'shadowcolor=black@0.75',
     `shadowx=${shadow}`,
     `shadowy=${shadow}`,
     `x=${geometry.x}`,
     `y=${geometry.y}`,
-    `line_spacing=${Math.round(geometry.size * 0.25)}`,
+    `line_spacing=${Math.round(size * 0.25)}`,
+    box,
     `enable='${enable}'`,
   ].join(':')
 }

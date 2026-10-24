@@ -26,6 +26,12 @@ export const MAX_LINE_CHARS = 90
 
 /** Opening and closing title, never one per scene: 15 s does not carry more. */
 export const TITLE_SECONDS = 2.5
+/**
+ * A terminal over ten seconds turns into wallpaper and covers the character.
+ * Measured on a real video: four seconds reads as a detail, longer reads as a
+ * mistake.
+ */
+export const TERMINAL_SECONDS = 4
 
 export interface GraphicsPlanInput {
   readonly plan: StoryPlan
@@ -136,11 +142,10 @@ export function buildGraphicsPlan(input: GraphicsPlanInput): StoryGraphicsPlan {
   const terminal = terminalFor(input.plan)
 
   if (terminal !== null) {
-    graphics.push({
-      ...terminal,
-      startSeconds: clampSeconds(TITLE_SECONDS, 0, total),
-      endSeconds: clampSeconds(total - TITLE_SECONDS, 0, total),
-    })
+    const start = clampSeconds(TITLE_SECONDS, 0, total)
+    const end = clampSeconds(start + TERMINAL_SECONDS, 0, Math.max(0, total - TITLE_SECONDS))
+
+    graphics.push({ ...terminal, startSeconds: start, endSeconds: end })
   }
 
   const badge = wrapText(input.badgeText ?? '', 32)

@@ -111,6 +111,8 @@ describe('buildGraphicsPlan', () => {
 
     expect(terminal?.startSeconds).toBeGreaterThan(0)
     expect(terminal?.endSeconds).toBeLessThan(15)
+    // Ten seconds of terminal covers the character and reads as wallpaper.
+    expect((terminal?.endSeconds ?? 0) - (terminal?.startSeconds ?? 0)).toBe(4)
   })
 
   it('adds the badge only when there is text, once', () => {
