@@ -555,6 +555,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
         videos: reelVideos,
         costGuard: reelCostGuard,
         qcEnabled,
+        audioEnabled,
         rateLimiter,
         config: { pollAfterMs, storyTtlMs },
       })

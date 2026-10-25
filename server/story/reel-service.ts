@@ -113,6 +113,8 @@ export interface ReelStoryServiceOptions {
   readonly videos?: ShotVideoOrchestrator | null
   readonly costGuard?: ReelCostGuard | null
   readonly qcEnabled?: boolean
+  /** 014: when true, the voice layer and the engine-driven time plan run. */
+  readonly audioEnabled?: boolean
   readonly now?: () => number
 }
 
@@ -464,6 +466,7 @@ export class ReelStoryServiceImpl implements ReelStoryService {
   private readonly videos: ShotVideoOrchestrator | null
   private readonly costGuard: ReelCostGuard | null
   private readonly qcEnabled: boolean
+  private readonly audioEnabled: boolean
   private readonly now: () => number
 
   constructor(options: ReelStoryServiceOptions) {
@@ -475,6 +478,7 @@ export class ReelStoryServiceImpl implements ReelStoryService {
     this.videos = options.videos ?? null
     this.costGuard = options.costGuard ?? null
     this.qcEnabled = options.qcEnabled ?? false
+    this.audioEnabled = options.audioEnabled ?? false
     this.now = options.now ?? Date.now
   }
 
@@ -518,12 +522,24 @@ export class ReelStoryServiceImpl implements ReelStoryService {
     this.rateLimiter.beginCreation(input.sessionId)
 
     try {
+      // 014: with audio on, the engine decides the clip durations before the
+      // script is written, so paid seconds and delivered seconds stop diverging.
+      const timePlan = this.audioEnabled
+        ? planStoryTime({
+          capacity: engineCapacity(ENGINE_BY_PRESET[input.request.preset]),
+          targetSeconds: durationPlan.targetDurationSeconds,
+          sceneCount: durationPlan.sceneCount.max,
+          maxPaidSeconds: durationPlan.maxDurationSeconds,
+        }).catch(() => null)
+        : null
+
       const reel = await director.createPlan({
         premise: input.request.premise,
         mode: input.request.mode,
         preset: input.request.preset,
         durationPlan,
         referenceUrl: input.request.referenceUrl,
+        ...(timePlan === null ? {} : { timePlan }),
       })
 
       // A user reference is the strongest identity we have. It becomes the

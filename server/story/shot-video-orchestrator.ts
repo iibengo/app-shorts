@@ -21,7 +21,7 @@ const VIDEO_ENDPOINTS: Readonly<Record<StoryPreset, ComposerEndpointId>> = {
 }
 
 /** 016: the preset picks the engine; the engine sheet decides everything else. */
-const ENGINE_BY_PRESET: Readonly<Record<StoryPreset, StoryVideoEngineId>> = {
+export const ENGINE_BY_PRESET: Readonly<Record<StoryPreset, StoryVideoEngineId>> = {
   fast: 'minimax-hailuo-02',
   quality: 'kling-2.5-turbo-pro',
 }
