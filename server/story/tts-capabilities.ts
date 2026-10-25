@@ -40,7 +40,7 @@ export const TTS_CAPACITIES: Readonly<Record<StoryTtsProviderId, TtsCapacity>> =
   'fal-elevenlabs-turbo-v2-5': {
     id: 'fal-elevenlabs-turbo-v2-5',
     label: 'ElevenLabs Turbo v2.5',
-    endpoint: 'fal-ai/elevenlabs/tts/turbo-v2-5',
+    endpoint: 'fal-ai/elevenlabs/tts/turbo-v2.5',
     costPerThousandCharsUsd: 0.05,
     languages: ['es-419', 'es-ES'],
     maxCharsPerRequest: 4_000,
