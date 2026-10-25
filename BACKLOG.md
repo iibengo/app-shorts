@@ -25,6 +25,27 @@ La primera historia completa se generó y **no se entendía**. Comparada con `ex
 | 5 | **E5** ✅ **HECHO 2026-10-25** | **Separar atmósfera del bloque de estilo** | 0 (código) | `papercraft` impone «dark navy background with neon accents» en todos los planos; el primer plano salió de día y el resto de noche. El estilo da material y forma; la luz y el fondo los pone la escena. **Implementado:** fuera «dark navy background with neon pink and blue accents» del bloque `papercraft`; el keyframe añade `Lighting: <hora> light, <clima>` desde el beat. Tests: el keyframe ya no contiene `dark navy` y sí la luz de la escena. |
 | 6 | **E6** 🟡 **PARCIAL 2026-10-25** | **Personajes ajenos al guion** | ? | El modelo añadió un encapuchado, clones y figuras translúcidas. **Hecho sin coste:** el keyframe declara ahora cuántas personas hay en cuadro («Exactly one person in frame»), que es el positivo y funciona en todos los motores; el negativo ya incluía `extra characters`. **Falta medir** con una historia real: si persiste, hace falta trabajo aparte. |
 
+
+### Bloque 1b — Redacción de prompts, tras comparar con el reel manual (2026-10-26)
+
+**Origen:** `examples/informe-reel-cafeandcode/`. Análisis completo en `docs/analisis-reel-vs-app.md`.
+
+El reel manual se entiende y el nuestro no. Parte de la diferencia es de estructura (guion, reutilización) y **parte es de cómo están escritos los prompts**. Estas cinco son redacción pura y **cuestan 0**.
+
+| # | Cambio | Hoy | Cómo lo escribe el reel | Archivo |
+|---|---|---|---|---|
+| **R1** | **Anclar el estilo a la referencia, no al adjetivo** | `low-poly papercraft 3D render, faceted shapes…` | `in the exact style of the reference image: faceted shapes like folded paper, soft warm light` | `visual-style.ts` |
+| **R2** | **Describir el personaje en cada prompt, no solo etiquetarlo** | `Clara (clara) abre el horno` | `the same woman from the reference images (short dark hair, apron, grey shirt) opens the oven` | `story-prompt-composer.ts` |
+| **R3** | **Frase de cierre de marca en todos los prompts** | `Screens and surfaces keep the same look as the first frame` | `Clean smooth surfaces, only shapes and colors.` (prohíbe textura y detalle en positivo) | `story-prompt-composer.ts` |
+| **R4** | **Componer el negativo dentro del positivo cuando importa** | negativo aparte, que Kling acepta y MiniMax no | `no dog visible in this shot`, `sitting alone` | `story-prompt-composer.ts` |
+| **R5** | **Escribir la acción pensando en el corte** | `one continuous action… let it finish inside the shot` | una acción **en dos tiempos**, para partir un clip en dos planos | `narrative-prompt.ts` + `reel-plan-adapter.ts` |
+
+**Por qué importan:** R1 y R2 atacan **F5** (personajes ajenos) y la deriva de identidad. R3 ataca **F4/F6** (texto y detalle inventado). R4 es lo único que hará daño a los duplicados en MiniMax, que no acepta negativo. R5 es **el prerrequisito de S2** (reutilizar clips).
+
+**Riesgo:** `story-prompt-composer.ts` es de los archivos que más historias generaron. Cada cambio va con test en ambos sentidos y con el presupuesto de caracteres comprobado (`KEYFRAME_PROMPT_MAX_CHARS = 900`).
+
+**Ninguno gasta dinero.** Todos van antes de la próxima historia real.
+
 **E1, E3, E4 y E5 son código puro y coste cero.** E2 es el trabajo grande. **E6 se decide cuando se vea el resultado de E3/E4.**
 
 ### Fallos observados en el vídeo del 2026-10-25
@@ -42,10 +63,12 @@ La primera historia completa se generó y **no se entendía**. Comparada con `ex
 | **F7** | **Planos repetidos por parejas**: encuadres casi idénticos seguidos | El director no varía encuadre | **S1** (se mide tras E1) |
 | **F8** | **Fondo incoherente**: el primer plano es de día y luminoso, el resto nocturno con neón | El bloque de estilo impone fondo fijo | **E5** |
 | **F9** | **12 planos de 2 s** recortados, cuando el motor hace clips de 6 y 10 s | Desalineación entre guion y capacidad del motor | **S2** (decisión de producto) |
+| **F10** | **La identidad deriva entre planos**: la cara cambia de uno a otro | El prompt etiqueta al personaje, no lo describe; no hay referencia de escena | **R2**, **C7** |
+| **F11** | **El estilo se aplica al conjunto pero no ata nada**: cada plano tiene su propia luz | El bloque de estilo es un adjetivo, no una referencia concreta | **R1** |
 
 **F1 y F2 son los que más pesan.** Sin ellos, el resto son matices: la referencia se entiende porque habla.
 
-**Estado:** ninguno cerrado. **F1–F2 → E2. F3 → E1. F4–F6 → E3/E4. F7 → S1. F8 → E5. F9 → S2.**
+**Estado:** ninguno cerrado. **F1–F2 → E2. F3 → E1. F4–F6 → E3/E4. F7 → S1. F8 → E5. F9 → S2. F10 → R2/C7. F11 → R1.**
 
 ---
 

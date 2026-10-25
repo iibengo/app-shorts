@@ -326,6 +326,51 @@ Consultados el **2026-10-26** en `https://fal.ai/api/openapi/queue/openapi.json?
 
 ---
 
+## 4b. Cómo se redactan los prompts: la comparación que faltaba
+
+No es que sus prompts sean «mejores»: son **de otra naturaleza**. Los suyos son prosa densa y redundante; los nuestros, campos estructurados.
+
+### 4b.1 Los seis patrones, lado a lado
+
+| # | Patrón | Cómo lo escribe el reel | Cómo lo escribimos nosotros | Quién gana |
+|---|---|---|---|---|
+| P1 | **Anclaje del estilo** | *«in the exact style of **these illustrations**: faceted shapes like folded paper, soft warm light»* | Bloque de estilo fijo al principio: *«low-poly papercraft 3D render, faceted shapes…»* | **Ellos**: ata el estilo a la referencia concreta, no a un adjetivo |
+| P2 | **Identidad** | *«the same man from both images **(spiky brown hair, brown beard, blue eyes, dark grey t-shirt)»* | `Clara (clara) abre el horno` — un marcador | **Ellos**: describir es más fuerte que etiquetar |
+| P3 | **Singularidad** | *«Exactly one small black and white robot puppy… **sitting alone**»* | `Exactly one person in frame` (E6, copiado anoche sin saberlo) | **Empate** |
+| P4 | **Acción** | **Dos tiempos en un prompt**: *«…asks a question…, **then** pauses, tilts his head **and asks another**»* | `one continuous action… let it finish inside the shot` (E3) | **Depende**: ellos escriben para partir el clip en dos planos |
+| P5 | **Cierre** | *«Clean smooth surfaces, only shapes and colors.»* — fijo en todos | *«Screens and surfaces keep the same look as the first frame.»* | **Ellos**: prohíbe textura y detalle **en positivo** |
+| P6 | **Cámara** | Dentro del prompt: *«Medium shot from the waist up»* | Campo aparte (`framing`, `camera`) | **Empate** |
+
+### 4b.2 La diferencia de fondo
+
+**Ellos escriben para un modelo. Nosotros diseñamos un sistema.**
+
+- Lo suyo: prosa densa, redundante, descriptiva, escrita a mano frase a frase.
+- Lo nuestro: campos, validadores, presupuesto de caracteres y reglas.
+
+**Prosa gana en calidad por imagen. Estructura gana en escala y coste.** No son incompatibles: **se puede escribir con su prosa dentro de nuestra estructura.**
+
+### 4b.3 Los cinco cambios de redacción (todos gratis)
+
+| # | Cambio | Ejemplo | Archivo |
+|---|---|---|---|
+| **R1** | Anclar el estilo a la referencia | `in the exact style of the reference image: faceted shapes…` | `visual-style.ts` |
+| **R2** | Describir al personaje, no etiquetarlo | `the same woman from the references (short dark hair, apron) opens the oven` | `story-prompt-composer.ts` |
+| **R3** | Cierre de marca fijo | `Clean smooth surfaces, only shapes and colors.` | `story-prompt-composer.ts` |
+| **R4** | Negativo compuesto en el positivo | `sitting alone`, `no dog visible in this shot` | `story-prompt-composer.ts` |
+| **R5** | Acción escrita en dos tiempos | `…asks a question, then tilts his head and asks another` | `narrative-prompt.ts`, `reel-plan-adapter.ts` |
+
+**R1 y R2** atacan la deriva de identidad (F10) y los personajes ajenos (F5).
+**R3** ataca el texto y el detalle inventado (F4, F6).
+**R4** es lo único que hará daño a los duplicados en MiniMax, que no acepta canal negativo.
+**R5** es el prerrequisito para reutilizar clips (S2).
+
+### 4b.4 Riesgo
+
+`story-prompt-composer.ts` es uno de los archivos que más historias ha generado en producción. **Cada cambio va con test en ambos sentidos** —falla sin el cambio, pasa con él— y con el presupuesto comprobado (`KEYFRAME_PROMPT_MAX_CHARS = 900`). Un prompt que crece dos líneas puede romper el keyframe entero.
+
+---
+
 ## 5. Orden propuesto de cambios, por impacto en calidad
 
 Ordenado por **impacto visible ÷ coste**. Ninguno requiere proveedor nuevo.
@@ -393,7 +438,61 @@ No propongo tocar 014: está a medio implementar y sus cimientos (voz medida, su
 
 ---
 
-## 9. Limitaciones de este análisis
+## 9. Lo que falta hasta ahora
+
+**Inventario completo de lo que este proyecto no tiene y el reel manual sí**, con lo aprendido en las semanas de trabajo y en la noche del 25 al 26 de octubre.
+
+### 9.1 Lo que hace que un vídeo se entienda
+
+| # | Falta | Por qué importa | Coste |
+|---|---|---|---|
+| 1 | **Un guionista de verdad** | El reel tiene 6 frases con remate; nosotros 12 descripciones. Nadie ha decidido *qué se cuenta* | 0 |
+| 2 | **Criterio de qué se ve en cada frase** | Hoy el plano se describe, no se ilustra. La imagen debe servir a la frase | 0 |
+| 3 | **Voz y subtítulos** | La spec 014, a medio implementar. Sin ella, un vídeo de planos no se entiende | ~1,60 |
+| 4 | **Frase hablable separada de la descripción visual** | `narration` describe lo que se ve; `spokenLine` dice lo que se oye. Ya existe el campo, falta que el prompt del director lo pida bien | 0 |
+
+### 9.2 Lo que hace que un vídeo parezca un reel
+
+| # | Falta | Por qué importa | Coste |
+|---|---|---|---|
+| 5 | **Reutilizar un clip en dos planos** | 7 planos de 5 clips. Nosotros 12 clips para 12 planos. **−60 % de coste** | **−1,05** |
+| 6 | **Tarjetas de texto** (transición, remate, cierre de marca) | Es lo que convierte un vídeo en una pieza publicable. Se pinta con FFmpeg | 0 |
+| 7 | **Énfasis en color** de palabras clave en el subtítulo | Legibilidad inmediata. 1 subtítulo con color se lee de un vistazo | 0 |
+| 8 | **Ambiente de fondo** (`anoisesrc` marrón, `lowpass 600`) | Sin él, el silencio suena a archivo generado | 0 |
+| 9 | **Referencia de escena entre planos** | La imagen del plano 1 como referencia del resto mantiene habitación, luz y estilo | 0 |
+| 10 | **Diálogo entre personajes** | El formato que funciona en la referencia. Requiere 2 voces y personajes sin boca visible | ~+0,02 |
+
+### 9.3 Lo que hace que el sistema sea fiable
+
+| # | Falta | Por qué importa | Coste |
+|---|---|---|---|
+| 11 | **Revisión humana por imagen** | Repetir una sola imagen mala, no toda la historia. La 012 lo tiene por personaje; falta por keyframe suelto | 0 |
+| 12 | **Verificación por fotogramas** | Solo comprobamos duración. Perder fotogramas rompe la sincronía con la voz | 0 |
+| 13 | **Voz en una llamada por personaje** con `silencedetect` | 2 llamadas en vez de 5-12. Más barato y da control del ritmo | −0,01 |
+| 14 | **Coste mostrado antes de generar** | El informe lo pone como lección: *«antes de generar, mostrar el coste»*. Hoy solo hay un tope, no una cifra previa | 0 |
+
+### 9.4 Lo que ya tenemos y el informe no
+
+**No todo es carencia.** Hay cuatro cosas en las que vamos por delante:
+
+| Ventaja nuestra | Por qué |
+|---|---|
+| **Cola, leases y reconciliador** | El informe usa `fal.subscribe()`, que bloquea la petición. Nosotros sobrevivimos a un reinicio |
+| **Tope de coste y rate limit** | El informe calcula el coste pero no bloquea |
+| **Reanudación tras caída** | El informe es un script de una pasada |
+| **Errores con código estable** | El informe lanza excepciones de Python |
+
+### 9.5 El hallazgo incómodo
+
+**Doce de estas catorce carencias cuestan 0 USD.** Solo dos cuestan dinero nuevo.
+
+**Y una sola —reutilizar clips— devuelve dinero.**
+
+Eso significa que **el problema nunca ha sido el presupuesto**. Ha sido el orden: empezamos por la infraestructura y dejamos el guion y la voz para el final.
+
+---
+
+## 10. Limitaciones de este análisis
 
 - **No se ha ejecutado ningún montaje** con los cambios propuestos.
 - **No se ha medido** el tiempo de encode a 1080×1920 con 12 clips.
