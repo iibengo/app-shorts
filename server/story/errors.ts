@@ -540,5 +540,14 @@ export function toStoryError(error: unknown): StoryError {
     return new StoryError('database-unavailable')
   }
 
+  // Temporary probe: an unexplained internal-error cannot be debugged from the
+  // client code alone. Removed once the voice layer runs end to end.
+  console.error(JSON.stringify({
+    event: 'story.internal-error',
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+    stack: error instanceof Error ? (error.stack ?? '').split('\n').slice(0, 4).join(' | ') : '',
+  }))
+
   return new StoryError('internal-error')
 }
