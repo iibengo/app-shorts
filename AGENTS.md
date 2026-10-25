@@ -4,10 +4,13 @@ Este archivo es el punto de entrada para cualquier agente que trabaje en AI Shor
 
 ## Orden de lectura
 
+0. **`ESTADO.md`** — parte de situación: qué está a medias, qué no se ha ejecutado nunca y qué datos se midieron. **Se lee primero.** El backlog dice qué falta; `ESTADO.md` dice dónde está el trabajo empezado.
 1. `.specify/memory/constitution.md`
 2. `AGENTS.md` (este archivo)
 3. La spec relevante en `specs/NNN-feature-name/spec.md`
 4. El código y los tests que se van a tocar
+
+**Referencias de calidad:** `examples/video4.mp4` (reel viral de referencia), `examples/informe-reel-cafeandcode/` (reel hecho a mano, con `INFORME.md` y el script de montaje) y `docs/analisis-reel-vs-app.md` (la comparación con nuestra app).
 
 Para una feature nueva: `/io-plan` → `/io-spec` → aprobación humana → implementación → reviewer → revisión humana → tests.
 
