@@ -119,6 +119,8 @@ interface RuntimeStoryConfig {
   readonly assemblyConcurrency?: number
   readonly costQcUsd?: number
   readonly qcEnabled?: boolean
+  /** 014: kills the voice layer without reverting code. Never exposed to the client. */
+  readonly audioEnabled?: boolean
   readonly qcTimeoutMs?: number
   readonly qcLeaseMs?: number
   readonly qcConcurrency?: number
@@ -178,6 +180,8 @@ export interface StoryRuntime {
   readonly assembler: StoryAssembler | null
   readonly qcService: StoryQCService | null
   readonly qcEnabled: boolean
+  /** 014: when false the pipeline behaves exactly as before the voice layer. */
+  readonly audioEnabled: boolean
   readonly qcMinConfidence: number
   readonly costQcUsd: number
   readonly canonTimeoutMs: number
@@ -325,6 +329,9 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
   })
   const pollAfterMs = numberValue(story.pollAfterMs, 2_500)
   const qcEnabled = booleanValue(story.qcEnabled, false)
+  // 014: default off until a real story has been through it. Turning it on is a
+  // deployment decision, not a client one.
+  const audioEnabled = booleanValue(story.audioEnabled, false)
   const qcMinConfidence = decimalValue(story.qcMinConfidence, 0.7)
   const costQcUsd = decimalValue(story.costQcUsd, 0.02)
   const storyTtlMs = numberValue(story.ttlMs, 86_400_000)
@@ -661,6 +668,7 @@ export function createStoryRuntime(config: AppRuntimeConfig): StoryRuntime {
     assembler,
     qcService,
     qcEnabled,
+    audioEnabled,
     qcMinConfidence,
     costQcUsd,
     canonTimeoutMs,

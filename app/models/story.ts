@@ -350,6 +350,8 @@ export interface StoryScene {
   readonly gag: string | null
   /** Qué está en juego en la escena. Opcional en historias anteriores a E1. */
   readonly stake?: string
+  /** 014: la frase que dice el narrador. `narration` describe lo que se ve. */
+  readonly spokenLine?: string
   readonly status: SceneStatus
   readonly plannedDurationSeconds: number
   readonly shots: readonly StoryShot[]

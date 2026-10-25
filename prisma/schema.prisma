@@ -65,6 +65,9 @@ model Story {
   characterSheetJson  Json?
   characterRefsJson   Json?
   graphicsJson        Json?
+  voiceId             String?
+  voiceLanguage       String?
+  audioJson           Json?
   mode                StoryMode  @default(faithful)
   platform            StoryPlatform @default(tiktok)
   costMode            StoryCostMode @default(standard)

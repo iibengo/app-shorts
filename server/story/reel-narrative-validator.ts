@@ -42,7 +42,13 @@ export const REEL_SCENE_KEYS = [
  * model that omits it degrades to a prompt without the line instead of failing.
  */
 export const REEL_SCENE_OPTIONAL_STAKE = ['stake'] as const
-export const REEL_SCENE_OPTIONAL_KEYS = ['durationHintSeconds', ...REEL_SCENE_OPTIONAL_STAKE] as const
+/** 014: the line the narrator says. Optional so a pre-014 script still works. */
+export const REEL_SCENE_OPTIONAL_SPOKEN = ['spokenLine'] as const
+export const REEL_SCENE_OPTIONAL_KEYS = [
+  'durationHintSeconds',
+  ...REEL_SCENE_OPTIONAL_STAKE,
+  ...REEL_SCENE_OPTIONAL_SPOKEN,
+] as const
 
 export const REEL_SCENE_MIN_ACTION = 20
 export const REEL_SCENE_MAX_ACTION = 400
@@ -271,6 +277,9 @@ function validateScene(
       props: [...propIds],
       action: normalize(value.action as string),
       narration: normalize(value.narration as string).replace(/\s*\n+\s*/g, ' '),
+      ...(typeof value.spokenLine === 'string'
+        ? { spokenLine: normalize(value.spokenLine).replace(/\s*\n+\s*/g, ' ') }
+        : {}),
       storyFunction: value.storyFunction as StoryStoryFunction,
       gag: value.gag === null ? null : normalize(value.gag as string),
       // E1: the stake died here. It was validated but never copied into the

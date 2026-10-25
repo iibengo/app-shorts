@@ -61,6 +61,12 @@ export const NARRATIVE_BEAT_KEYS = [
   'stake',
 ] as const
 
+/**
+ * 014: optional so a script written before 014 still validates. When present it
+ * is the line the narrator says, and the caption layer uses it verbatim.
+ */
+export const NARRATIVE_BEAT_OPTIONAL_KEYS = ['spokenLine'] as const
+
 export const DRAFT_KEYS = ['title', 'logline', 'tone', 'storyBible', 'beats'] as const
 export const CANON_DRAFT_KEYS = ['title', 'logline', 'tone', 'storyBible'] as const
 export const BEATS_DRAFT_KEYS = ['beats'] as const
@@ -98,6 +104,12 @@ export const BEAT_MIN_VISUAL_PROMPT = 20
 export const BEAT_MAX_VISUAL_PROMPT = 600
 export const BEAT_MIN_STAKE = 12
 export const BEAT_MAX_STAKE = 120
+/**
+ * 014: the line the narrator says. It has to be speakable: long enough to carry
+ * a thought, short enough to fit a scene without speeding the voice up.
+ */
+export const BEAT_MIN_SPOKEN_LINE = 24
+export const BEAT_MAX_SPOKEN_LINE = 140
 export const BEAT_MIN_GAG = 4
 export const BEAT_MAX_GAG = 120
 export const BEAT_MIN_CONTINUITY = 20
@@ -377,7 +389,7 @@ function validateBeat(
 
   if (
     !isRecord(value)
-    || !hasOnlyKeys(value, NARRATIVE_BEAT_KEYS)
+    || !hasOnlyKeys(value, [...NARRATIVE_BEAT_KEYS, ...NARRATIVE_BEAT_OPTIONAL_KEYS])
     || !hasAllKeys(value, NARRATIVE_BEAT_KEYS)
   ) {
     return { reason: `${field}: forma inválida` }
@@ -476,6 +488,19 @@ function validateBeat(
 
   if (stakeError) return { reason: stakeError }
 
+  // 014: the spoken line is optional so a script written before 014 still
+  // validates; when it is present, it has to be something a narrator can say.
+  if (value.spokenLine !== undefined) {
+    const spokenError = validateText(
+      value.spokenLine,
+      BEAT_MIN_SPOKEN_LINE,
+      BEAT_MAX_SPOKEN_LINE,
+      `${field}.spokenLine`,
+    )
+
+    if (spokenError) return { reason: spokenError }
+  }
+
   if (index === 0 && value.sceneRole !== 'establishing') {
     return { reason: `${field}.sceneRole: la primera escena debe ser establishing` }
   }
@@ -526,6 +551,9 @@ function validateBeat(
       storyFunction: value.storyFunction as StoryStoryFunction,
       gag: value.gag === null ? null : normalize(value.gag as string),
       stake: normalize(value.stake as string),
+      ...(typeof value.spokenLine === 'string'
+        ? { spokenLine: normalize(value.spokenLine).replace(/\s*\n+\s*/g, ' ') }
+        : {}),
     },
   }
 }

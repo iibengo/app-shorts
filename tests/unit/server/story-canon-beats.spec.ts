@@ -204,3 +204,39 @@ describe('E1 · the stake reaches the product', () => {
     expect(result.scenes[0]?.stake).toBe(BASE.beats[0]?.stake)
   })
 })
+
+describe('014 · el guion escribe frases que se dicen', () => {
+  it('accepts a spoken line a narrator can read', () => {
+    const value = clone()
+    value.beats[0] = {
+      ...value.beats[0]!,
+      spokenLine: 'Clara encuentra una figura dibujada en el merengue antes de abrir.',
+    }
+
+    const result = validateNarrativeDraft(value, { sceneCount: 5, mode: 'creative' })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+    if (!result.ok) return
+    expect(result.draft.beats[0]?.spokenLine).toContain('Clara encuentra')
+  })
+
+  it('rejects a spoken line too short to carry a thought', () => {
+    const value = clone()
+    value.beats[0] = { ...value.beats[0]!, spokenLine: 'Mira.' }
+
+    reject(value, 'beats[0].spokenLine')
+  })
+
+  it('rejects a spoken line that would not fit a scene', () => {
+    const value = clone()
+    value.beats[0] = { ...value.beats[0]!, spokenLine: 'x'.repeat(141) }
+
+    reject(value, 'beats[0].spokenLine')
+  })
+
+  it('keeps working for a script written before 014', () => {
+    const result = validateNarrativeDraft(BASE, { sceneCount: 5, mode: 'creative' })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+  })
+})

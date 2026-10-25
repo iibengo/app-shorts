@@ -31,6 +31,7 @@ export const BEATS_JSON_SCHEMA = `{
     "props": ["id de la biblia"],
     "action": "string (120-400, una sola acción continua)",
     "narration": "string (10-140)",
+    "spokenLine": "string (24-140)",
     "storyFunction": "hook|complication|escalation|twist|payoff",
     "gag": "string (4-80) o null",
     "stake": "string (12-120)"
@@ -103,7 +104,11 @@ export function storyBeatsSystemPrompt(sceneCount: number, mode: StoryMode): str
     + 'action es el prompt del vídeo: entre 120 y 400 caracteres, una sola acción continua que empieza y termina dentro del plano. '
     + 'No pongas varias acciones seguidas ni «y entonces»: si necesitas dos cosas, es otra escena. '
     + 'Nombra a quien actúa al principio de la frase, para que el modelo no tenga que adivinar quién se mueve. '
-    + 'narration es la frase que entendería alguien que solo oye el vídeo. Debe tener sujeto, verbo y consecuencia; nada de describir el plano. '
+    + 'narration describe lo que se ve en pantalla. '
+    + 'spokenLine es lo que dice el narrador en voz alta: 24 a 140 caracteres, una sola frase con sujeto, verbo y consecuencia. '
+    + 'spokenLine debe poder decirse sin ver la imagen y entenderse igual. Nada de describir el plano, nada de «primer plano de», nada de cifras en dígitos: escribe los números con letras. '
+    + 'spokenLine y narration son cosas distintas y pueden divergir: una se oye, la otra se ve. '
+    + 'La narración es la voz en off; no hay diálogo entre personajes. '
     + 'El protagonista y el prop característico aparecen al menos una vez, no en todas las escenas. '
     + 'Cada personaje, localización y prop del canon aparece al menos una vez. '
     + 'Valores de storyFunction: hook|complication|escalation|twist|payoff. '

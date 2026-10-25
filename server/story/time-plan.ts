@@ -4,7 +4,7 @@ import { StoryError } from './errors'
 import { wordsForSeconds } from './speech-rate'
 
 /**
- * 014: the time plan, decided before anything is paid.
+ * 014: the time plan, decided before something is paid.
  *
  * The engine decides which durations exist; the script then fits inside them.
  * The old order — total seconds divided by twelve shots — is what produced
@@ -148,7 +148,7 @@ export function planStoryTime(input: TimePlanInput): StoryTimePlan {
  * Words per scene, in one line, for the script prompt.
  *
  * The director is told how much it may say per scene; a scene that asks for
- * more words than these is rejected before any provider is called.
+ * more words than these is rejected before a provider is called.
  */
 export function wordBudgetsFor(plan: StoryTimePlan): readonly number[] {
   return plan.scenes.map((scene) => scene.wordBudget)

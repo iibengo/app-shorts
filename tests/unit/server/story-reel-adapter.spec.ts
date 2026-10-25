@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { StoryCostMode, StoryDurationSeconds } from '~/models/story'
 import { durationPlanFor } from '../../../server/story/cost-profiles'
 import { createLegacyReelPlanAdapter } from '../../../server/story/reel-plan-adapter'
+import type { StoryTimePlan } from '../../../server/story/time-plan'
 import { FakeSceneCountStoryDirector } from '../../helpers/story-reel'
 
 const PREMISE = 'Una repostera descubre que sus postres predicen el futuro.'
@@ -74,4 +75,62 @@ describe('LegacyReelPlanAdapter', () => {
       }
     })
   }
+})
+
+describe('014 · el plan de tiempo manda sobre la división', () => {
+  // The old path divided 24 s by 12 shots and asked the engine for 6 s clips
+  // it then trimmed to 2. With a time plan the shot duration is a duration the
+  // engine accepts, so paid and delivered seconds stop diverging (F9).
+  const timePlan: StoryTimePlan = {
+    engineId: 'minimax-hailuo-02',
+    targetSeconds: 30,
+    clipSeconds: [10, 10, 10],
+    paidSeconds: 30,
+    plannedSeconds: 30,
+    usedRatio: 1,
+    trimsLastShot: false,
+    scenes: [
+      { sceneOrder: 1, clipSeconds: [10], availableSeconds: 10, wordBudget: 24 },
+      { sceneOrder: 2, clipSeconds: [10], availableSeconds: 10, wordBudget: 24 },
+      { sceneOrder: 3, clipSeconds: [10], availableSeconds: 10, wordBudget: 24 },
+    ],
+  }
+
+  it('uses the engine durations instead of dividing the target', async () => {
+    const director = new FakeSceneCountStoryDirector()
+    const adapter = createLegacyReelPlanAdapter(director)
+    const plan = durationPlanFor('standard', 30, 'tiktok', false)
+
+    const reel = await adapter.createPlan({
+      premise: PREMISE,
+      mode: 'faithful',
+      durationPlan: plan,
+      referenceUrl: null,
+      timePlan,
+    })
+
+    const shots = reel.shotPlan.scenes.flatMap((scene) => scene.shots)
+
+    expect(shots).toHaveLength(3)
+    for (const shot of shots) {
+      expect([6, 10]).toContain(shot.durationSeconds)
+    }
+  })
+
+  it('keeps the old behaviour when no time plan is given', async () => {
+    const director = new FakeSceneCountStoryDirector()
+    const adapter = createLegacyReelPlanAdapter(director)
+    const plan = durationPlanFor('standard', 30, 'tiktok', false)
+
+    const reel = await adapter.createPlan({
+      premise: PREMISE,
+      mode: 'faithful',
+      durationPlan: plan,
+      referenceUrl: null,
+    })
+
+    const shots = reel.shotPlan.scenes.flatMap((scene) => scene.shots)
+
+    expect(shots.length).toBeGreaterThan(3)
+  })
 })

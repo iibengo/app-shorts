@@ -142,9 +142,13 @@ export function assembleStoryPlan(
 ): StoryPlan {
   const beats: StoryBeat[] = narrative.beats.map((beat, index) => {
     const visual = storyboard.beats[index]!
+    // 014: the spoken line is narrative, so it travels with the beat and never
+    // with the storyboard. A visual pass must not be able to rewrite the voice.
+    const spokenLine = beat.spokenLine
 
     return {
       ...beat,
+      ...(spokenLine === undefined ? {} : { spokenLine }),
       visualPrompt: visual.visualPrompt,
       camera: visual.camera,
       continuityFromPrevious: visual.continuityFromPrevious,

@@ -73,6 +73,8 @@ export default defineNuxtConfig({
       assemblyConcurrency: 1,
       costQcUsd: 0.02,
       qcEnabled: false,
+      // 014: the voice layer is off until a real story has gone through it.
+      audioEnabled: process.env.STORY_AUDIO_ENABLED === 'true',
       qcTimeoutMs: 600_000,
       qcLeaseMs: 720_000,
       qcConcurrency: 1,

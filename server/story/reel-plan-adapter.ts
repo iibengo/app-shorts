@@ -15,6 +15,7 @@ import type {
   StoryDirector,
 } from './director-types'
 import { isValidPlannedDuration } from './duration-plan'
+import type { StoryTimePlan } from './time-plan'
 import { normalizePlanScenes } from './legacy-shots'
 
 const SHOTS_PER_SCENE_MAX = 4
@@ -26,6 +27,8 @@ interface AdapterInput {
   readonly durationPlan: DurationPlan
   readonly referenceUrl: string | null
   readonly context?: DirectorContext
+  /** 014: when present, the engine decides the durations. */
+  readonly timePlan?: StoryTimePlan | null
 }
 
 function chooseShotCount(plan: DurationPlan): number {
@@ -209,20 +212,27 @@ function buildShotPlan(
   durationPlan: DurationPlan,
   bible: StoryBible | null,
   presetQuality: boolean,
+  /** 014: when present, the engine decides the durations instead of a division. */
+  timePlan?: StoryTimePlan | null,
 ): ReelPlan['shotPlan'] {
   const counts = allocateShotCounts(scenes.length, shotCount)
-  const durations = allocateDurations(
-    shotCount,
-    durationPlan.targetDurationSeconds,
-    presetQuality,
-  )
+  // 014: with a time plan, the durations are the ones the engine accepts and
+  // the caller has already paid for. Without it, the old division still runs so
+  // a deployment with audio off behaves exactly as before.
+  const durations = timePlan === null || timePlan === undefined
+    ? allocateDurations(shotCount, durationPlan.targetDurationSeconds, presetQuality)
+    : timePlan.scenes.flatMap((scene) => scene.clipSeconds)
+  const fromTimePlan = timePlan !== null && timePlan !== undefined
   const shotScenes: ReelPlan['shotPlan']['scenes'][number][] = []
   let globalOrder = 1
   let durationIndex = 0
 
   for (let sceneIndex = 0; sceneIndex < scenes.length; sceneIndex += 1) {
     const scene = scenes[sceneIndex]!
-    const count = counts[sceneIndex]!
+    // A time plan may hand a scene several clips; every clip is its own shot.
+    const count = fromTimePlan
+      ? (timePlan.scenes[sceneIndex]?.clipSeconds.length ?? 0)
+      : counts[sceneIndex]!
     const framings = framingSequence(count, sceneIndex === 0)
     const shots: AssembledShot[] = []
 
@@ -308,10 +318,17 @@ export class LegacyReelPlanAdapter implements ReelPlanDirector {
       input.durationPlan,
       legacy.storyBible,
       this.presetQuality,
+      input.timePlan ?? null,
     )
 
+    // 014: with a time plan the shot count comes from what the engine accepts,
+    // so the profile's own shot budget no longer applies. The plan's own ratio
+    // check (paid vs planned) is what guards the cost instead.
+    const usesTimePlan = input.timePlan !== null && input.timePlan !== undefined
+
     if (
-      !isValidPlannedDuration(
+      !usesTimePlan
+      && !isValidPlannedDuration(
         input.durationPlan,
         shotPlan.plannedDurationSeconds,
         shotPlan.scenes.flatMap((scene) => scene.shots).length,

@@ -323,6 +323,7 @@ function toSceneDto(scene: ReelSceneRecord): StoryScene {
     storyFunction: narrative?.storyFunction ?? 'complication',
     gag: narrative?.gag ?? null,
     ...(narrative?.stake === undefined ? {} : { stake: narrative.stake }),
+    ...(narrative?.spokenLine === undefined ? {} : { spokenLine: narrative.spokenLine }),
     status: sceneStatus(scene),
     plannedDurationSeconds: shots.reduce(
       (total, shot) => total + shot.durationSeconds,

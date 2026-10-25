@@ -33,6 +33,8 @@ export interface NarrativeBeat {
   readonly gag: string | null
   /** What is at stake here, so the scene moves the story instead of posing. */
   readonly stake: string
+  /** 014: la frase que dice el narrador, no lo que se ve. */
+  readonly spokenLine?: string
 }
 
 export interface CanonDraft {
