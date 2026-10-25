@@ -37,7 +37,12 @@ export const REEL_SCENE_KEYS = [
   'gag',
   'continuityFromPrevious',
 ] as const
-export const REEL_SCENE_OPTIONAL_KEYS = ['durationHintSeconds'] as const
+/**
+ * E1: `stake` is optional so a script written before E1 still validates, and a
+ * model that omits it degrades to a prompt without the line instead of failing.
+ */
+export const REEL_SCENE_OPTIONAL_STAKE = ['stake'] as const
+export const REEL_SCENE_OPTIONAL_KEYS = ['durationHintSeconds', ...REEL_SCENE_OPTIONAL_STAKE] as const
 
 export const REEL_SCENE_MIN_ACTION = 20
 export const REEL_SCENE_MAX_ACTION = 400
@@ -268,6 +273,9 @@ function validateScene(
       narration: normalize(value.narration as string).replace(/\s*\n+\s*/g, ' '),
       storyFunction: value.storyFunction as StoryStoryFunction,
       gag: value.gag === null ? null : normalize(value.gag as string),
+      // E1: the stake died here. It was validated but never copied into the
+      // scene, so the video prompt never carried it.
+      ...(typeof value.stake === 'string' ? { stake: normalize(value.stake) } : {}),
       continuityFromPrevious: index === 0
         ? null
         : normalize(value.continuityFromPrevious as string),

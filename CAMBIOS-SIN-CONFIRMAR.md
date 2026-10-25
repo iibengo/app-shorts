@@ -367,3 +367,27 @@ characters`, pero solo sirve en motores que aceptan canal negativo.
 translúcidas. Un positivo funciona en todos los motores.
 **Falta:** medir con una historia real si desaparecen. Si no, es trabajo aparte.
 **Coste:** 0.
+
+### 31. El `stake` de E1 no llegaba al producto
+
+**Qué:** el campo se validaba y se descartaba en tres puntos de la tubería
+(`REEL_SCENE_KEYS`, la escena construida en `reel-narrative-validator`, el DTO de
+`reel-service` y `storyBeatForShot`). El bloque «What is at stake» del prompt de
+vídeo **nunca se emitía**.
+**Por qué:** el test de E1 construía el beat a mano, así que probaba la función,
+no el camino real. Es el error clásico: probar la pieza y no la tubería.
+**Efecto:** se cierra el camino completo y se añade un test que valida escenas
+reales. Verificado en ambos sentidos: sin el arreglo, `stake` es `undefined` en
+la escena.
+**Coste:** 0.
+
+### 32. «Typecheck a cero» era falso
+
+**Qué:** `AGENTS.md` y el resumen al humano decían 0 errores. Son **312**, y 298
+después de arreglar el `stake`.
+**Por qué:** se midió con `tsc --noEmit -p .`, que respeta `tsconfig.json` y **no
+incluye `app/`**. El comando del gate es `nuxi typecheck`. Dos herramientas, dos
+respuestas distintas, y se creyó la cómoda.
+**Efecto:** `AGENTS.md` corregido con la cifra real, el comando correcto y el
+desglose. La deuda es previa a la 014 (migración 008) y no está en el gate.
+**Coste:** 0.

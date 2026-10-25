@@ -52,14 +52,16 @@ const STORYBOARD_KEYS = [
   'continuityFromPrevious',
   'transition',
 ] as const
-const PLAN_BEAT_KEYS = new Set([...NARRATIVE_KEYS, ...STORYBOARD_KEYS])
+const PLAN_BEAT_KEYS: ReadonlySet<string> = new Set([...NARRATIVE_KEYS, ...STORYBOARD_KEYS])
 const PLAN_KEYS = new Set(['title', 'logline', 'tone', 'storyBible', 'beats'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function pick(value: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+type PlanBeatKey = (typeof NARRATIVE_KEYS)[number] | (typeof STORYBOARD_KEYS)[number]
+
+function pick(value: Record<string, unknown>, keys: readonly PlanBeatKey[]): Record<string, unknown> {
   const result: Record<string, unknown> = {}
 
   for (const key of keys) result[key] = value[key]

@@ -53,6 +53,8 @@ export function storyBeatForShot(
     narration: narrative?.narration ?? scene.narration,
     storyFunction: narrative?.storyFunction ?? 'complication',
     gag: narrative?.gag ?? null,
+    // E1: the stake travels with the beat, or the video prompt never sees it.
+    ...(narrative?.stake === undefined ? {} : { stake: narrative.stake }),
     visualPrompt: shot.visualPrompt,
     camera: shot.camera,
     continuityFromPrevious: narrative?.continuityFromPrevious ?? null,

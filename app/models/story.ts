@@ -186,11 +186,71 @@ export interface StoryNarrativeScene {
    * What is at stake in this scene: who wants what and what happens if they
    * fail. A scene without a stake is a picture, not a story, and pictures do
    * not explain themselves (E1, 2026-10-25).
+   *
+   * Optional because plans written before E1 have no stake, and a missing one
+   * must degrade to a prompt without that line, never to a failure.
    */
-  readonly stake: string
+  readonly stake?: string
+  /**
+   * 014: la frase que dice el narrador. `narration` describe lo que se ve;
+   * `spokenLine` es lo que se oye. Son cosas distintas y deben poder divergir.
+   */
+  readonly spokenLine?: string
   readonly continuityFromPrevious: string | null
   /** Presupuesto narrativo orientativo; los planos son la autoridad de duración. */
   readonly durationHintSeconds?: number
+}
+
+/** Voz del canal. El cliente envía el id; el id de proveedor vive en servidor. */
+export type StoryVoiceId = 'neutro' | 'calido' | 'energico'
+export type StoryVoiceLanguage = 'es-419' | 'es-ES'
+
+export const STORY_VOICE_IDS: readonly StoryVoiceId[] = ['neutro', 'calido', 'energico']
+export const STORY_VOICE_LANGUAGES: readonly StoryVoiceLanguage[] = ['es-419', 'es-ES']
+export const DEFAULT_STORY_VOICE: StoryVoiceId = 'neutro'
+export const DEFAULT_STORY_VOICE_LANGUAGE: StoryVoiceLanguage = 'es-419'
+
+export type StoryAudioStatus = 'pending' | 'ready' | 'missing' | 'skipped'
+export type StoryCaptionsMode = 'burned' | 'sidecar' | 'none'
+export type StoryCaptionAlignment = 'proportional' | 'provider'
+
+/**
+ * Voz de una escena, ya medida. Origen único de los subtítulos.
+ *
+ * `text` es exactamente lo que se sintetizó: cambiar la frase después deja el
+ * audio desincronizado, así que no se reescribe.
+ */
+export interface StorySpeechSegment {
+  readonly sceneOrder: number
+  readonly text: string
+  readonly startSeconds: number
+  readonly endSeconds: number
+  /** Duración real medida con ffprobe. */
+  readonly speechSeconds: number
+  /** Estimación previa a sintetizar, para comparar el desvío. */
+  readonly estimatedSeconds: number
+  readonly status: 'ready' | 'failed'
+  readonly errorCode?: StoryErrorCode
+}
+
+export interface StoryAudio {
+  readonly status: StoryAudioStatus
+  readonly voiceId: StoryVoiceId | null
+  readonly voiceLanguage: StoryVoiceLanguage | null
+  readonly provider: string | null
+  readonly speechSeconds: number | null
+  readonly segments: readonly StorySpeechSegment[]
+  /** Pista de voz aislada. `null` si no se conservó. */
+  readonly audioUrl: string | null
+  readonly captionsUrl: string | null
+  readonly captionsMode: StoryCaptionsMode
+  readonly captionsBurned: boolean
+  readonly captionAlignment: StoryCaptionAlignment | null
+  readonly loudnessLufs: number | null
+  readonly truePeakDbtp: number | null
+  readonly usedRatio: number | null
+  /** Por qué se degradó, con código estable. Nunca un mensaje de proveedor. */
+  readonly degradedReason: StoryErrorCode | null
 }
 
 export interface StoryPlan {
@@ -223,6 +283,8 @@ export interface StoryBeat {
   readonly narration: string
   readonly storyFunction: StoryStoryFunction
   readonly gag: string | null
+  /** Qué está en juego en este plano. Opcional en planes anteriores a E1. */
+  readonly stake?: string
   readonly visualPrompt: string
   readonly camera: StoryCameraShot
   readonly continuityFromPrevious: string | null
@@ -286,6 +348,8 @@ export interface StoryScene {
   readonly props: readonly string[]
   readonly storyFunction: StoryStoryFunction
   readonly gag: string | null
+  /** Qué está en juego en la escena. Opcional en historias anteriores a E1. */
+  readonly stake?: string
   readonly status: SceneStatus
   readonly plannedDurationSeconds: number
   readonly shots: readonly StoryShot[]
@@ -415,6 +479,16 @@ export type StoryErrorCode =
   | 'invalid-file-name'
   | 'invalid-visual-prompt'
   | 'invalid-narration'
+  | 'invalid-voice'
+  | 'invalid-language'
+  | 'invalid-captions-mode'
+  | 'audio-not-configured'
+  | 'audio-failed'
+  | 'audio-invalid'
+  | 'audio-too-long'
+  | 'audio-unavailable'
+  | 'captions-failed'
+  | 'captions-unavailable'
   | 'unsupported-media-type'
   | 'payload-too-large'
   | 'cross-origin-request'
@@ -518,6 +592,8 @@ export interface Story {
   readonly characterRefs: readonly StoryCharacterReference[]
   /** 015: overlays actually drawn on the final video. */
   readonly graphics: readonly StoryGraphic[]
+  /** 014: voz y subtítulos. Historias anteriores a 014 lo leen como `missing`. */
+  readonly audio: StoryAudio
   readonly finalVideoUrl: string | null
   readonly finalVideoExpiresAt: string | null
   readonly approvedAt: string | null

@@ -291,6 +291,56 @@ const DEFINITIONS: Readonly<Record<StoryErrorCode, StoryErrorDefinition>> = {
     message: 'No se pudo montar el vídeo final. Puedes reintentar el montaje.',
     retryable: true,
   },
+  'invalid-voice': {
+    status: 400,
+    message: 'Esa voz no está disponible.',
+    retryable: false,
+  },
+  'invalid-language': {
+    status: 400,
+    message: 'Ese idioma no está disponible.',
+    retryable: false,
+  },
+  'invalid-captions-mode': {
+    status: 400,
+    message: 'Ese modo de subtítulos no existe.',
+    retryable: false,
+  },
+  'audio-not-configured': {
+    status: 503,
+    message: 'La voz no está configurada en este servidor.',
+    retryable: false,
+  },
+  'audio-failed': {
+    status: 502,
+    message: 'No se pudo generar la voz. El vídeo se entrega sin ella.',
+    retryable: true,
+  },
+  'audio-invalid': {
+    status: 502,
+    message: 'La voz generada no es válida. El vídeo se entrega sin ella.',
+    retryable: true,
+  },
+  'audio-too-long': {
+    status: 422,
+    message: 'El texto no cabe en la duración elegida. Acorta la idea o alarga el vídeo.',
+    retryable: false,
+  },
+  'audio-unavailable': {
+    status: 503,
+    message: 'La voz no está disponible ahora mismo. El vídeo se entrega sin ella.',
+    retryable: true,
+  },
+  'captions-failed': {
+    status: 502,
+    message: 'No se pudieron pintar los subtítulos. El vídeo se entrega sin ellos.',
+    retryable: true,
+  },
+  'captions-unavailable': {
+    status: 404,
+    message: 'Esta historia no tiene subtítulos.',
+    retryable: false,
+  },
   'ffmpeg-not-configured': {
     status: 503,
     message: 'El montaje de vídeo no está disponible ahora mismo.',

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { validateNarrativeDraft } from '../../../server/story/canon-validator'
+import { validateReelScenes } from '../../../server/story/reel-narrative-validator'
 import type { NarrativeDraft } from '../../../server/story/director-types'
 import narrative from '../../fixtures/deepseek/narrative-creative-3-locations.json'
 
@@ -161,5 +162,45 @@ describe('canon beat structure', () => {
     }
 
     reject(value, 'bloque global demasiado largo')
+  })
+})
+
+describe('E1 · the stake reaches the product', () => {
+  // On 2026-10-25 the stake was validated and then dropped on the way to the
+  // scene, the beat and the video prompt. The unit test passed because it built
+  // the beat by hand; the pipeline never carried it. These walk the real path.
+  it('keeps the stake when scenes are validated', () => {
+    const source = BASE as unknown as Record<string, unknown>
+    const beats = (source.beats as readonly Record<string, unknown>[]).map((beat) => ({
+      ...beat,
+      continuityFromPrevious: beat.order === 1
+        ? null
+        : 'Continúa desde la escena anterior con el mismo conflicto.',
+    }))
+    const canon = BASE as unknown as { storyBible: unknown }
+    const result = validateReelScenes({ scenes: beats }, {
+      canon,
+      durationPlan: {
+        costMode: 'standard',
+        platform: 'tiktok',
+        targetDurationSeconds: 30,
+        maxDurationSeconds: 30,
+        rhythm: 'tiktok',
+        sceneCount: { min: 5, max: 5 },
+        shotCount: { min: 9, max: 12 },
+        shotsPerSceneMax: 4,
+        exactShotCount: null,
+        capUsd: 7,
+        maxVideoAttempts: 2,
+        attemptsReset: true,
+        qualityAllowed: true,
+        slowThresholdMs: 750_000,
+      },
+    })
+
+    expect(result.ok, result.ok ? '' : result.reason).toBe(true)
+
+    if (!result.ok) return
+    expect(result.scenes[0]?.stake).toBe(BASE.beats[0]?.stake)
   })
 })
