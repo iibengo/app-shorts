@@ -1,10 +1,24 @@
 # Backlog — AI Shorts
 
-Actualizado: 2026-10-25. Ordenado por prioridad real: **primero lo que hace que el vídeo se entienda** (validación de producto), después lo que mejora la calidad, y al final la deuda que no bloquea nada.
+Actualizado: 2026-10-26. Ordenado por prioridad real: **primero lo que hace que el vídeo se entienda** (validación de producto), después lo que mejora la calidad, y al final la deuda que no bloquea nada.
 
-## El criterio que manda (2026-10-25)
+**Referencias de calidad.** Dos materiales definen el listón:
+
+| Referencia | Qué es | Dónde |
+|---|---|---|
+| **`examples/video4.mp4`** | Reel viral de referencia: dos personajes, 50 s, diálogo con subtítulos | Raíz de `examples/` |
+| **`examples/informe-reel-cafeandcode/`** | **Reel hecho a mano (con Claude) para CafeAndCode**: 33,4 s, 5 clips, 2,36 USD, se entiende y se ve bien. Incluye `INFORME.md` técnico, `scripts/montar.py`, clips, imágenes de partida, voces y el MP4 final | Carpeta completa en `examples/` |
+| **`docs/analisis-reel-vs-app.md`** | Comparación fase por fase de ese reel contra nuestra app: qué tenemos igual, qué distinto, qué falta, choques con specs anteriores, endpoints verificados y orden de cambios | `docs/` |
+
+**El informe del reel manual es la evidencia de «por qué» de este backlog.** Cuando una tarea diga «como el reel», se refiere a `examples/informe-reel-cafeandcode/`.
+
+## El criterio que manda (2026-10-25, ampliado el 2026-10-26)
 
 La primera historia completa se generó y **no se entendía**. Comparada con `examples/video4.mp4`, la diferencia no son los prompts: es que **la referencia habla y la nuestra no**.
+
+Un día después, el reel manual de CafeAndCode (`examples/informe-reel-cafeandcode/`) añade el segundo criterio: **tampoco basta con hablar**. Su reel se entiende porque tiene **seis frases con un remate**, no un narrador describiendo doce imágenes. La lección completa es:
+
+> **La historia se escribe antes que el vídeo, y cada plano existe para servir a una frase.**
 
 > «La generación ha ido bien, pero le falta audio y los subtítulos no están cuadrados y no se entiende bien la historia.» — humano, 2026-10-25
 
@@ -19,7 +33,7 @@ La primera historia completa se generó y **no se entendía**. Comparada con `ex
 | Orden | # | Tarea | Coste | Qué arregla |
 |---|---|---|---|---|
 | 1 | **E1** ✅ **HECHO 2026-10-25** | **Guion con conflicto: una frase con sustancia por plano** | 0 (código) | Hoy el director escribe *imágenes* («mira pantallas», «bebe café»); la referencia escribe un *problema que se resuelve* («alguien tomó algo y hay que devolverlo»). Es la raíz de que la historia no tenga trama. **Test de aceptación:** cada plano se resume en una frase con sujeto, acción y consecuencia, y el conjunto cuenta un cambio de estado. **Implementado:** campo `stake` (12–120) obligatorio en cada beat, validado en `canon-validator` y en `plan-validator`; va al prompt de vídeo como «What is at stake». Tests: rechaza stake de 3 caracteres y de 121; el prompt de vídeo lo lleva; los planes legacy sin stake siguen funcionando. |
-| 2 | **E2** | **Audio, voz y subtítulos (spec 014)** | 15-25 h | **La tarea de producto número uno.** La referencia se entiende porque habla, no por sus prompts. Sin voz, 12 planos de acción genérica no se entienden nunca. Incluye voz por escena, subtítulos quemados con ASS y mezcla con FFmpeg. |
+| 2 | **E2** | **Audio, voz y subtítulos (spec 014)** — el subtítulo del reel lleva **palabra clave en color** y **tarjetas de texto**; ver `docs/analisis-reel-vs-app.md` §1.7 y §9.2 | 15-25 h | **La tarea de producto número uno.** La referencia se entiende porque habla, no por sus prompts. Sin voz, 12 planos de acción genérica no se entienden nunca. Incluye voz por escena, subtítulos quemados con ASS y mezcla con FFmpeg. |
 | 3 | **E3** ✅ **HECHO 2026-10-25** | **Vídeo largo y narrativo en el prompt de vídeo** | 0 (código) | Los prompts de ~20 palabras dejan huecos que el modelo rellena: texto en pantalla, encapuchados, clones. La referencia usa párrafos de ~90 palabras con acción continua. **Implementado:** `action` sube de 20–240 a **120–400 caracteres** (mínimo `BEAT_MIN_ACTION = 120`); `VIDEO_STAGE_BLOCK` pide «one continuous action» y prohíbe que entre nadie más al plano. Tests: el mínimo rechaza una acción de 20 caracteres; el bloque de vídeo exige acción continua. |
 | 4 | **E4** ✅ **HECHO 2026-10-25** | **Marcadores `char_001` y repetir el personaje en cada frase** | 0 (código) | La referencia nombra al personaje tres veces por párrafo y usa etiquetas, no nombres. Causa probable de que el modelo escriba nombres en pantalla. **Implementado:** `characterMarker` compone `Nombre (id)` en el prompt de vídeo y `anchorActorsAtStart` repite el actor al principio, **solo si el `subject` del plano es ese personaje**: forzarlo es lo que puso a un encapuchado haciendo el papel de Clara. Tests: ancla con marcador cuando hay sujeto; no lo fuerza cuando el plano es de otro. |
 | 5 | **E5** ✅ **HECHO 2026-10-25** | **Separar atmósfera del bloque de estilo** | 0 (código) | `papercraft` impone «dark navy background with neon accents» en todos los planos; el primer plano salió de día y el resto de noche. El estilo da material y forma; la luz y el fondo los pone la escena. **Implementado:** fuera «dark navy background with neon pink and blue accents» del bloque `papercraft`; el keyframe añade `Lighting: <hora> light, <clima>` desde el beat. Tests: el keyframe ya no contiene `dark navy` y sí la luz de la escena. |
@@ -28,7 +42,7 @@ La primera historia completa se generó y **no se entendía**. Comparada con `ex
 
 ### Bloque 1b — Redacción de prompts, tras comparar con el reel manual (2026-10-26)
 
-**Origen:** `examples/informe-reel-cafeandcode/`. Análisis completo en `docs/analisis-reel-vs-app.md`.
+**Origen:** `examples/informe-reel-cafeandcode/` (`INFORME.md` §5 y §6, `scripts/montar.py`). Análisis completo en `docs/analisis-reel-vs-app.md` §4b.
 
 El reel manual se entiende y el nuestro no. Parte de la diferencia es de estructura (guion, reutilización) y **parte es de cómo están escritos los prompts**. Estas cinco son redacción pura y **cuestan 0**.
 
@@ -79,7 +93,7 @@ El reel manual se entiende y el nuestro no. Parte de la diferencia es de estruct
 | # | Tarea | Coste | Cuándo |
 |---|---|---|---|
 | **S1** | **Planos repetidos por parejas** | 2-4 h | Se mide tras E1: si el guion tiene conflicto, el director debería variar encuadres solo. Si no, reglas de variedad de encuadre por escena. |
-| **S2** | **Alinear la duración del plano con el motor (9g)** | 3 h | La referencia usa 2 tomas largas; nosotros 12 planos de 2 s. Encaja con E3, pero cambia el producto. **Decisión de producto, no técnica.** |
+| **S2** | **Alinear la duración del plano con el motor (9g)** — ver `docs/analisis-reel-vs-app.md` §1.2: el reel saca **7 planos de 5 clips** con dos `trim` del mismo archivo | 3 h | La referencia usa 2 tomas largas; nosotros 12 planos de 2 s. Encaja con E3, pero cambia el producto. **Decisión de producto, no técnica.** |
 | **S3** | **Guion por escenas vs. por planos** | 3-5 días | Solo si E1–E5 no bastan. Hoy no hay evidencia de que haga falta. |
 
 ---
