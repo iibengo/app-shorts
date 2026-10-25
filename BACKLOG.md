@@ -1,5 +1,11 @@
 # Backlog — AI Shorts
 
+> ### Antes de empezar: lee `ESTADO.md`
+>
+> Este archivo dice **qué falta**. `ESTADO.md` dice **dónde está el trabajo a medias**, qué se ha probado con dinero real, qué **no se ha ejecutado nunca** y cuánto saldo queda.
+>
+> **Sin `ESTADO.md` se puede dar por terminada la spec 014, que está a medio cablear.** Y se puede repetir trabajo ya hecho.
+
 Actualizado: 2026-10-26. Ordenado por prioridad real: **primero lo que hace que el vídeo se entienda** (validación de producto), después lo que mejora la calidad, y al final la deuda que no bloquea nada.
 
 **Referencias de calidad.** Dos materiales definen el listón:
